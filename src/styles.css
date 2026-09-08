@@ -1,0 +1,1061 @@
+:root {
+  color-scheme: light dark;
+
+  --bg: #f6f4f0;
+  --surface: #ffffff;
+  --surface-2: #f0ede8;
+  --border: #ddd7cf;
+  --text: #241f1a;
+  --muted: #6f6659;
+
+  --blocked: #9b948a;
+  --ready: #2f7ec4;
+  --active: #d98410;
+  --done: #3f9159;
+  --critical: #c2454f;
+  --hold: #7a5cc0;
+
+  --radius: 10px;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 4px 12px rgb(0 0 0 / 0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16150f;
+    --surface: #201e18;
+    --surface-2: #2a2720;
+    --border: #3a362d;
+    --text: #ece7dd;
+    --muted: #9d9486;
+
+    --blocked: #77716a;
+    --ready: #63a8e0;
+    --active: #e2a03f;
+    --done: #5cb479;
+    --critical: #e2707a;
+    --hold: #a58ae0;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  line-height: 1.25;
+}
+h1 {
+  font-size: 1.15rem;
+}
+h2 {
+  font-size: 1.05rem;
+}
+h3 {
+  font-size: 0.9rem;
+}
+
+p {
+  margin: 0.25rem 0;
+}
+
+.muted {
+  color: var(--muted);
+}
+.small {
+  font-size: 0.8rem;
+}
+
+/* ------------------------------------------------------------------ layout */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/*
+ * Everything above `.workspace` is chrome: it sits outside the scroll
+ * container, so it always spans the viewport no matter how far the board is
+ * scrolled sideways.
+ */
+.workspace {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.scroller {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+}
+
+.topbar {
+  flex: none;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  background: var(--surface-2);
+  padding: 3px;
+  border-radius: var(--radius);
+}
+
+.tab {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 0.4rem 0.7rem;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.tab.is-active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.topbar-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.progressbar {
+  flex: 1 0 100%;
+  display: flex;
+  height: 4px;
+  margin-top: 0.6rem;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.progressbar .seg {
+  transition: flex-grow 0.25s ease;
+}
+.seg.done {
+  background: var(--done);
+}
+.seg.active {
+  background: var(--active);
+}
+.seg.ready {
+  background: var(--ready);
+}
+.seg.blocked {
+  background: var(--blocked);
+  opacity: 0.4;
+}
+
+/* Views bring their own padding so a wide one can include it in its width. */
+.content {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+/* Wide enough for a side panel: a real column that never scrolls away. */
+.detail {
+  flex: 0 0 340px;
+  overflow-y: auto;
+  padding: 1rem;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+}
+.detail-backdrop {
+  display: none;
+}
+
+/*
+ * Too narrow to give up a column, so the panel becomes a modal sheet over the
+ * page — which is also the only thing that works on the board, where the
+ * content underneath scrolls sideways.
+ */
+@media (max-width: 900px) {
+  .detail-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgb(0 0 0 / 0.35);
+  }
+  .detail {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 41;
+    max-height: 85dvh;
+    border: 1px solid var(--border);
+    border-radius: var(--radius) var(--radius) 0 0;
+    box-shadow: 0 -8px 40px rgb(0 0 0 / 0.25);
+    padding-bottom: 1.5rem;
+  }
+}
+
+/* ----------------------------------------------------------------- banners */
+
+.banner {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.75rem 1rem 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius);
+  font-size: 0.88rem;
+}
+.banner-warn {
+  background: color-mix(in srgb, var(--active) 16%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--active) 45%, transparent);
+}
+.banner-error {
+  background: color-mix(in srgb, var(--critical) 16%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--critical) 45%, transparent);
+}
+.banner button {
+  margin-left: auto;
+}
+
+.upnext {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 1rem 0;
+  min-width: 0;
+}
+.upnext-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  flex: none;
+}
+.upnext-items {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+/* ----------------------------------------------------------------- widgets */
+
+.btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 0.3rem 0.65rem;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+.btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.btn.icon {
+  padding: 0.2rem 0.4rem;
+  line-height: 1;
+}
+.btn-start {
+  border-color: color-mix(in srgb, var(--ready) 55%, transparent);
+  color: var(--ready);
+}
+.btn-done {
+  border-color: color-mix(in srgb, var(--done) 55%, transparent);
+  color: var(--done);
+}
+
+.chip {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.chip.is-active {
+  background: var(--text);
+  color: var(--surface);
+  border-color: var(--text);
+}
+.chip.is-critical {
+  border-color: var(--critical);
+  color: var(--critical);
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+  display: inline-block;
+  background: var(--blocked);
+}
+.dot.status-ready {
+  background: var(--ready);
+}
+.dot.status-active {
+  background: var(--active);
+}
+.dot.status-done {
+  background: var(--done);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+.pill.status-blocked {
+  background: color-mix(in srgb, var(--blocked) 22%, transparent);
+  color: var(--text);
+}
+.pill.status-ready {
+  background: color-mix(in srgb, var(--ready) 20%, transparent);
+  color: var(--ready);
+}
+.pill.status-active {
+  background: color-mix(in srgb, var(--active) 22%, transparent);
+  color: var(--active);
+}
+.pill.status-done {
+  background: color-mix(in srgb, var(--done) 20%, transparent);
+  color: var(--done);
+}
+.pill-critical {
+  background: color-mix(in srgb, var(--critical) 18%, transparent);
+  color: var(--critical);
+}
+.pill-hold {
+  background: color-mix(in srgb, var(--hold) 18%, transparent);
+  color: var(--hold);
+}
+
+.tag {
+  margin-left: 0.4rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+.tag-critical {
+  background: color-mix(in srgb, var(--critical) 18%, transparent);
+  color: var(--critical);
+}
+.tag-hold {
+  background: color-mix(in srgb, var(--hold) 18%, transparent);
+  color: var(--hold);
+}
+
+.cook-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.cook-picker,
+.cook-row input {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 7px;
+  padding: 0.3rem 0.4rem;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.plain-list {
+  margin: 0.3rem 0;
+  padding-left: 1.1rem;
+}
+.plain-list li {
+  margin: 0.1rem 0;
+}
+.link-list {
+  list-style: none;
+  margin: 0.25rem 0;
+  padding: 0;
+}
+.linky {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.15rem 0;
+  cursor: pointer;
+  text-align: left;
+}
+.linky:hover {
+  text-decoration: underline;
+}
+
+/* ------------------------------------------------------------- cooks panel */
+
+.cooks-panel {
+  flex: none;
+  margin: 0.75rem 1rem 0;
+  padding: 0.8rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.cook-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+.cooks-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+/* ------------------------------------------------------------ recipe view */
+
+.recipe {
+  display: grid;
+  gap: 1.25rem;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 1rem;
+  width: 100%;
+}
+
+.course-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.course-number {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.components {
+  display: grid;
+  gap: 1rem;
+}
+
+.component {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.9rem;
+  box-shadow: var(--shadow);
+}
+.component-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.3rem;
+}
+.minibar {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-2);
+  overflow: hidden;
+  max-width: 160px;
+}
+.minibar span {
+  display: block;
+  height: 100%;
+  background: var(--done);
+  transition: width 0.25s ease;
+}
+
+.ingredients summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0.5rem 0 0;
+}
+
+.steps {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.step-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  border-left: 3px solid transparent;
+}
+.step-row:hover {
+  background: var(--surface-2);
+}
+.step-row.is-selected {
+  background: var(--surface-2);
+  border-left-color: var(--text);
+}
+.step-row.status-blocked {
+  opacity: 0.6;
+}
+.step-row.status-active {
+  border-left-color: var(--active);
+}
+.step-row.status-done .step-title {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.step-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.step-title {
+  flex: 1;
+  min-width: 0;
+}
+.step-facts {
+  white-space: nowrap;
+}
+
+.step-controls {
+  display: flex;
+  gap: 0.3rem;
+  flex: none;
+}
+
+@media (max-width: 640px) {
+  .step-row {
+    flex-wrap: wrap;
+  }
+  .step-facts {
+    display: none;
+  }
+}
+
+/* -------------------------------------------------------------- graph view */
+
+.graph {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+  min-height: 380px;
+  padding: 1rem;
+}
+.graph-toolbar,
+.kanban-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.kanban-toolbar {
+  position: sticky;
+  left: 1rem;
+  width: max-content;
+  max-width: 100%;
+}
+
+.graph-canvas {
+  flex: 1;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  touch-action: none;
+  cursor: grab;
+}
+.graph-canvas:active {
+  cursor: grabbing;
+}
+
+.edge {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 1.6;
+}
+.edge.is-satisfied {
+  stroke: color-mix(in srgb, var(--done) 60%, transparent);
+}
+.edge.is-critical {
+  stroke: color-mix(in srgb, var(--critical) 55%, transparent);
+  stroke-width: 2.4;
+}
+.edge.is-dim {
+  opacity: 0.28;
+}
+
+.node {
+  cursor: pointer;
+}
+.node-body {
+  cursor: pointer;
+}
+.node-box {
+  fill: var(--surface-2);
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.node-stripe {
+  fill: var(--blocked);
+}
+.node.status-ready .node-stripe {
+  fill: var(--ready);
+}
+.node.status-active .node-stripe {
+  fill: var(--active);
+}
+.node.status-done .node-stripe {
+  fill: var(--done);
+}
+.node.status-ready .node-box {
+  fill: var(--surface);
+  stroke: color-mix(in srgb, var(--ready) 45%, var(--border));
+}
+.node.status-active .node-box {
+  fill: color-mix(in srgb, var(--active) 12%, var(--surface));
+  stroke: var(--active);
+}
+.node.status-done .node-box {
+  fill: color-mix(in srgb, var(--done) 10%, var(--surface));
+}
+.node.is-critical .node-box {
+  stroke-dasharray: none;
+  stroke-width: 1.8;
+  stroke: color-mix(in srgb, var(--critical) 55%, var(--border));
+}
+.node.is-selected .node-box {
+  stroke: var(--text);
+  stroke-width: 2.4;
+}
+.node.is-dim {
+  opacity: 0.32;
+}
+.node.status-done .node-title {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.node-body {
+  font: 12.5px/1.25 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: var(--text);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  overflow: hidden;
+}
+.node-title {
+  font-weight: 550;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.node-facts {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Multi-step cards: one clickable row per step in the run. */
+.node-chain {
+  justify-content: flex-start;
+  gap: 0;
+  cursor: default;
+}
+.node-kicker {
+  height: 15px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.node-step {
+  height: 22px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 4px 0 2px;
+  margin: 0 -4px 0 -2px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.node-step:hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+.node-step.is-selected {
+  background: color-mix(in srgb, var(--text) 14%, transparent);
+}
+.node-step .dot {
+  width: 7px;
+  height: 7px;
+}
+.node-step-index {
+  font-size: 9px;
+  color: var(--muted);
+  width: 8px;
+  flex: none;
+}
+.node-step-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.node-step.status-done .node-step-title {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+.node-step.status-blocked .node-step-title {
+  color: var(--muted);
+}
+.node-step-cook {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 8px;
+  font-weight: 600;
+}
+
+.graph-legend {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.legend-line {
+  width: 18px;
+  height: 2.5px;
+  border-radius: 2px;
+  background: var(--critical);
+}
+
+/* ------------------------------------------------------------- kanban view */
+
+.kanban {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  /* As wide as the widest lane, so the scroller gets real horizontal overflow
+     and the trailing padding survives at the far right. */
+  width: max-content;
+  min-width: 100%;
+}
+.lanes {
+  display: grid;
+  gap: 1rem;
+}
+.lane-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.4rem;
+  /* Stay readable however far right the board is scrolled. */
+  position: sticky;
+  left: 1rem;
+  width: max-content;
+  max-width: 100%;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(4, 272px);
+  justify-content: start;
+  gap: 0.6rem;
+  align-items: start;
+}
+
+.column {
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 0.5rem;
+  min-height: 90px;
+}
+.column.is-hover {
+  border-color: var(--ready);
+  background: color-mix(in srgb, var(--ready) 10%, var(--surface-2));
+}
+.column.is-nodrop {
+  opacity: 0.5;
+}
+.column-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  margin-bottom: 0.3rem;
+}
+.column-head .muted {
+  margin-left: auto;
+}
+.column-hint {
+  margin: 0 0 0.4rem;
+}
+.column-body {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--blocked);
+  border-radius: 8px;
+  padding: 0.5rem;
+  cursor: grab;
+  box-shadow: var(--shadow);
+}
+.card:active {
+  cursor: grabbing;
+}
+.card.status-ready {
+  border-left-color: var(--ready);
+}
+.card.status-active {
+  border-left-color: var(--active);
+}
+.card.status-done {
+  border-left-color: var(--done);
+}
+.card.status-done .card-title {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+.card.is-selected {
+  outline: 2px solid var(--text);
+}
+.card-top {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.15rem;
+}
+.card-top .cook-dot {
+  margin-left: auto;
+}
+.card-title {
+  font-size: 0.88rem;
+  line-height: 1.3;
+  /* Owns the gap down to whatever follows, since .card-facts is absent on
+     cards with no station badge and nothing else would space them. */
+  margin-bottom: 0.5rem;
+}
+.card-facts {
+  margin: 0 0 0.4rem;
+}
+.card .step-controls {
+  flex-wrap: wrap;
+}
+
+/* ------------------------------------------------------------ detail panel */
+
+.detail-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+.detail-head h2 {
+  margin-top: 0.15rem;
+}
+.detail-head button {
+  margin-left: auto;
+}
+.detail-kicker {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.7rem;
+}
+.detail-text {
+  background: var(--surface-2);
+  border-radius: 8px;
+  padding: 0.6rem;
+  font-size: 0.9rem;
+}
+.detail section {
+  margin-top: 0.9rem;
+}
+.detail section h3 {
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.3rem;
+}
+.detail-actions {
+  margin-top: 1rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--border);
+}
+
+/* ------------------------------------------------------------ start dialog */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 0.35);
+}
+
+.modal {
+  width: min(360px, 100%);
+  padding: 1.1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 40px rgb(0 0 0 / 0.25);
+}
+.modal h2 {
+  margin-bottom: 0.15rem;
+}
+
+.modal-cooks {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.9rem 0;
+}
+.cook-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.cook-choice:hover {
+  background: var(--surface-2);
+  border-color: var(--muted);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
