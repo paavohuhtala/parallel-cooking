@@ -5,7 +5,7 @@ import type {
   StepRecord,
   StepState,
   StepStatus,
-} from '../model/types'
+} from '../model/types.ts'
 
 export const EMPTY_RECORD: StepRecord = { state: 'todo', cookId: null }
 

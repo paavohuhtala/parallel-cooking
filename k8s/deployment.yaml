@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: parallel-cooking
+spec:
+  # Deliberately pinned to one. SQLite is a single writer, and the WebSocket
+  # fan-out is in-process — a second replica would contend on the volume and
+  # split every room in half. Scaling out means moving both of those first.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: parallel-cooking
+  template:
+    metadata:
+      labels:
+        app: parallel-cooking
+    spec:
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: app
+          image: parallel-cooking:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: DATA_DIR
+              value: /data
+            - name: NODE_ENV
+              value: production
+          envFrom:
+            - secretRef:
+                name: parallel-cooking-auth
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            # readOnlyRootFilesystem is on, so give Node somewhere scratch.
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { memory: 256Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: parallel-cooking-data
+        - name: tmp
+          emptyDir: {}

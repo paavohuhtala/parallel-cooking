@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
+import { createRoom } from './api/client'
 import { StartDialog } from './components/StepControls'
 import { StepDetail } from './components/StepDetail'
 import { progressOf, suggestedNext } from './state/graph'
@@ -9,6 +11,12 @@ import { RecipeView } from './views/RecipeView'
 
 type View = 'recipe' | 'graph' | 'board'
 
+const CONNECTION_LABEL: Record<'connecting' | 'online' | 'offline', string> = {
+  connecting: 'Yhdistetään…',
+  online: 'Yhteydessä',
+  offline: 'Ei yhteyttä',
+}
+
 const VIEWS: { id: View; label: string; icon: string }[] = [
   { id: 'recipe', label: 'Resepti', icon: '📖' },
   { id: 'graph', label: 'Graafi', icon: '🕸️' },
@@ -17,10 +25,31 @@ const VIEWS: { id: View; label: string; icon: string }[] = [
 
 export default function App() {
   const store = useStore()
-  const { menu, index, state, rejection, dismissRejection, resetAll } = store
+  const { room, menu, index, state, rejection, dismissRejection, connection } = store
+  const navigate = useNavigate()
   const [view, setView] = useState<View>('recipe')
   const [selected, setSelected] = useState<string | null>(null)
   const [cooksOpen, setCooksOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(location.href)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Clipboard blocked (insecure origin, denied permission): the URL bar
+      // still has the link, so this is a convenience, not a requirement.
+    }
+  }
+
+  // Resetting a kitchen means starting a new one from the same menu — rooms are
+  // cheap, and this keeps the finished dinner around to look back at.
+  async function startFresh() {
+    if (!confirm('Aloitetaanko uusi keittiö samalla menulla? Tämä jää talteen.')) return
+    const fresh = await createRoom({ fromRoomId: room.id })
+    await navigate({ to: '/r/$roomId', params: { roomId: fresh.id } })
+  }
 
   const progress = useMemo(() => progressOf(menu, index, state), [menu, index, state])
   const upNext = useMemo(() => suggestedNext(menu, index, state), [menu, index, state])
@@ -31,7 +60,7 @@ export default function App() {
     <div className={`app ${selected ? 'has-detail' : ''}`}>
       <header className="topbar">
         <div className="brand">
-          <h1>{menu.name}</h1>
+          <h1>{room.name}</h1>
           <p className="muted small">
             {progress.done}/{progress.total} vaihetta valmiina · pisin jäljellä oleva ketju{' '}
             {progress.criticalChainLeft} vaihetta
@@ -56,14 +85,15 @@ export default function App() {
           <button className="btn btn-ghost" onClick={() => setCooksOpen((o) => !o)}>
             👥 Kokit ({state.cooks.length})
           </button>
-          <button
-            className="btn btn-ghost"
-            onClick={() => {
-              if (confirm('Nollataanko koko menun edistyminen?')) resetAll()
-            }}
-          >
-            Nollaa
+          <button className="btn btn-ghost" onClick={() => void copyLink()}>
+            {copied ? '✓ Kopioitu' : '🔗 Jaa'}
           </button>
+          <button className="btn btn-ghost" onClick={() => void startFresh()}>
+            Uusi keittiö
+          </button>
+          <span className={`conn conn-${connection}`} title={CONNECTION_LABEL[connection]}>
+            {CONNECTION_LABEL[connection]}
+          </span>
         </div>
 
         <div className="progressbar" aria-hidden>
@@ -84,7 +114,10 @@ export default function App() {
 
       {rejection && (
         <div className="banner banner-warn" role="alert">
-          <strong>{index.steps.get(rejection.stepId)?.title}:</strong> {rejection.reason}
+          {rejection.stepId && (
+            <strong>{index.steps.get(rejection.stepId)?.title}: </strong>
+          )}
+          {rejection.reason}
           <button className="btn btn-ghost icon" onClick={dismissRejection} aria-label="Sulje">
             ✕
           </button>
@@ -141,15 +174,21 @@ export default function App() {
 }
 
 function CooksPanel({ onClose }: { onClose: () => void }) {
-  const { state, addCook, renameCook, removeCook } = useStore()
+  const { state, addCook, renameCook, removeCook, me, setMe } = useStore()
   return (
     <div className="cooks-panel">
       <div className="cooks-list">
         {state.cooks.map((cook) => (
-          <div key={cook.id} className="cook-row">
-            <span className="cook-dot" style={{ background: cook.color }}>
+          <div key={cook.id} className={`cook-row${me === cook.id ? ' is-me' : ''}`}>
+            <button
+              className="cook-dot as-button"
+              style={{ background: cook.color }}
+              onClick={() => setMe(me === cook.id ? null : cook.id)}
+              title={me === cook.id ? 'Tämä olen minä' : 'Merkitse itsesi tähän'}
+              aria-pressed={me === cook.id}
+            >
               {cook.name.trim().charAt(0).toUpperCase() || '?'}
-            </span>
+            </button>
             <input
               value={cook.name}
               onChange={(e) => renameCook(cook.id, e.target.value)}
@@ -166,6 +205,10 @@ function CooksPanel({ onClose }: { onClose: () => void }) {
           </div>
         ))}
       </div>
+      <p className="muted cooks-hint">
+        Napauta väripalloa merkitäksesi kuka sinä olet — sen jälkeen vaiheet alkavat
+        suoraan sinun nimissäsi. Voit silti antaa tehtäviä muille.
+      </p>
       <div className="cooks-actions">
         <button className="btn" onClick={addCook}>
           Lisää kokki

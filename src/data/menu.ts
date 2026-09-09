@@ -1,4 +1,4 @@
-import type { Menu } from '../model/types'
+import type { Menu } from '../model/types.ts'
 
 /**
  * Course 1 of a four-course menu, transcribed from `reseptit.md`.

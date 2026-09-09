@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* Node runs the server's .ts files directly by stripping types, so nothing
+       that needs emitting (enums, namespaces, parameter properties) may appear
+       in server-reachable code. `verbatimModuleSyntax` additionally guarantees
+       that a type-only import is erased outright, which is what keeps zod out
+       of the client bundle. */
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": false
+  }
+}

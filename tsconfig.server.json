@@ -1,0 +1,25 @@
+{
+  /* The isomorphic boundary. No DOM lib and no jsx, so a React or `document.`
+     import anywhere reachable from the server fails the build rather than at
+     runtime. Server-reachable modules are src/server/**, src/shared/**,
+     src/model/**, src/state/graph.ts and src/data/menu.ts. */
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.server.tsbuildinfo",
+    "lib": ["ES2023"],
+    "types": ["node"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext"
+  },
+  /* Listed explicitly rather than by directory: this array *is* the set of
+     modules that may run on the server, and `composite` forces it to stay
+     complete, so an accidental new import into client-only code fails here. */
+  "include": [
+    "src/server",
+    "src/shared",
+    "src/model",
+    "src/state/graph.ts",
+    "src/data/menu.ts"
+  ]
+}

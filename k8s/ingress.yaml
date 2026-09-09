@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: parallel-cooking
+  annotations:
+    # WebSockets are long-lived; the defaults (60s) would cut the socket every
+    # minute and make the client reconnect for no reason. Buffering off so
+    # snapshots reach the browser as they are sent.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '3600'
+    nginx.ingress.kubernetes.io/proxy-send-timeout: '3600'
+    nginx.ingress.kubernetes.io/proxy-buffering: 'off'
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: cooking.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: parallel-cooking
+                port:
+                  name: http

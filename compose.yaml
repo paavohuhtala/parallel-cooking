@@ -1,0 +1,49 @@
+# Local development: the server watches src/ and restarts, Vite serves the
+# client with HMR and proxies /api and /ws across. A server restart is also a
+# free test of the client's reconnect path, and it is what picks up edits to
+# src/data/menu.ts for rooms that follow their template.
+services:
+  server:
+    image: node:24-alpine
+    working_dir: /app
+    command: sh -c "npm ci && node --watch src/server/main.ts"
+    environment:
+      DATA_DIR: /data
+      PORT: '8080'
+    volumes:
+      - .:/app
+      # Shadowed so the host's darwin-arm64 install never reaches the container.
+      - server_modules:/app/node_modules
+      - data:/data
+    ports:
+      - '8080:8080'
+
+  client:
+    image: node:24-alpine
+    working_dir: /app
+    command: sh -c "npm ci && npx vite --host 0.0.0.0"
+    environment:
+      PROXY_TARGET: http://server:8080
+    volumes:
+      - .:/app
+      - client_modules:/app/node_modules
+    ports:
+      - '5173:5173'
+    depends_on:
+      - server
+
+  # `docker compose --profile prod up --build prod` to exercise the real image.
+  prod:
+    profiles: [prod]
+    build: .
+    environment:
+      DATA_DIR: /data
+    volumes:
+      - data:/data
+    ports:
+      - '8081:8080'
+
+volumes:
+  data:
+  server_modules:
+  client_modules:

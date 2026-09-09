@@ -2,60 +2,30 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react'
-import { MENU } from '../data/menu'
-import type { Cook, KitchenState, Menu, StepState } from '../model/types'
-import { buildIndex, checkTransition, recordOf, type GraphIndex } from './graph'
+import type { KitchenState, Menu, StepState } from '../model/types.ts'
+import { checkTransition, recordOf, type GraphIndex } from './graph.ts'
+import { sessionFor, type Connection, type Rejection } from './session.ts'
 
-const STORAGE_KEY = 'parallel-cooking/v1'
+export { COOK_COLORS } from '../shared/apply.ts'
+export type { Rejection } from './session.ts'
 
-export const COOK_COLORS = [
-  '#e8743b',
-  '#3b8ee8',
-  '#48a463',
-  '#a45cd0',
-  '#d4a017',
-  '#d0455f',
-]
-
-const DEFAULT_COOKS: Cook[] = [
-  { id: 'cook-1', name: 'Kokki 1', color: COOK_COLORS[0] },
-  { id: 'cook-2', name: 'Kokki 2', color: COOK_COLORS[1] },
-]
-
-const initialState = (): KitchenState => ({ cooks: DEFAULT_COOKS, steps: {} })
-
-function load(): KitchenState {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return initialState()
-    const parsed = JSON.parse(raw) as Partial<KitchenState>
-    if (!parsed || typeof parsed !== 'object') return initialState()
-    return {
-      cooks:
-        Array.isArray(parsed.cooks) && parsed.cooks.length ? parsed.cooks : DEFAULT_COOKS,
-      steps: parsed.steps && typeof parsed.steps === 'object' ? parsed.steps : {},
-    }
-  } catch {
-    // Corrupt or unavailable storage should never keep the kitchen offline.
-    return initialState()
-  }
-}
-
-export interface Rejection {
-  stepId: string
-  reason: string
-  at: number
-}
+/** Which cook you are, per room and per browser. Never leaves this device. */
+const meKey = (roomId: string) => `parallel-cooking/me/${roomId}`
 
 interface Store {
+  room: { id: string; name: string }
   menu: Menu
   index: GraphIndex
   state: KitchenState
+  connection: Connection
+  /** The cook using this browser, if they have said. */
+  me: string | null
+  setMe: (cookId: string | null) => void
   rejection: Rejection | null
   dismissRejection: () => void
   /** Step id whose "who is taking this?" prompt is open, if any. */
@@ -73,169 +43,150 @@ interface Store {
   addCook: () => void
   renameCook: (cookId: string, name: string) => void
   removeCook: (cookId: string) => void
-  resetAll: () => void
 }
 
 const StoreContext = createContext<Store | null>(null)
 
-/** Records a state change, keeping the timestamps consistent with it. */
-function withState(
-  prev: KitchenState,
-  stepId: string,
-  next: StepState,
-  cookId?: string | null,
-): KitchenState {
-  const current = recordOf(prev, stepId)
-  const now = Date.now()
-  return {
-    ...prev,
-    steps: {
-      ...prev.steps,
-      [stepId]: {
-        ...current,
-        cookId: cookId === undefined ? current.cookId : cookId,
-        state: next,
-        startedAt:
-          next === 'todo'
-            ? undefined
-            : next === 'active'
-              ? (current.startedAt ?? now)
-              : current.startedAt,
-        completedAt: next === 'done' ? now : undefined,
-      },
-    },
-  }
-}
+export function StoreProvider({ roomId, children }: { roomId: string; children: ReactNode }) {
+  const session = useMemo(() => sessionFor(roomId), [roomId])
+  const snapshot = useSyncExternalStore(session.subscribe, session.getSnapshot)
 
-export function StoreProvider({ children }: { children: ReactNode }) {
-  const menu = MENU
-  const index = useMemo(() => buildIndex(menu), [menu])
-  const [state, setState] = useState<KitchenState>(load)
-  const [rejection, setRejection] = useState<Rejection | null>(null)
   const [pendingStart, setPendingStart] = useState<string | null>(null)
-
-  useEffect(() => {
+  const [me, setMeState] = useState<string | null>(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+      return localStorage.getItem(meKey(roomId))
     } catch {
-      // Private mode / full quota: the session still works, it just won't
-      // survive a reload.
+      return null
     }
-  }, [state])
+  })
 
-  const setStepState = useCallback(
-    (stepId: string, next: StepState) => {
-      const check = checkTransition(index, state, stepId, next)
-      if (!check.allowed) {
-        setRejection({
-          stepId,
-          reason: check.reason ?? 'Ei onnistu juuri nyt.',
-          at: Date.now(),
-        })
-        return false
+  const setMe = useCallback(
+    (cookId: string | null) => {
+      setMeState(cookId)
+      try {
+        if (cookId) localStorage.setItem(meKey(roomId), cookId)
+        else localStorage.removeItem(meKey(roomId))
+      } catch {
+        // Private mode: you just get asked who you are more often.
       }
-      setRejection(null)
-      setState((prev) => withState(prev, stepId, next))
-      return true
     },
-    [index, state],
+    [roomId],
   )
 
-  const confirmStart = useCallback((stepId: string, cookId: string | null) => {
-    setPendingStart(null)
-    setRejection(null)
-    setState((prev) => withState(prev, stepId, 'active', cookId))
-  }, [])
+  const setStepState = useCallback(
+    (stepId: string, next: StepState) => session.send({ type: 'set_step_state', stepId, next }),
+    [session],
+  )
+
+  const confirmStart = useCallback(
+    (stepId: string, cookId: string | null) => {
+      setPendingStart(null)
+      session.send({ type: 'set_step_state', stepId, next: 'active', cookId })
+    },
+    [session],
+  )
 
   const requestStart = useCallback(
     (stepId: string) => {
+      const index = session.currentIndex()
+      if (!index) return false
+      const state = session.current()
       const check = checkTransition(index, state, stepId, 'active')
       if (!check.allowed) {
-        setRejection({
-          stepId,
-          reason: check.reason ?? 'Ei onnistu juuri nyt.',
-          at: Date.now(),
-        })
+        session.reject(stepId, check.reason ?? 'Ei onnistu juuri nyt.')
         return false
       }
-      // Nothing to ask when the step already has a cook, or there is only one
-      // person in the kitchen.
+      // Nothing to ask when the step already has a cook, when you have said who
+      // you are, or when there is only one person in the kitchen.
       const assigned = recordOf(state, stepId).cookId
-      if (assigned) {
-        confirmStart(stepId, assigned)
-      } else if (state.cooks.length === 1) {
-        confirmStart(stepId, state.cooks[0].id)
-      } else {
-        setRejection(null)
-        setPendingStart(stepId)
-      }
+      const mine = me && state.cooks.some((c) => c.id === me) ? me : null
+      if (assigned) confirmStart(stepId, assigned)
+      else if (mine) confirmStart(stepId, mine)
+      else if (state.cooks.length === 1) confirmStart(stepId, state.cooks[0].id)
+      else setPendingStart(stepId)
       return true
     },
-    [index, state, confirmStart],
+    [session, confirmStart, me],
   )
 
-  const assign = useCallback((stepId: string, cookId: string | null) => {
-    setState((prev) => ({
-      ...prev,
-      steps: { ...prev.steps, [stepId]: { ...recordOf(prev, stepId), cookId } },
-    }))
-  }, [])
+  const assign = useCallback(
+    (stepId: string, cookId: string | null) => {
+      session.send({ type: 'assign', stepId, cookId })
+    },
+    [session],
+  )
 
   const addCook = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      cooks: [
-        ...prev.cooks,
-        {
-          id: `cook-${Date.now().toString(36)}`,
-          name: `Kokki ${prev.cooks.length + 1}`,
-          color: COOK_COLORS[prev.cooks.length % COOK_COLORS.length],
-        },
-      ],
-    }))
-  }, [])
+    session.send({ type: 'add_cook', cookId: crypto.randomUUID() })
+  }, [session])
 
-  const renameCook = useCallback((cookId: string, name: string) => {
-    setState((prev) => ({
-      ...prev,
-      cooks: prev.cooks.map((c) => (c.id === cookId ? { ...c, name } : c)),
-    }))
-  }, [])
+  const renameCook = useCallback(
+    (cookId: string, name: string) => {
+      session.send({ type: 'rename_cook', cookId, name })
+    },
+    [session],
+  )
 
-  const removeCook = useCallback((cookId: string) => {
-    setState((prev) => ({
-      ...prev,
-      cooks: prev.cooks.filter((c) => c.id !== cookId),
-      steps: Object.fromEntries(
-        Object.entries(prev.steps).map(([id, rec]) =>
-          rec.cookId === cookId ? [id, { ...rec, cookId: null }] : [id, rec],
-        ),
-      ),
-    }))
-  }, [])
+  const removeCook = useCallback(
+    (cookId: string) => {
+      if (cookId === me) setMe(null)
+      session.send({ type: 'remove_cook', cookId })
+    },
+    [session, me, setMe],
+  )
 
-  const resetAll = useCallback(() => {
-    setState((prev) => ({ ...prev, steps: {} }))
-    setRejection(null)
-    setPendingStart(null)
-  }, [])
+  const cancelStart = useCallback(() => setPendingStart(null), [])
 
-  const value: Store = {
-    menu,
-    index,
-    state,
-    rejection,
-    dismissRejection: () => setRejection(null),
-    pendingStart,
-    requestStart,
-    confirmStart,
-    cancelStart: () => setPendingStart(null),
-    setStepState,
-    assign,
-    addCook,
-    renameCook,
-    removeCook,
-    resetAll,
+  const { room, menu, index } = snapshot
+  const value = useMemo<Store | null>(() => {
+    if (!room || !menu || !index) return null
+    return {
+      room,
+      menu,
+      index,
+      state: snapshot.state,
+      connection: snapshot.connection,
+      me,
+      setMe,
+      rejection: snapshot.rejection,
+      dismissRejection: session.dismissRejection,
+      pendingStart,
+      requestStart,
+      confirmStart,
+      cancelStart,
+      setStepState,
+      assign,
+      addCook,
+      renameCook,
+      removeCook,
+    }
+  }, [
+    room, menu, index, snapshot.state, snapshot.connection, snapshot.rejection,
+    me, setMe, session, pendingStart, requestStart, confirmStart, cancelStart,
+    setStepState, assign, addCook, renameCook, removeCook,
+  ])
+
+  if (snapshot.fatal) {
+    return (
+      <div className="splash">
+        <h1>Keittiötä ei löytynyt</h1>
+        <p>{snapshot.fatal}</p>
+        <a className="btn" href="/">
+          Takaisin alkuun
+        </a>
+      </div>
+    )
+  }
+
+  // Everything downstream — every view, every component — assumes the menu is
+  // there. Gating here is what keeps that true and leaves those files alone.
+  if (!value) {
+    return (
+      <div className="splash">
+        <div className="spinner" aria-hidden />
+        <p>Yhdistetään keittiöön…</p>
+      </div>
+    )
   }
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>

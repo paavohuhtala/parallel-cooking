@@ -7,14 +7,27 @@ ketju ratkaisee milloin ruoka on pöydässä.
 
 The app is in Finnish; the code, comments and this README are in English.
 
+It is a real-time multi-user app: everyone opens the same `/r/<id>` link and sees the
+same kitchen. The server is authoritative and the client applies its own changes
+optimistically, so tapping a button feels instant but the server decides what is true.
+
+Development needs **two** processes: the Node server, and Vite proxying `/api` and `/ws`
+to it. `npm run dev` alone will start the client and every API call will fail with
+`ECONNREFUSED`.
+
 ```
 npm install
-npm run dev      # http://localhost:5173
-npm run build    # type-check + production build into dist/
+npm run dev:all      # both, in one terminal (Ctrl-C stops both)
+
+npm run dev:server   # or separately: API + WebSocket on :8080
+npm run dev          #                Vite on :5173, proxying to it
+
+npm run build        # type-check both projects + production build into dist/
+npm test             # reducer tests (node:test)
+npm start            # single process serving dist/ + /api + /ws on :8080
 ```
 
-Recipes are hard-coded in [src/data/menu.ts](src/data/menu.ts); progress lives in
-`localStorage` under `parallel-cooking/v1`.
+`docker compose up` does the same with both in containers.
 
 ## The three views
 
@@ -132,4 +145,95 @@ Only course 1 is transcribed so far, from [reseptit.md](reseptit.md). To add ano
 append to the three arrays in [src/data/menu.ts](src/data/menu.ts) — a `Course`, its
 `Component`s, and their `Step`s. Nothing else needs touching: the graph, the board, the
 ordering and the layout all derive from the data. Bad references and dependency
-cycles are caught at load and reported in a banner rather than crashing.
+cycles are caught at load and reported in a banner rather than crashing. Rooms created in
+development pick the change up on the next server restart (see *Editing the menu while
+developing*).
+
+
+## Architecture
+
+One process serves the built client, a small REST API and a WebSocket endpoint; state
+lives in SQLite. The whole thing is one container.
+
+### Rooms
+
+A **room** is one kitchen: a menu plus who is cooking and how far along everything is.
+Rooms are created explicitly from the landing page and shared by link — there is no
+implicit default room and nothing is seeded. Resetting a kitchen is not a thing you do;
+you make a new room from the same menu, which keeps the finished one around.
+
+A room **copies** its menu into its own row at creation, so editing one room's menu will
+never disturb another. Menu *templates* still live in code
+([src/shared/templates.ts](src/shared/templates.ts)); see below.
+
+### Commands in, snapshots out
+
+The client sends an intent — "start this step as this cook" — and the server replies with
+the entire new state and a version number. State is a couple of kilobytes, so there is no
+reason to diff it, and carrying it whole means the server can *delete* records (pruning
+steps a menu no longer has) without the protocol needing tombstones.
+
+The load-bearing piece is [src/shared/apply.ts](src/shared/apply.ts): one pure
+`applyCommand(index, state, envelope)` that runs on **both** sides. The client's visible
+state is always `pending.reduce(applyCommand, confirmed)`, so rolling back a rejected
+command is dropping it from the queue and recomputing — there is no hand-written inverse
+per mutation. Two properties make that work:
+
+- **Purity.** Timestamps and generated ids travel inside the envelope, never read from
+  the ambient clock during apply. The server overwrites the client's `at` with its own, so
+  a browser with a wrong clock can produce a briefly wrong optimistic time but can never
+  persist one.
+- **Idempotency.** `add_cook` carries a client-generated UUID and no-ops if it already
+  exists; everything else is an assignment. That is what makes it safe for a client to
+  replay its pending queue after a reconnect. The server also remembers recent command
+  ids and acknowledges a replay without re-applying it.
+
+Server rejections (unmet dependencies, undoing something already built on, claiming a step
+another cook holds) go back to the originating client only, which shows a banner and rolls
+the optimistic change back.
+
+### The isomorphic boundary
+
+`checkTransition` and `buildIndex` have to run on the client *and* the server, so this is
+one npm package with two TypeScript projects rather than a workspace. Server-reachable
+modules are `src/shared/**`, `src/model/**`, `src/state/graph.ts` and `src/data/menu.ts`;
+they may not import React or DOM APIs, and their relative imports must carry explicit
+`.ts` extensions. [tsconfig.server.json](tsconfig.server.json) has no DOM lib and no
+`jsx`, and lists those paths explicitly — so a stray `document.` in shared code fails
+`npm run build` instead of at runtime.
+
+The server has no build step: Node 24 runs the `.ts` files directly by stripping types.
+That is why `erasableSyntaxOnly` is on.
+
+### Editing the menu while developing
+
+The menu is still authored in [src/data/menu.ts](src/data/menu.ts). A room created in
+development keeps *following* the template it came from, so editing that file and letting
+`node --watch` restart the server updates the room's menu in place, pruning progress only
+for steps that no longer exist. `MENU_FOLLOW_TEMPLATE` controls it; it defaults **off**
+under `NODE_ENV=production`, so a redeploy can never rewrite a dinner in progress. The
+first in-app menu edit (once there is an editor) will clear the flag for that room.
+
+## Configuration
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `PORT` | `8080` | HTTP + WebSocket port. |
+| `DATA_DIR` | `./data` | Where `app.db` lives. |
+| `NODE_ENV` | `development` | `production` turns template-following off. |
+| `BASIC_AUTH_USER` / `BASIC_AUTH_PASS` | unset | Set **both** to require basic auth; set neither for open local dev. Setting exactly one is a startup error. |
+| `MENU_FOLLOW_TEMPLATE` | `1` outside production | Whether rooms track their code template. |
+| `PROXY_TARGET` | `http://localhost:8080` | Where the Vite dev server proxies `/api` and `/ws`. |
+
+Basic auth covers the WebSocket too. Browsers cannot set headers on a `WebSocket` and are
+inconsistent about replaying cached credentials on an upgrade, so a successful HTTP
+request also sets an `HttpOnly` cookie derived from the credentials, and the upgrade
+accepts either that or an `Authorization` header. `/healthz` is always open — the kubelet
+sends no credentials.
+
+## Deployment
+
+`Dockerfile` builds a single image that serves everything. [k8s/](k8s/) has manifests for
+a one-replica Deployment with a PVC — **one** replica on purpose: SQLite is a single
+writer and the WebSocket fan-out is in-process, so a second replica would contend on the
+volume and split every room in half. Scaling out means changing both of those first.
