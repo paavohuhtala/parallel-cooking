@@ -30,8 +30,8 @@ Course ─┬─ Component ─┬─ Step ──deps──▶ Step
         └─ Component ─── Step
 ```
 
-Dependencies cross components freely, and normally do: plating the soup waits on both the
-soup being hot and the bowls being on the table.
+Dependencies cross components freely, and normally do: carrying the starter out waits on
+both the soup being plated and the bruschetta coming off the grill.
 
 ## How to split a recipe into steps
 
@@ -48,7 +48,14 @@ either can't parallelise anything or drowns you in trivia.
 - Cooking times belong in `detail` when they matter for the cooking itself. **There are
   deliberately no durations on steps** — do not invent them.
 - Gather serving work (laying the table, plating, carrying out) into its own component,
-  and let it depend on every finishing step of the course.
+  and let the step that carries the food out depend on every finishing step of the
+  course.
+- **How the course is served decides which serving steps exist.** Plated portions are
+  plated in the kitchen and carried out, so laying the table covers cutlery, glasses and
+  side plates only. Shared dishes — a platter, a bowl, tapas — go onto a serving dish
+  and are carried to plates that were set with the table. Laying the table therefore has
+  no `deps`: only work done *at* the table, such as ladling from a tureen, waits for it.
+  A plating step that depends on the table being laid sends the plates out and back.
 
 ## Fields
 

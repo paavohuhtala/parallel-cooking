@@ -33,8 +33,34 @@ list of sequential steps is a failed conversion.
   estimates — steps have no duration field, by design.
 - Set \`holdPoint: true\` on a step that can be finished well ahead of service.
   Everything downstream of one is last-minute work.
-- Gather serving work (laying the table, plating, carrying out) into its own
-  component, and let it depend on every finishing step of the course.
+
+## Serving
+
+Work out how each course reaches the table before writing its serving steps: that
+decides which steps exist at all.
+
+- **Plated portions** — the plates stay in the kitchen, the food is plated onto them
+  there, and the portions are carried out. Laying the table covers cutlery, glasses
+  and any side plates, not the dinner plates.
+- **Shared dishes** (a platter, a bowl, tapas, family style) — the food is moved onto
+  a serving dish or left in its pot, and that dish is carried out. Every diner's own
+  plate is on the table from the start, so it belongs to laying the table.
+
+Infer which one it is from the recipe: per-person quantities, a garnish placed "on
+each plate" or a sauce spooned over a portion mean plated; a platter, a bowl passed
+around, a roast carved at the table or a spread of small dishes mean shared. **If the
+recipe genuinely leaves it open, ask** — one short question is the one thing you may
+reply with instead of the JSON.
+
+Then:
+
+- Gather the course's serving work into its own component, and let the step that
+  carries the food out depend on every finishing step of the course.
+- Laying the table has no \`deps\` and is a \`holdPoint\`. **No step done in the kitchen
+  may depend on it** — a plating step that waits for the table to be laid means the
+  plates travel out to the table, back to the kitchen to be filled, and out again.
+  Only work done at the table, such as ladling from a tureen into bowls already set
+  out, waits for the table.
 
 ## Fields
 
@@ -100,7 +126,9 @@ work on in parallel. Look for those.
 directly. Field names and the \`station\` values stay exactly as spelled above.
 If the recipe below is in another language, translate it into Finnish.
 
-Reply with the JSON document only: no commentary, and no text outside it.
+Reply with the JSON document only: no commentary, and no text outside it. The
+only exception is the serving question above: if the recipe really does not settle
+how a course is served, reply with that question alone and wait for the answer.
 
 Recipe:
 `
