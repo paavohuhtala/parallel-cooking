@@ -82,11 +82,6 @@ export function RecipeView({
                               <span className={`dot status-${status}`} />
                               <span className="step-title">
                                 {step.title}
-                                {index.criticalPath.has(step.id) && (
-                                  <span className="tag tag-critical" title="Kriittisellä polulla">
-                                    kriittinen
-                                  </span>
-                                )}
                                 {step.holdPoint && (
                                   <span className="tag tag-hold" title="Voi tehdä hyvissä ajoin">
                                     etukäteen

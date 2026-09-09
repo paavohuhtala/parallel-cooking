@@ -21,7 +21,12 @@ export interface GraphIndex {
    * sequential work still hang off this step.
    */
   chainLength: Map<string, number>
-  /** Steps on a longest chain through the graph. */
+  /**
+   * One longest chain through the graph, used to draw the spine of the menu in
+   * the graph view. Not a CPM critical path: with no durations on `Step` this
+   * counts steps rather than minutes, and ties between equally long chains are
+   * broken arbitrarily — so it is never used to label an individual step.
+   */
   criticalPath: Set<string>
   problems: string[]
 }

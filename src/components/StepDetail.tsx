@@ -41,9 +41,6 @@ export function StepDetail({
             {station?.icon} {station?.label}
           </span>
         )}
-        {index.criticalPath.has(step.id) && (
-          <span className="pill pill-critical">Kriittinen polku</span>
-        )}
         {step.holdPoint && <span className="pill pill-hold">Voi tehdä etukäteen</span>}
       </div>
 

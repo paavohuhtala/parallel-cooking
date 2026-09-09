@@ -98,13 +98,8 @@ export default function App() {
             {upNext.slice(0, 6).map((step) => (
               <button
                 key={step.id}
-                className={`chip ${index.criticalPath.has(step.id) ? 'is-critical' : ''}`}
+                className="chip"
                 onClick={() => select(step.id)}
-                title={
-                  index.criticalPath.has(step.id)
-                    ? 'Kriittisellä polulla — tämä kannattaa aloittaa ensin'
-                    : undefined
-                }
               >
                 {step.title}
               </button>

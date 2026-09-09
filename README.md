@@ -117,14 +117,19 @@ separate node.
 
 `buildIndex` computes, for every step, the **length of the longest chain of steps** from
 it to the end of the menu. That's a structural depth, not a time estimate, and it gives
-two things: the critical path highlighted in red across all three views, and the
-ordering of the **Seuraavaksi** strip — ready work that sits on the longest chain should
-be picked up before work that has slack.
+two things: the ordering of the **Seuraavaksi** strip — ready work that sits on the
+longest chain should be picked up before work that has slack — and the longest chain
+itself, drawn in red in the graph to show the spine of the menu.
+
+That chain is deliberately *not* labelled on individual steps. Without durations it is a
+count of steps rather than of minutes, so it says nothing about which work actually takes
+the longest, and ties between equally long chains are broken arbitrarily. As an ordering
+it is still useful; as a per-step badge it would claim more than it knows.
 
 ## Adding the remaining courses
 
 Only course 1 is transcribed so far, from [reseptit.md](reseptit.md). To add another,
 append to the three arrays in [src/data/menu.ts](src/data/menu.ts) — a `Course`, its
 `Component`s, and their `Step`s. Nothing else needs touching: the graph, the board, the
-critical path and the layout all derive from the data. Bad references and dependency
+ordering and the layout all derive from the data. Bad references and dependency
 cycles are caught at load and reported in a banner rather than crashing.

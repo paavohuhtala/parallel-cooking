@@ -187,7 +187,7 @@ function Card({
   onDragStart: () => void
   onDragEnd: () => void
 }) {
-  const { menu, index, state } = useStore()
+  const { menu, state } = useStore()
   const record = recordOf(state, step.id)
   const component = menu.components.find((c) => c.id === step.componentId)
   const station = STATIONS.find((s) => s.id === step.station)
@@ -209,10 +209,9 @@ function Card({
         <CookDot cookId={record.cookId} />
       </div>
       <div className="card-title">{step.title}</div>
-      {(step.station !== 'muu' || index.criticalPath.has(step.id)) && (
+      {step.station !== 'muu' && (
         <div className="card-facts muted small">
-          {step.station !== 'muu' && `${station?.icon} ${station?.label}`}
-          {index.criticalPath.has(step.id) && <span className="tag tag-critical">kriittinen</span>}
+          {`${station?.icon} ${station?.label}`}
         </div>
       )}
       <StepControls step={step} status={status} />

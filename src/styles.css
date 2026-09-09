@@ -321,10 +321,6 @@ p {
   color: var(--surface);
   border-color: var(--text);
 }
-.chip.is-critical {
-  border-color: var(--critical);
-  color: var(--critical);
-}
 
 .toggle {
   display: inline-flex;
@@ -379,10 +375,6 @@ p {
   background: color-mix(in srgb, var(--done) 20%, transparent);
   color: var(--done);
 }
-.pill-critical {
-  background: color-mix(in srgb, var(--critical) 18%, transparent);
-  color: var(--critical);
-}
 .pill-hold {
   background: color-mix(in srgb, var(--hold) 18%, transparent);
   color: var(--hold);
@@ -396,10 +388,6 @@ p {
   padding: 0.05rem 0.35rem;
   border-radius: 4px;
   vertical-align: middle;
-}
-.tag-critical {
-  background: color-mix(in srgb, var(--critical) 18%, transparent);
-  color: var(--critical);
 }
 .tag-hold {
   background: color-mix(in srgb, var(--hold) 18%, transparent);
