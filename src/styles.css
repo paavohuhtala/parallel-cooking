@@ -1193,38 +1193,6 @@ p {
   font: inherit;
 }
 
-.template-option {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.template-option:has(input:checked) {
-  border-color: var(--ready);
-  background: color-mix(in srgb, var(--ready) 8%, transparent);
-}
-
-.template-option span {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.template-option em {
-  font-style: normal;
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
-.template-option small {
-  color: var(--muted);
-  font-size: 0.8rem;
-}
-
 .btn-primary {
   background: var(--ready);
   border-color: var(--ready);
@@ -1308,18 +1276,8 @@ p {
   background: color-mix(in srgb, var(--critical) 12%, transparent);
 }
 
-/* ---------------------------------------------------------- menu library */
+/* -------------------------------------- the menu list on the landing page */
 
-.library-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-.library-head h2 {
-  margin: 0;
-}
 .library-actions {
   display: flex;
   gap: 0.4rem;
@@ -1327,7 +1285,7 @@ p {
 
 .menu-list {
   list-style: none;
-  margin: 0.6rem 0 0;
+  margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -1343,23 +1301,47 @@ p {
   border-radius: var(--radius);
   background: var(--surface);
 }
-.menu-open {
+/* The row is picked by its radio, so the label covers the name and nothing
+   else: a button inside a label would toggle the radio on the way past. */
+.menu-choice {
   flex: 1 1 12rem;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  cursor: pointer;
+}
+.menu-row:has(input:checked) {
+  border-color: var(--ready);
+  background: color-mix(in srgb, var(--ready) 8%, transparent);
+}
+.menu-choice > span {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  align-items: flex-start;
-  border: 0;
-  background: none;
-  padding: 0;
-  font: inherit;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
 }
-.menu-open small {
+.menu-choice em {
+  font-style: normal;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.menu-choice small {
   color: var(--muted);
   font-size: 0.8rem;
+}
+.menu-choice-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.menu-badge {
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  vertical-align: 1px;
+  white-space: nowrap;
 }
 .menu-row-actions {
   display: flex;

@@ -17,7 +17,7 @@ interface PcTestFixtures {
   /** A room of this test's own, created before the test body runs. */
   room: RoomSummary
   landingPage: LandingPageModel
-  /** The "Omat menut" card on the landing page. */
+  /** The menu list inside the landing page's "Uusi keittiö" card. */
   library: MenuLibraryModel
   /** The menu outliner, wherever it is open. */
   editor: MenuEditorModel

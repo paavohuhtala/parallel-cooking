@@ -25,7 +25,7 @@ export class LandingPageModel {
   }
 
   menuOption(name: string): Locator {
-    return this.page.locator('.template-option').filter({ hasText: name }).getByRole('radio')
+    return this.page.locator('.menu-row').filter({ hasText: name }).getByRole('radio')
   }
 
   recentRoom(name: string): Locator {
@@ -35,8 +35,8 @@ export class LandingPageModel {
   async goto(): Promise<void> {
     await this.page.goto('/')
     await expect(this.heading).toBeVisible()
-    // The menu list arrives from /api/templates, and nothing can be created
-    // before it does.
+    // The menu list arrives from /api/templates and /api/menus, and nothing can
+    // be created before it does.
     await expect(this.createButton).toBeEnabled()
   }
 

@@ -143,8 +143,10 @@ it is still useful; as a per-step badge it would claim more than it knows.
 
 Three ways in, all producing the same document:
 
-**The editor.** *Omat menut* on the landing page holds menus you have written or imported.
-Opening one gives a keyboard-first outliner over course → dish → step: Enter starts the next
+**The editor.** *Uusi keittiö* on the landing page lists every menu a kitchen can start
+from — the ones authored in code and the ones you have written or imported — as one choice,
+because starting from either is the same act with a different source. **Muokkaa** on one of
+your own opens a keyboard-first outliner over course → dish → step: Enter starts the next
 row at the same level, ↑/↓ move between rows, Alt+↑/↓ reorder, and Backspace on an empty row
 deletes it. Tab is left alone — it moves between controls, as everywhere else, and never
 changes the document.

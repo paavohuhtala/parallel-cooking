@@ -1,6 +1,10 @@
 import { expect, type Locator, type Page } from '@playwright/test'
 
-/** The "Omat menut" card on the landing page, and its import dialog. */
+/**
+ * The menu list inside the landing page's "Uusi keittiö" card: the shelf of
+ * menus and what you can do to one. Starting a kitchen from a menu is
+ * `LandingPageModel`'s business — the same card, but the other half of it.
+ */
 export class MenuLibraryModel {
   readonly page: Page
   readonly root: Locator
@@ -15,7 +19,7 @@ export class MenuLibraryModel {
 
   constructor(page: Page) {
     this.page = page
-    this.root = page.locator('.landing-card').filter({ hasText: 'Omat menut' })
+    this.root = page.locator('.landing-card').filter({ hasText: 'Uusi keittiö' })
     this.newButton = this.root.getByRole('button', { name: 'Uusi menu' })
     this.importButton = this.root.getByRole('button', { name: 'Tuo JSON' })
     this.rows = this.root.locator('.menu-row')
@@ -35,11 +39,14 @@ export class MenuLibraryModel {
   }
 
   async open(name: string): Promise<void> {
-    await this.row(name).locator('.menu-open').click()
+    await this.row(name).getByRole('button', { name: `Muokkaa ${name}` }).click()
   }
 
+  /** Picks the menu and starts a kitchen from it, without naming the kitchen. */
   async startKitchen(name: string): Promise<void> {
-    await this.row(name).getByRole('button', { name: 'Käynnistä keittiö' }).click()
+    await this.row(name).getByRole('radio').check()
+    await this.root.getByRole('button', { name: 'Luo keittiö' }).click()
+    await this.page.waitForURL(/\/r\/[^/]+$/)
   }
 
   async expectListed(name: string): Promise<void> {
