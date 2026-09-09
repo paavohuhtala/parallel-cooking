@@ -12,19 +12,19 @@ same kitchen. The server is authoritative and the client applies its own changes
 optimistically, so tapping a button feels instant but the server decides what is true.
 
 Development needs **two** processes: the Node server, and Vite proxying `/api` and `/ws`
-to it. `npm run dev` alone will start the client and every API call will fail with
+to it. `pnpm dev` alone will start the client and every API call will fail with
 `ECONNREFUSED`.
 
 ```
-npm install
-npm run dev:all      # both, in one terminal (Ctrl-C stops both)
+pnpm install
+pnpm dev:all      # both, in one terminal (Ctrl-C stops both)
 
-npm run dev:server   # or separately: API + WebSocket on :8080
-npm run dev          #                Vite on :5173, proxying to it
+pnpm dev:server   # or separately: API + WebSocket on :8080
+pnpm dev          #                Vite on :5173, proxying to it
 
-npm run build        # type-check both projects + production build into dist/
-npm test             # reducer tests (node:test)
-npm start            # single process serving dist/ + /api + /ws on :8080
+pnpm build        # type-check both projects + production build into dist/
+pnpm test         # reducer tests (node:test)
+pnpm start        # single process serving dist/ + /api + /ws on :8080
 ```
 
 `docker compose up` does the same with both in containers.
@@ -195,12 +195,12 @@ the optimistic change back.
 ### The isomorphic boundary
 
 `checkTransition` and `buildIndex` have to run on the client *and* the server, so this is
-one npm package with two TypeScript projects rather than a workspace. Server-reachable
+one package with two TypeScript projects rather than a workspace. Server-reachable
 modules are `src/shared/**`, `src/model/**`, `src/state/graph.ts` and `src/data/menu.ts`;
 they may not import React or DOM APIs, and their relative imports must carry explicit
 `.ts` extensions. [tsconfig.server.json](tsconfig.server.json) has no DOM lib and no
 `jsx`, and lists those paths explicitly — so a stray `document.` in shared code fails
-`npm run build` instead of at runtime.
+`pnpm build` instead of at runtime.
 
 The server has no build step: Node 24 runs the `.ts` files directly by stripping types.
 That is why `erasableSyntaxOnly` is on.

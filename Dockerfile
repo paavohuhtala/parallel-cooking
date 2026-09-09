@@ -2,10 +2,11 @@
 # server build output — the runtime stage ships src/ alongside the built client.
 FROM node:24-alpine AS build
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
+RUN corepack enable
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 COPY . .
-RUN npm run build
+RUN pnpm run build
 
 FROM node:24-alpine AS runtime
 WORKDIR /app
@@ -13,10 +14,13 @@ ENV NODE_ENV=production \
     DATA_DIR=/data \
     PORT=8080
 
-COPY package.json package-lock.json ./
-# Only `ws` and the hono packages survive --omit=dev; the client's deps were
-# already bundled into dist/ by the build stage.
-RUN npm ci --omit=dev && npm cache clean --force
+RUN corepack enable
+COPY package.json pnpm-lock.yaml ./
+# Only `ws` and the hono packages survive --prod; the client's deps were
+# already bundled into dist/ by the build stage. pnpm hardlinks out of its
+# store into node_modules, so the store costs no extra bytes in this layer and
+# there is no download cache left to clean.
+RUN pnpm install --frozen-lockfile --prod
 
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/src ./src

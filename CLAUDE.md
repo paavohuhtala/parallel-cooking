@@ -12,12 +12,12 @@ decides when food reaches the table. Real-time and multi-user: everyone opens th
 ## Commands
 
 ```
-npm run dev:all    # server (:8080) + Vite (:5173) — Ctrl-C stops both
-npm run dev        # Vite alone; needs dev:server or /api gets ECONNREFUSED
-npm run build      # tsc -b (both projects) + vite build
-npm test           # node:test, reducer tests
-npm start          # production: one process serving dist/ + /api + /ws
-npm run check:bundle
+pnpm dev:all    # server (:8080) + Vite (:5173) — Ctrl-C stops both
+pnpm dev        # Vite alone; needs dev:server or /api gets ECONNREFUSED
+pnpm build      # tsc -b (both projects) + vite build
+pnpm test       # node:test, reducer tests
+pnpm start      # production: one process serving dist/ + /api + /ws
+pnpm check:bundle
 ```
 
 No linter; `tsc -b` is the gate. Env vars and deployment are in [README.md](README.md).
@@ -50,7 +50,7 @@ handle it in `applyCommand`, add a test, expose it on the store. The server need
 
 ### Isomorphic boundary
 
-One npm package, two TS projects (not a workspace) because `checkTransition` and
+One package, two TS projects (not a workspace) because `checkTransition` and
 `buildIndex` run on both sides. Server-reachable: `src/shared/**`, `src/model/**`,
 `src/state/graph.ts`, `src/data/menu.ts`. No React or DOM there, and relative imports
 **must** carry explicit `.ts` extensions. [tsconfig.server.json](tsconfig.server.json) has
@@ -89,3 +89,8 @@ in [constants.ts](src/shared/constants.ts) so the client's only edge into schema
 - Basic auth covers the socket via a cookie (browsers can't set headers on a `WebSocket`).
   Two call sites, one shared check function — keep it that way.
 - **One replica only**: SQLite is a single writer and the fan-out is in-process.
+- pnpm (pinned by `packageManager`, enabled via corepack in the Dockerfile and
+  compose). It blocks install scripts by default: a new dep with a postinstall stays
+  silently unbuilt until it is listed in `pnpm.onlyBuiltDependencies` — `esbuild` is
+  there for that reason. Its `node_modules` is strict, so anything imported has to be
+  a real dependency; nothing transitive is hoisted into reach.
