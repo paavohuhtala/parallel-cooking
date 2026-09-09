@@ -1,11 +1,11 @@
 import {
   useCallback,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type PointerEvent,
-  type WheelEvent,
 } from 'react'
 import { STATIONS } from '../model/types'
 import { recordOf, statusMap, statusOf } from '../state/graph'
@@ -15,6 +15,8 @@ import { useStore } from '../state/store'
 import { STATUS_LABEL } from '../components/StepControls'
 
 const MIN_FIT = 0.5
+const MIN_SCALE = 0.35
+const MAX_SCALE = 2.2
 
 /** Single-step cards keep the old two-line look; chains grow a row per step. */
 const SINGLE_H = 66
@@ -29,6 +31,19 @@ interface Viewport {
   x: number
   y: number
   scale: number
+}
+
+/**
+ * Zoom by `factor` around the canvas point (cx, cy), which stays put under the
+ * cursor. The group transform is `translate(x y) scale(s)`, so a graph point
+ * lands at `p * s + (x, y)`; pinning one screen point across the scale change
+ * gives the new offset. Deriving the ratio from the clamped scale rather than
+ * from `factor` keeps the view still once it hits a zoom limit.
+ */
+function zoomAbout(v: Viewport, factor: number, cx: number, cy: number): Viewport {
+  const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, v.scale * factor))
+  const ratio = scale / v.scale
+  return { scale, x: cx - (cx - v.x) * ratio, y: cy - (cy - v.y) * ratio }
 }
 
 export function GraphView({
@@ -127,11 +142,31 @@ export function GraphView({
   const endDrag = () => {
     drag.current = null
   }
-  const onWheel = (e: WheelEvent<SVGSVGElement>) => {
-    const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12
+
+  /** Zoom from the toolbar buttons, which have no cursor to aim at. */
+  const zoomFromCentre = (factor: number) => {
+    const box = svgRef.current?.getBoundingClientRect()
     touched.current = true
-    setView((v) => ({ ...v, scale: Math.min(2.2, Math.max(0.35, v.scale * factor)) }))
+    setView((v) => zoomAbout(v, factor, (box?.width ?? 0) / 2, (box?.height ?? 0) / 2))
   }
+
+  // The wheel handler has to be a native, non-passive listener: React registers
+  // `onWheel` passively at the root, so `preventDefault` there is ignored and
+  // the workspace scrolls out from under the zoom.
+  useEffect(() => {
+    const el = svgRef.current
+    if (!el) return
+    const onWheel = (e: globalThis.WheelEvent) => {
+      e.preventDefault()
+      const box = el.getBoundingClientRect()
+      touched.current = true
+      setView((v) =>
+        zoomAbout(v, e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX - box.left, e.clientY - box.top),
+      )
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
 
   const merged = chainIndex.chains.filter((c) => c.stepIds.length > 1).length
 
@@ -143,19 +178,13 @@ export function GraphView({
         </button>
         <button
           className="btn btn-ghost"
-          onClick={() => {
-            touched.current = true
-            setView((v) => ({ ...v, scale: Math.min(2.2, v.scale * 1.15) }))
-          }}
+          onClick={() => zoomFromCentre(1.15)}
         >
           +
         </button>
         <button
           className="btn btn-ghost"
-          onClick={() => {
-            touched.current = true
-            setView((v) => ({ ...v, scale: Math.max(0.35, v.scale / 1.15) }))
-          }}
+          onClick={() => zoomFromCentre(1 / 1.15)}
         >
           −
         </button>
@@ -189,7 +218,6 @@ export function GraphView({
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
         onPointerLeave={endDrag}
-        onWheel={onWheel}
       >
         <g transform={`translate(${view.x} ${view.y}) scale(${view.scale})`}>
           {layout.edges.map((edge) => {
