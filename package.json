@@ -13,7 +13,7 @@
     "check:bundle": "grep -rlq ZodDiscriminatedUnion dist/assets/ && (echo 'zod leaked into the client bundle' && exit 1) || echo 'bundle clean'",
     "dev:server": "node --watch src/server/main.ts",
     "start": "node src/server/main.ts",
-    "dev:all": "trap 'kill 0' EXIT INT TERM; node --watch src/server/main.ts & vite"
+    "dev:all": "node scripts/dev-all.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",

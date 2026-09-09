@@ -89,6 +89,10 @@ in [constants.ts](src/shared/constants.ts) so the client's only edge into schema
 - Basic auth covers the socket via a cookie (browsers can't set headers on a `WebSocket`).
   Two call sites, one shared check function — keep it that way.
 - **One replica only**: SQLite is a single writer and the fan-out is in-process.
+- `dev:all` is [scripts/dev-all.mjs](scripts/dev-all.mjs), not a shell one-liner: npm and
+  pnpm both run scripts through cmd.exe on Windows, where `;` separates arguments and
+  `&` runs the next command instead of backgrounding. The old one-liner started Vite
+  without the server, so every `/api` call came back ECONNREFUSED through the proxy.
 - pnpm (pinned by `packageManager`, enabled via corepack in the Dockerfile and
   compose). It blocks install scripts by default: a new dep with a postinstall stays
   silently unbuilt until it is listed in `pnpm.onlyBuiltDependencies` — `esbuild` is
