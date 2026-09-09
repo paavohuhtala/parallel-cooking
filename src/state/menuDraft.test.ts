@@ -211,16 +211,3 @@ test('merging a converted recipe appends its course and focuses it', () => {
   assert.equal(focus, rowKey('course', menu.courses[1].id))
   assert.deepEqual(buildIndex(menu).problems, [])
 })
-
-test('there is no way to convert a step into a component, or back', () => {
-  // A component is a noun and a step is a verb; converting between them is a
-  // category error, so the action simply does not exist. This test exists to
-  // make bringing one back a deliberate decision rather than an oversight.
-  const actions: string[] = [
-    'rename_menu', 'rename', 'set_note', 'set_detail', 'set_station', 'toggle_hold',
-    'toggle_dep', 'toggle_use', 'add_ingredient', 'remove_ingredient', 'insert_after',
-    'delete_row', 'move', 'merge',
-  ]
-  const forbidden = ['promote_step', 'demote_component']
-  for (const name of forbidden) assert.ok(!actions.includes(name))
-})

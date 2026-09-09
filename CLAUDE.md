@@ -73,10 +73,11 @@ validate a draft on every keystroke) and shape validation in
 [menuSchema.ts](src/shared/menuSchema.ts) (zod, server-only). The outliner's structural
 rules — auto-chaining, splicing on delete, merging a converted recipe in — are a pure
 reducer in [menuDraft.ts](src/state/menuDraft.ts), so they are unit tests rather than
-clicking. Two things are absent on purpose: **Tab never mutates** (it is the one key whose
-meaning everyone already knows, and a version that restructures the document means tabbing
-out of a field rewrites the recipe), and there is **no promote/demote between levels** —
-a dish is a noun and a step is a verb, so converting between them is a category error.
+clicking. Two constraints hold that reducer together: **Tab never mutates** — it is the one
+key whose meaning everyone already knows, and a version that restructures the document means
+tabbing out of a field rewrites the recipe — and rows are only ever created, moved and
+deleted **at their own level**, because a dish is a noun and a step is a verb, so an
+outliner's usual promote/demote between levels would be a category error.
 
 ### Isomorphic boundary
 

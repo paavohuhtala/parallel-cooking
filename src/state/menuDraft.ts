@@ -195,13 +195,12 @@ export interface DraftResult {
 }
 
 /**
- * Note what is deliberately absent: there is no promote/demote between levels.
+ * Rows are created, moved and deleted at the level they belong to.
  *
- * A course, a component and a step are three different kinds of thing, not
- * three depths of one thing — a component is a noun ("Kantarellikeitto") and a
- * step is a verb ("Pilko sipuli"). Turning one into the other is a category
- * error, however natural it looks in an outliner, so rows are created and
- * deleted at the level they belong to and never converted between levels.
+ * The three levels are three different kinds of thing rather than three depths
+ * of one thing — a component is a noun ("Kantarellikeitto"), a step is a verb
+ * ("Pilko sipuli") — so an outliner's usual promote/demote between levels would
+ * be a category error here however natural the gesture looks.
  */
 export function applyDraftAction(menu: Menu, action: MenuAction): DraftResult {
   const keep = (next: Menu, focus: string | null = null): DraftResult => ({ menu: next, focus })

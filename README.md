@@ -149,10 +149,10 @@ row at the same level, ↑/↓ move between rows, Alt+↑/↓ reorder, and Backs
 deletes it. Tab is left alone — it moves between controls, as everywhere else, and never
 changes the document.
 
-There is no promote/demote between levels. A course, a dish and a step are three different
-kinds of thing rather than three depths of one thing: a dish is a noun, a step is a verb,
-and converting one into the other is a category error however natural it looks in an
-outliner.
+Rows are created, moved and deleted at their own level. The three levels are three
+different kinds of thing rather than three depths of one thing — a dish is a noun, a step is
+a verb — so an outliner's usual promote/demote between levels would be a category error
+here.
 
 A new step automatically waits on the one above it in the same dish, so typing a recipe top
 to bottom produces a correct dependency chain and you only edit the exceptions — the forks
