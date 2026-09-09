@@ -3,3 +3,6 @@ dist
 data
 *.tsbuildinfo
 .playwright-mcp
+test-results
+playwright-report
+blob-report

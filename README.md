@@ -195,7 +195,8 @@ the optimistic change back.
 ### The isomorphic boundary
 
 `checkTransition` and `buildIndex` have to run on the client *and* the server, so this is
-one package with two TypeScript projects rather than a workspace. Server-reachable
+one package with two TypeScript projects rather than a workspace (three, counting the
+e2e tests). Server-reachable
 modules are `src/shared/**`, `src/model/**`, `src/state/graph.ts` and `src/data/menu.ts`;
 they may not import React or DOM APIs, and their relative imports must carry explicit
 `.ts` extensions. [tsconfig.server.json](tsconfig.server.json) has no DOM lib and no
@@ -213,6 +214,61 @@ development keeps *following* the template it came from, so editing that file an
 for steps that no longer exist. `MENU_FOLLOW_TEMPLATE` controls it; it defaults **off**
 under `NODE_ENV=production`, so a redeploy can never rewrite a dinner in progress. The
 first in-app menu edit (once there is an editor) will clear the flag for that room.
+
+## Tests
+
+`pnpm test` runs the reducer tests with `node:test` — `applyCommand` is the whole
+mutation surface, so it is worth testing directly. `pnpm e2e` runs the browser tests with
+Playwright. Chromium has to be downloaded once first:
+
+```
+pnpm e2e:install       # playwright install chromium
+pnpm e2e               # the suite, fully parallel
+pnpm e2e:ui            # the Playwright UI, for writing tests
+pnpm e2e:report        # the HTML report from the last run
+```
+
+### A backend per worker
+
+There is no `webServer` in [playwright.config.ts](playwright.config.ts). One shared
+server would be wrong twice over: the app is deliberately single-replica, so every worker
+would contend on one SQLite file, and every worker would see every other worker's rooms.
+
+Instead [e2e-tests/server.ts](e2e-tests/server.ts) starts a **real server process with a
+real database per worker** — the same `node src/server/main.ts` that `pnpm start` runs,
+pointed at a fresh `DATA_DIR` under the system temp directory and a port the OS picked.
+A worker-scoped fixture in [e2e-tests/pcTest.ts](e2e-tests/pcTest.ts) owns that process
+and hands its URL to `baseURL`, so `page.goto('/')` and the `request` fixture both reach
+the worker's own server. The database is deleted when the worker finishes.
+
+Within a worker the database *is* shared between tests, which is fine because the room is
+the unit of isolation: the `room` fixture creates one per test, named after the test.
+Two full suites can run at the same time without colliding.
+
+The client is built once in [e2e-tests/globalSetup.ts](e2e-tests/globalSetup.ts) and
+served from `dist/` by those servers, exactly as in production — no dev server and no
+proxy, so the WebSocket needs no test-only wiring.
+
+| Variable | Meaning |
+| --- | --- |
+| `E2E_SKIP_BUILD=1` | Reuse the existing `dist/` instead of rebuilding it. |
+| `E2E_SERVER_LOG=1` | Pipe each server's output through, prefixed with its port. |
+| `E2E_KEEP_DATA=1` | Keep the temporary `DATA_DIR`s for inspection. |
+
+### Page objects
+
+Tests talk to the UI through page objects in [e2e-tests/pom/](e2e-tests/pom/), not through
+raw selectors. A model exposes locators as `readonly` fields and higher-level moves as
+methods; `expect*` methods assert, `ensure*` methods make something true. Locators are
+built in the constructor body rather than in field initialisers — `useDefineForClassFields`
+is on, so a field initialiser would run before the constructor could store `page`.
+
+The REST API is used only to *arrange* a test ([testApiClient.ts](e2e-tests/testApiClient.ts));
+everything a cook does goes through a page object. Finnish text the tests match on lives in
+[labels.ts](e2e-tests/labels.ts) and [defaultMenu.ts](e2e-tests/defaultMenu.ts), so
+editing the menu does not mean grepping the specs.
+
+CI needs `pnpm exec playwright install --with-deps chromium` before `pnpm e2e`.
 
 ## Configuration
 

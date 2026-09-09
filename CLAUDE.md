@@ -14,13 +14,16 @@ decides when food reaches the table. Real-time and multi-user: everyone opens th
 ```
 pnpm dev:all    # server (:8080) + Vite (:5173) — Ctrl-C stops both
 pnpm dev        # Vite alone; needs dev:server or /api gets ECONNREFUSED
-pnpm build      # tsc -b (both projects) + vite build
+pnpm build      # tsc -b (all three projects) + vite build
 pnpm test       # node:test, reducer tests
+pnpm e2e        # Playwright, fully parallel; pnpm e2e:install once for Chromium
 pnpm start      # production: one process serving dist/ + /api + /ws
 pnpm check:bundle
 ```
 
-No linter; `tsc -b` is the gate. Env vars and deployment are in [README.md](README.md).
+No linter; `tsc -b` is the gate — it covers the e2e project too
+([tsconfig.e2e.json](tsconfig.e2e.json)). Env vars and deployment are in
+[README.md](README.md).
 
 ## Architecture
 
@@ -56,7 +59,8 @@ handle it in `applyCommand`, add a test, expose it on the store. The server need
 ### Isomorphic boundary
 
 One package, two TS projects (not a workspace) because `checkTransition` and
-`buildIndex` run on both sides. Server-reachable: `src/shared/**`, `src/model/**`,
+`buildIndex` run on both sides; a third, [tsconfig.e2e.json](tsconfig.e2e.json), covers
+the Playwright tests and takes types — never values — from `src`. Server-reachable: `src/shared/**`, `src/model/**`,
 `src/state/graph.ts`, `src/data/menu.ts`. No React or DOM there, and relative imports
 **must** carry explicit `.ts` extensions. [tsconfig.server.json](tsconfig.server.json) has
 no DOM lib and lists those paths explicitly, so a stray `document.` fails the build.
@@ -72,6 +76,22 @@ per room, refcounted with a grace window so StrictMode's remount doesn't churn i
 until `hello`, which keeps `menu` non-nullable — **the three views and step components are
 untouched by the server work; keep it that way.** Local-only: the start dialog, rejections,
 view tab, recent rooms, and the `me` cook id.
+
+### E2E tests
+
+[playwright.config.ts](playwright.config.ts) has **no `webServer`** on purpose. Each
+Playwright worker starts its own `node src/server/main.ts` with its own temp `DATA_DIR`
+([e2e-tests/server.ts](e2e-tests/server.ts)), and the worker-scoped fixture in
+[pcTest.ts](e2e-tests/pcTest.ts) feeds its URL to `baseURL` — one shared server would
+serialise the suite and leak rooms between workers. Ports come from the OS, so two suites
+can run at once. The client is built once in globalSetup and served from `dist/` by those
+servers, which is why there is no proxy in the picture.
+
+Tests drive the UI through page objects in [e2e-tests/pom/](e2e-tests/pom/) — locators as
+`readonly` fields, moves as methods, `expect*` to assert and `ensure*` to make true. New
+UI means extending a model, not reaching for a selector in a spec. Build locators in the
+constructor body: `useDefineForClassFields` means a field initialiser runs before the
+constructor can store `page`. The REST API is for arranging a test only.
 
 ## Tech choices
 
@@ -102,6 +122,9 @@ in [constants.ts](src/shared/constants.ts) so the client's only edge into schema
   Windows, which does not strip single quotes, so `'src/**/*.test.ts'` reached Node as a
   literal and matched nothing — reported as a green run of zero tests. Node expands the
   pattern itself, so it must arrive unexpanded but unquoted.
+- Playwright browsers are **not** downloaded by `pnpm install` — pnpm blocks install
+  scripts, and `playwright` downloads its browsers from one. `pnpm e2e:install` is the
+  explicit step; keep it out of `onlyBuiltDependencies` so a plain install stays light.
 - pnpm (pinned by `packageManager`, enabled via corepack in the Dockerfile and
   compose). It blocks install scripts by default: a new dep with a postinstall stays
   silently unbuilt until it is listed in `pnpm.onlyBuiltDependencies` — `esbuild` is
