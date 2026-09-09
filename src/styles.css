@@ -404,6 +404,7 @@ p {
   color: #fff;
   font-size: 0.68rem;
   font-weight: 600;
+  line-height: 1;
 }
 
 .cook-picker,
@@ -446,27 +447,36 @@ p {
   text-decoration: underline;
 }
 
-/* ------------------------------------------------------------- cooks panel */
+/* ------------------------------------------------------------- cooks modal */
 
-.cooks-panel {
-  flex: none;
-  margin: 0.75rem 1rem 0;
-  padding: 0.8rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+.cooks-list {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.9rem 0;
 }
+/*
+ * The border is always there — only its colour changes — so marking yourself
+ * moves nothing on the row.
+ */
 .cook-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 0.4rem;
+  padding: 0.35rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
 }
-.cooks-actions {
-  display: flex;
-  gap: 0.4rem;
-  margin-top: 0.6rem;
+.cook-row.is-me {
+  border-color: var(--done);
+}
+.cook-row input {
+  flex: 1;
+  min-width: 0;
+}
+.btn-me.is-active {
+  border-color: var(--done);
+  color: var(--done);
+  background: color-mix(in srgb, var(--done) 12%, transparent);
 }
 
 /* ------------------------------------------------------------ recipe view */
@@ -1017,6 +1027,27 @@ p {
 .modal h2 {
   margin-bottom: 0.15rem;
 }
+.modal-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.modal-sheet {
+  width: min(460px, 100%);
+}
+
+@media (max-width: 900px) {
+  .modal-sheet {
+    position: fixed;
+    inset: auto 0 0 0;
+    width: auto;
+    max-height: 85dvh;
+    overflow-y: auto;
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding-bottom: 1.5rem;
+  }
+}
 
 .modal-cooks {
   display: grid;
@@ -1263,25 +1294,4 @@ p {
   color: var(--critical);
   border-color: color-mix(in srgb, var(--critical) 45%, transparent);
   background: color-mix(in srgb, var(--critical) 12%, transparent);
-}
-
-/* "Which cook am I" — a per-browser choice, so it is styled as a toggle. */
-.cook-dot.as-button {
-  border: 2px solid transparent;
-  cursor: pointer;
-  font: inherit;
-  padding: 0;
-}
-
-.cook-row.is-me .cook-dot.as-button {
-  border-color: var(--text);
-  box-shadow: 0 0 0 2px var(--surface) inset;
-}
-
-.cook-row.is-me input {
-  font-weight: 700;
-}
-
-.cooks-hint {
-  padding: 0 12px 4px;
 }

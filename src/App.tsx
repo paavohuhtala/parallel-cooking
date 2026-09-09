@@ -13,7 +13,7 @@ type View = 'recipe' | 'graph' | 'board'
 
 const CONNECTION_LABEL: Record<'connecting' | 'online' | 'offline', string> = {
   connecting: 'Yhdistetään…',
-  online: 'Yhteydessä',
+  online: 'Verkossa',
   offline: 'Ei yhteyttä',
 }
 
@@ -104,8 +104,6 @@ export default function App() {
         </div>
       </header>
 
-      {cooksOpen && <CooksPanel onClose={() => setCooksOpen(false)} />}
-
       {index.problems.length > 0 && (
         <div className="banner banner-error">
           <strong>Reseptidatassa on virhe:</strong> {index.problems.join(' ')}
@@ -169,53 +167,68 @@ export default function App() {
       </div>
 
       <StartDialog />
+      {cooksOpen && <CooksModal onClose={() => setCooksOpen(false)} />}
     </div>
   )
 }
 
-function CooksPanel({ onClose }: { onClose: () => void }) {
+function CooksModal({ onClose }: { onClose: () => void }) {
   const { state, addCook, renameCook, removeCook, me, setMe } = useStore()
   return (
-    <div className="cooks-panel">
-      <div className="cooks-list">
-        {state.cooks.map((cook) => (
-          <div key={cook.id} className={`cook-row${me === cook.id ? ' is-me' : ''}`}>
-            <button
-              className="cook-dot as-button"
-              style={{ background: cook.color }}
-              onClick={() => setMe(me === cook.id ? null : cook.id)}
-              title={me === cook.id ? 'Tämä olen minä' : 'Merkitse itsesi tähän'}
-              aria-pressed={me === cook.id}
-            >
-              {cook.name.trim().charAt(0).toUpperCase() || '?'}
-            </button>
-            <input
-              value={cook.name}
-              onChange={(e) => renameCook(cook.id, e.target.value)}
-              aria-label="Kokin nimi"
-            />
-            <button
-              className="btn btn-ghost icon"
-              onClick={() => removeCook(cook.id)}
-              aria-label={`Poista ${cook.name}`}
-              disabled={state.cooks.length <= 1}
-            >
-              ✕
-            </button>
-          </div>
-        ))}
-      </div>
-      <p className="muted cooks-hint">
-        Napauta väripalloa merkitäksesi kuka sinä olet — sen jälkeen vaiheet alkavat
-        suoraan sinun nimissäsi. Voit silti antaa tehtäviä muille.
-      </p>
-      <div className="cooks-actions">
-        <button className="btn" onClick={addCook}>
-          Lisää kokki
-        </button>
-        <button className="btn btn-ghost" onClick={onClose}>
-          Sulje
-        </button>
+    <div className="modal-backdrop" onClick={onClose}>
+      <div
+        className="modal modal-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Kokit"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-head">
+          <h2>Kokit</h2>
+          <button className="btn btn-ghost icon" onClick={onClose} aria-label="Sulje">
+            ✕
+          </button>
+        </div>
+
+        <div className="cooks-list">
+          {state.cooks.map((cook) => (
+            <div key={cook.id} className={`cook-row${me === cook.id ? ' is-me' : ''}`}>
+              <span className="cook-dot" style={{ background: cook.color }}>
+                {cook.name.trim().charAt(0).toUpperCase() || '?'}
+              </span>
+              <input
+                value={cook.name}
+                onChange={(e) => renameCook(cook.id, e.target.value)}
+                aria-label="Kokin nimi"
+              />
+              {/* Who *this browser* is: a per-cook toggle, so it needs no explaining. */}
+              <button
+                className={`btn btn-me${me === cook.id ? ' is-active' : ''}`}
+                onClick={() => setMe(me === cook.id ? null : cook.id)}
+                aria-pressed={me === cook.id}
+              >
+                Oon tää
+              </button>
+              <button
+                className="btn btn-ghost icon"
+                onClick={() => removeCook(cook.id)}
+                aria-label={`Poista ${cook.name}`}
+                disabled={state.cooks.length <= 1}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="modal-actions">
+          <button className="btn" onClick={addCook}>
+            Lisää kokki
+          </button>
+          <button className="btn btn-ghost" onClick={onClose}>
+            Sulje
+          </button>
+        </div>
       </div>
     </div>
   )
