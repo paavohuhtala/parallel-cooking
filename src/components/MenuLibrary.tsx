@@ -1,17 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import {
-  ApiError,
-  createMenu,
-  createRoom,
-  deleteMenu,
-  getMenu,
-  importMenu,
-  listMenus,
-} from '../api/client.ts'
-import type { MenuImportResponse, MenuSummary } from '../shared/api.ts'
+import { createMenu, createRoom, deleteMenu, getMenu, importMenu, listMenus } from '../api/client.ts'
+import type { MenuSummary } from '../shared/api.ts'
 import { toExportDoc } from '../shared/menuDoc.ts'
-import { MENU_PROMPT } from '../shared/menuPrompt.ts'
+import { MenuImportDialog } from './MenuImportDialog.tsx'
 
 /**
  * Menus you have written or imported, as opposed to the ones authored in code.
@@ -151,152 +143,20 @@ export function MenuLibrary() {
       )}
 
       {importing && (
-        <ImportDialog
+        <MenuImportDialog
+          title="Tuo menu"
+          acceptLabel="Tuo"
           onClose={() => setImporting(false)}
-          onImported={(id) => {
+          onAccept={async (menu) => {
+            // A canonical menu is itself a valid document, so the same endpoint
+            // stores it.
+            const created = await importMenu(menu, { name: menu.name })
             setImporting(false)
-            void open(id)
+            if (created.id) await open(created.id)
           }}
         />
       )}
     </section>
-  )
-}
-
-function ImportDialog({
-  onClose,
-  onImported,
-}: {
-  onClose: () => void
-  onImported: (id: string) => void
-}) {
-  const [text, setText] = useState('')
-  const [preview, setPreview] = useState<MenuImportResponse | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-
-  /** Parse here so a JSON typo reads as a JSON typo, not as a schema complaint. */
-  const parse = (): unknown => {
-    try {
-      return JSON.parse(text)
-    } catch (err) {
-      setError(`JSON ei jäsenny: ${err instanceof Error ? err.message : String(err)}`)
-      return undefined
-    }
-  }
-
-  const run = async (dryRun: boolean) => {
-    setError(null)
-    setPreview(null)
-    const doc = parse()
-    if (doc === undefined) return
-    setBusy(true)
-    try {
-      const result = await importMenu(doc, { dryRun })
-      if (dryRun) setPreview(result)
-      else if (result.id) onImported(result.id)
-    } catch (err) {
-      if (err instanceof ApiError && err.body && typeof err.body === 'object') {
-        const body = err.body as Partial<MenuImportResponse>
-        if (body.problems) setPreview(body as MenuImportResponse)
-      }
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const blocking = preview?.problems.filter((p) => p.severity === 'error') ?? []
-
-  return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div
-        className="modal modal-wide"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Tuo menu"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="modal-head">
-          <h2>Tuo menu</h2>
-          <button className="btn btn-ghost icon" onClick={onClose} aria-label="Sulje">
-            ✕
-          </button>
-        </div>
-
-        <p className="muted small">
-          Liitä JSON, tai valitse tiedosto. Muoto on kuvattu docs/menu-format.md:ssä.
-        </p>
-
-        <div className="import-tools">
-          <input
-            type="file"
-            accept="application/json,.json"
-            aria-label="Valitse JSON-tiedosto"
-            onChange={async (e) => {
-              const file = e.target.files?.[0]
-              if (file) setText(await file.text())
-            }}
-          />
-          <button
-            className="btn btn-ghost"
-            onClick={() => void navigator.clipboard.writeText(MENU_PROMPT).catch(() => {})}
-          >
-            Kopioi LLM-kehote
-          </button>
-        </div>
-
-        <textarea
-          className="import-text"
-          rows={10}
-          value={text}
-          aria-label="Menu JSON-muodossa"
-          placeholder='{ "name": "Illallinen", "courses": [ … ] }'
-          onChange={(e) => setText(e.target.value)}
-        />
-
-        {error && <p className="error">{error}</p>}
-
-        {preview && (
-          <div className={`banner ${blocking.length ? 'banner-error' : 'banner-ok'}`}>
-            <div>
-              {blocking.length === 0 && (
-                <p>
-                  {preview.menu.courses.length} ruokalajia · {preview.menu.components.length} osaa
-                  · {preview.menu.steps.length} vaihetta
-                </p>
-              )}
-              <ul className="plain-list">
-                {preview.problems.map((p, i) => (
-                  <li key={i}>{p.message}</li>
-                ))}
-                {preview.notes.map((n, i) => (
-                  <li key={`n${i}`} className="muted">
-                    {n}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        )}
-
-        <div className="modal-actions">
-          <button className="btn" disabled={busy || !text.trim()} onClick={() => void run(true)}>
-            Tarkista
-          </button>
-          <button
-            className="btn btn-primary"
-            disabled={busy || !text.trim() || blocking.length > 0}
-            onClick={() => void run(false)}
-          >
-            {busy ? 'Tuodaan…' : 'Tuo'}
-          </button>
-          <button className="btn btn-ghost" onClick={onClose}>
-            Peruuta
-          </button>
-        </div>
-      </div>
-    </div>
   )
 }
 

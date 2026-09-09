@@ -144,12 +144,19 @@ it is still useful; as a per-step badge it would claim more than it knows.
 Three ways in, all producing the same document:
 
 **The editor.** *Omat menut* on the landing page holds menus you have written or imported.
-Opening one gives a keyboard-first outliner over course → dish → step: Enter starts the
-next row, Tab folds a dish into the one above it, Shift+Tab lifts a step out into a dish of
-its own, Alt+↑/↓ reorders. A new step automatically waits on the one above it in the same
-dish, so typing a recipe top to bottom produces a correct dependency chain and you only
-edit the exceptions — the forks and the joins. A step whose dependencies you have edited by
-hand is never re-linked again.
+Opening one gives a keyboard-first outliner over course → dish → step: Enter starts the next
+row at the same level, ↑/↓ move between rows, Alt+↑/↓ reorder, and Backspace on an empty row
+deletes it. Tab is left alone — it moves between controls, as everywhere else, and never
+changes the document.
+
+There is no promote/demote between levels. A course, a dish and a step are three different
+kinds of thing rather than three depths of one thing: a dish is a noun, a step is a verb,
+and converting one into the other is a category error however natural it looks in an
+outliner.
+
+A new step automatically waits on the one above it in the same dish, so typing a recipe top
+to bottom produces a correct dependency chain and you only edit the exceptions — the forks
+and the joins. A step whose dependencies you have edited by hand is never re-linked again.
 
 Saving is explicit rather than per keystroke: a half-typed menu is routinely invalid, and
 every save is broadcast to everyone connected to a kitchen using that menu. Drafts are kept
@@ -163,6 +170,10 @@ never touches a dinner in progress.
 **Import and export.** Every menu exports as JSON and imports back, which is how a menu
 moves between two instances of the app. Import is deliberately forgiving — see
 [docs/menu-format.md](docs/menu-format.md).
+
+A recipe is the unit a model converts well, so a four-course dinner arrives as four separate
+documents. **Tuo ja yhdistä** in the editor appends one to the menu already open, re-keying
+any ids that collide, which is how the pieces become one menu.
 
 **In code.** [src/data/menu.ts](src/data/menu.ts) is still a menu template, and appending a
 `Course`, its `Component`s and their `Step`s there works as it always did. Nothing else

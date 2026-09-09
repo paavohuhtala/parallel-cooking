@@ -18,14 +18,14 @@
           }
         },
         "components": {
-          "description": "Litteä muoto. Käytä joko tätä tai ruokalajien sisäkkäisiä osia.",
+          "description": "Flat form. Use either this or the components nested inside courses.",
           "type": "array",
           "items": {
             "$ref": "#/$defs/Component"
           }
         },
         "steps": {
-          "description": "Litteä muoto. Käytä joko tätä tai osien sisäkkäisiä vaiheita.",
+          "description": "Flat form. Use either this or the steps nested inside components.",
           "type": "array",
           "items": {
             "$ref": "#/$defs/Step"
@@ -37,7 +37,7 @@
         "courses"
       ],
       "title": "Menu",
-      "description": "Monen ruokalajin illallinen, purettuna vaiheiksi ja niiden välisiksi riippuvuuksiksi. Kirjoita joko sisäkkäisessä tai litteässä muodossa."
+      "description": "A multi-course dinner broken into atomic steps and the dependencies between them. Write it nested or flat. All content text (names, titles, details, ingredients) is in Finnish; field names and station values are not."
     },
     "Course": {
       "type": "object",
@@ -49,7 +49,7 @@
           "pattern": "^[A-Za-z0-9_-]+$"
         },
         "order": {
-          "description": "Valinnainen. Puuttuessa se on ruokalajin järjestysnumero taulukossa.",
+          "description": "Optional; defaults to the course position in the array.",
           "type": "integer",
           "exclusiveMinimum": 0,
           "maximum": 9007199254740991
@@ -64,7 +64,7 @@
           "maxLength": 2000
         },
         "components": {
-          "description": "Sisäkkäinen muoto. Jätä pois, jos osat ovat menun juuressa.",
+          "description": "Nested form. Omit when the components live at the root of the menu.",
           "type": "array",
           "items": {
             "$ref": "#/$defs/Component"
@@ -74,8 +74,8 @@
       "required": [
         "name"
       ],
-      "title": "Ruokalaji",
-      "description": "Yksi tarjoiltava ruokalaji."
+      "title": "Ruokalaji (course)",
+      "description": "One course of the dinner."
     },
     "Component": {
       "type": "object",
@@ -87,7 +87,7 @@
           "pattern": "^[A-Za-z0-9_-]+$"
         },
         "courseId": {
-          "description": "Vain litteässä muodossa; sisäkkäisessä se tulee ympäröivästä ruokalajista.",
+          "description": "Flat form only; the nested form takes it from the enclosing course.",
           "type": "string",
           "minLength": 1,
           "maxLength": 60,
@@ -111,7 +111,7 @@
           "maxLength": 2000
         },
         "steps": {
-          "description": "Sisäkkäinen muoto. Jätä pois, jos vaiheet ovat menun juuressa.",
+          "description": "Nested form. Omit when the steps live at the root of the menu instead.",
           "type": "array",
           "items": {
             "$ref": "#/$defs/Step"
@@ -121,21 +121,21 @@
       "required": [
         "name"
       ],
-      "title": "Osa",
-      "description": "Yksi ruokalajin osa — käytännössä yksi ruoka tai lisuke."
+      "title": "Osa (component)",
+      "description": "One part of a course — in practice one dish or side."
     },
     "Step": {
       "type": "object",
       "properties": {
         "id": {
-          "description": "Valinnainen. Puuttuessa se johdetaan otsikosta.",
+          "description": "Optional; derived from the title when omitted.",
           "type": "string",
           "minLength": 1,
           "maxLength": 60,
           "pattern": "^[A-Za-z0-9_-]+$"
         },
         "componentId": {
-          "description": "Vain litteässä muodossa; sisäkkäisessä se tulee ympäröivästä osasta.",
+          "description": "Flat form only; the nested form takes it from the enclosing component.",
           "type": "string",
           "minLength": 1,
           "maxLength": 60,
@@ -145,16 +145,16 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 160,
-          "description": "Lyhyt käskymuoto, esim. \"Kuori ja pilko sipuli\"."
+          "description": "A short imperative, in Finnish. E.g. \"Kuori ja pilko sipuli\"."
         },
         "detail": {
-          "description": "Koko ohjeteksti. Kypsennysajat kuuluvat tänne — vaiheilla ei ole kestoa.",
+          "description": "The full instruction, in Finnish. Cooking times belong here — steps have no duration field.",
           "type": "string",
           "maxLength": 4000
         },
         "station": {
           "default": "muu",
-          "description": "Missä työ fyysisesti tapahtuu. Vain rajallinen välineistö kannattaa nimetä; kaikki muu (penkkityö, kylmävalmistelu, annostelu) on \"muu\".",
+          "description": "Where the work physically happens. Only name equipment several dishes might compete for; bench work, cold prep and plating are all \"muu\". liesi = stovetop, uuni = oven, grilli = grill, muu = anything else.",
           "type": "string",
           "enum": [
             "liesi",
@@ -165,7 +165,7 @@
         },
         "deps": {
           "default": [],
-          "description": "Vaiheet, joiden on oltava valmiita ennen tätä. Joko vaiheen tunnus tai sen otsikko sellaisenaan — otsikot ratkaistaan tunnuksiksi tuonnissa.",
+          "description": "Steps that must be finished before this one may start. Either a step id or a step title verbatim; titles are resolved to ids on import, and a title matching two steps is an error rather than a guess.",
           "type": "array",
           "items": {
             "type": "string",
@@ -173,7 +173,7 @@
           }
         },
         "uses": {
-          "description": "Tämän vaiheen kuluttamat ainekset; poimittu osan ainesluettelosta.",
+          "description": "Ingredients this step consumes, spelled exactly as in the component's ingredients list.",
           "type": "array",
           "items": {
             "type": "string",
@@ -181,15 +181,15 @@
           }
         },
         "holdPoint": {
-          "description": "Tosi, kun vaiheen voi tehdä hyvissä ajoin valmiiksi. Kaikki tämän jälkeen tuleva on viime hetken työtä.",
+          "description": "True when the step can be finished well ahead of service. Everything downstream of a hold point is last-minute work.",
           "type": "boolean"
         }
       },
       "required": [
         "title"
       ],
-      "title": "Vaihe",
-      "description": "Yksi atominen työsuoritus."
+      "title": "Vaihe (step)",
+      "description": "One atomic piece of work: what one cook must finish in one go."
     }
   }
 }

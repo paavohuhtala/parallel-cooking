@@ -71,8 +71,12 @@ about to replace.
 Menu semantics live in [menuDoc.ts](src/shared/menuDoc.ts) (zod-free, so the editor can
 validate a draft on every keystroke) and shape validation in
 [menuSchema.ts](src/shared/menuSchema.ts) (zod, server-only). The outliner's structural
-rules — auto-chaining, splicing on delete, promote/demote — are a pure reducer in
-[menuDraft.ts](src/state/menuDraft.ts), so they are unit tests rather than clicking.
+rules — auto-chaining, splicing on delete, merging a converted recipe in — are a pure
+reducer in [menuDraft.ts](src/state/menuDraft.ts), so they are unit tests rather than
+clicking. Two things are absent on purpose: **Tab never mutates** (it is the one key whose
+meaning everyone already knows, and a version that restructures the document means tabbing
+out of a field rewrites the recipe), and there is **no promote/demote between levels** —
+a dish is a noun and a step is a verb, so converting between them is a category error.
 
 ### Isomorphic boundary
 

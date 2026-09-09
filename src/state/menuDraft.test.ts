@@ -104,44 +104,6 @@ test('a cross-component dependency survives reordering', () => {
   assert.deepEqual(depsOf(moved, 'c'), ['b', 'plate'])
 })
 
-test('promoting a step turns it into a dish and takes the steps below it along', () => {
-  const { menu, focus } = applyDraftAction(base(), { type: 'promote_step', id: 'b' })
-  const created = menu.components.find((c) => c.id !== 'k1')!
-  assert.equal(created.name, 'B')
-  assert.equal(focus, rowKey('component', created.id))
-  // A stays behind; C moves under the new dish and starts it.
-  assert.deepEqual(
-    menu.steps.filter((s) => s.componentId === 'k1').map((s) => s.id),
-    ['a'],
-  )
-  assert.deepEqual(
-    menu.steps.filter((s) => s.componentId === created.id).map((s) => s.id),
-    ['c'],
-  )
-  // B stopped being work and became a heading, so C inherits what B was waiting
-  // for rather than losing the ordering the author typed. The dependency now
-  // crosses dishes, which is ordinary.
-  assert.deepEqual(depsOf(menu, 'c'), ['a'])
-  assert.deepEqual(buildIndex(menu).problems, [])
-})
-
-test('demoting a dish folds it back into the one above, as a step', () => {
-  const promoted = applyDraftAction(base(), { type: 'promote_step', id: 'b' }).menu
-  const created = promoted.components.find((c) => c.id !== 'k1')!
-  const { menu } = applyDraftAction(promoted, { type: 'demote_component', id: created.id })
-
-  assert.deepEqual(menu.components.map((c) => c.id), ['k1'])
-  const titles = menu.steps.filter((s) => s.componentId === 'k1').map((s) => s.title)
-  assert.deepEqual(titles, ['A', 'B', 'C'])
-  assert.deepEqual(buildIndex(menu).problems, [])
-})
-
-test('a dish with nothing above it cannot be demoted', () => {
-  const menu = run(base(), { type: 'demote_component', id: 'k1' })
-  assert.deepEqual(menu.components.map((c) => c.id), ['k1'])
-  assert.deepEqual(stepIds(menu), ['a', 'b', 'c'])
-})
-
 test('deleting a dish removes its steps and heals what depended on them', () => {
   const withService: Menu = {
     ...base(),
@@ -208,7 +170,6 @@ test('every action leaves the focused row present in the outline', () => {
     { type: 'insert_after', kind: 'course', id: 'c1' },
     { type: 'delete_row', kind: 'step', id: 'b' },
     { type: 'move', kind: 'step', id: 'c', delta: -1 },
-    { type: 'promote_step', id: 'b' },
   ]
   for (const action of actions) {
     const result = applyDraftAction(menu, action)
@@ -231,4 +192,35 @@ test('the outline lists rows in authoring order, course then dish then steps', (
 test('a new course is appended with the next order number', () => {
   const { menu } = applyDraftAction(base(), { type: 'insert_after', kind: 'course', id: 'c1' })
   assert.deepEqual(menu.courses.map((c) => c.order), [1, 2])
+})
+
+test('merging a converted recipe appends its course and focuses it', () => {
+  const incoming: Menu = {
+    name: 'Pääruoka',
+    courses: [{ id: 'c1', order: 1, name: 'Pääruoka' }],
+    components: [{ id: 'k1', courseId: 'c1', name: 'Paisti', ingredients: [] }],
+    steps: [{ id: 'a', componentId: 'k1', title: 'Paista', station: 'uuni', deps: [] }],
+  }
+  // Every id collides with the base menu; the merge has to re-key them.
+  const { menu, focus } = applyDraftAction(base(), { type: 'merge', incoming })
+
+  assert.deepEqual(menu.courses.map((c) => c.name), ['Alkupala', 'Pääruoka'])
+  assert.deepEqual(menu.courses.map((c) => c.order), [1, 2])
+  assert.equal(menu.name, 'Illallinen')
+  assert.equal(new Set(menu.steps.map((s) => s.id)).size, menu.steps.length)
+  assert.equal(focus, rowKey('course', menu.courses[1].id))
+  assert.deepEqual(buildIndex(menu).problems, [])
+})
+
+test('there is no way to convert a step into a component, or back', () => {
+  // A component is a noun and a step is a verb; converting between them is a
+  // category error, so the action simply does not exist. This test exists to
+  // make bringing one back a deliberate decision rather than an oversight.
+  const actions: string[] = [
+    'rename_menu', 'rename', 'set_note', 'set_detail', 'set_station', 'toggle_hold',
+    'toggle_dep', 'toggle_use', 'add_ingredient', 'remove_ingredient', 'insert_after',
+    'delete_row', 'move', 'merge',
+  ]
+  const forbidden = ['promote_step', 'demote_component']
+  for (const name of forbidden) assert.ok(!actions.includes(name))
 })

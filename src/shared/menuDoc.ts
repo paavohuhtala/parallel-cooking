@@ -430,3 +430,81 @@ export function toExportDoc(menu: Menu): Menu {
     })),
   }
 }
+
+/* ------------------------------------------------------------------- merge */
+
+/**
+ * Append one menu's courses onto another's.
+ *
+ * This is what makes the LLM path practical: a model converts one recipe at a
+ * time — that is the unit a recipe comes in, and the unit a model handles well
+ * — so a four-course dinner arrives as four separate documents that have never
+ * seen each other. Merging is what assembles them.
+ *
+ * The documents were authored independently, so their ids collide freely
+ * (`tarjoilu`, `osa-1`, and so on). Everything incoming is re-keyed away from
+ * ids already in use, and its dependencies are rewritten to match, so nothing
+ * silently binds to a step from the other recipe.
+ *
+ * Dependencies *between* the two menus cannot exist yet, by construction. Adding
+ * them — the service step that waits on all four courses — is what the editor is
+ * for once the pieces are in one place.
+ */
+export function mergeMenus(target: Menu, incoming: Menu): NormalizeResult {
+  const notes: string[] = []
+  const taken = new Set([
+    ...target.courses.map((c) => c.id),
+    ...target.components.map((c) => c.id),
+    ...target.steps.map((s) => s.id),
+  ])
+
+  const remap = new Map<string, string>()
+  const claim = (id: string): string => {
+    const next = uniqueId(id, taken)
+    taken.add(next)
+    if (next !== id) remap.set(id, next)
+    return next
+  }
+
+  // Courses, components and steps in one pass, so a collision anywhere is
+  // resolved before any dependency is rewritten.
+  const courses = incoming.courses.map((course) => ({ ...course, id: claim(course.id) }))
+  const components = incoming.components.map((component) => ({
+    ...component,
+    id: claim(component.id),
+  }))
+  const steps = incoming.steps.map((step) => ({ ...step, id: claim(step.id) }))
+
+  if (remap.size > 0) {
+    notes.push(`${remap.size} tunnusta nimettiin uudelleen, koska ne olivat jo käytössä.`)
+  }
+
+  const moved = (id: string) => remap.get(id) ?? id
+  const nextOrder = target.courses.reduce((max, c) => Math.max(max, c.order), 0)
+
+  return {
+    menu: {
+      name: target.name,
+      courses: [
+        ...target.courses,
+        ...courses.map((course, i) => ({ ...course, order: nextOrder + i + 1 })),
+      ],
+      components: [
+        ...target.components,
+        ...components.map((component) => ({
+          ...component,
+          courseId: moved(component.courseId),
+        })),
+      ],
+      steps: [
+        ...target.steps,
+        ...steps.map((step) => ({
+          ...step,
+          componentId: moved(step.componentId),
+          deps: step.deps.map(moved),
+        })),
+      ],
+    },
+    notes,
+  }
+}

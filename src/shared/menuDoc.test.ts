@@ -5,6 +5,7 @@ import { MENU } from '../data/menu.ts'
 import { buildIndex } from '../state/graph.ts'
 import {
   errorsOf,
+  mergeMenus,
   normalizeMenu,
   slugify,
   toExportDoc,
@@ -214,4 +215,83 @@ test('duplicate step ids are reported once, against the row that declares them',
   const duplicates = validateMenu(menu).filter((p) => p.code === 'duplicate_id')
   assert.equal(duplicates.length, 1)
   assert.deepEqual(duplicates[0].target, { kind: 'step', id: 'a' })
+})
+
+/** Two recipes converted separately, as an LLM produces them: one course each. */
+const soloMenu = (courseName: string, dish: string, steps: string[]) =>
+  normalizeMenu({
+    name: courseName,
+    courses: [
+      {
+        name: courseName,
+        components: [
+          {
+            name: dish,
+            ingredients: ['suolaa'],
+            steps: steps.map((title, i) => ({
+              title,
+              ...(i === 0 ? {} : { deps: [steps[i - 1]] }),
+            })),
+          },
+        ],
+      },
+    ],
+  }).menu
+
+test('two separately converted recipes merge into one menu, courses in order', () => {
+  const first = soloMenu('Alkupala', 'Keitto', ['Pilko', 'Keitä'])
+  const second = soloMenu('Pääruoka', 'Paisti', ['Mausta', 'Paista'])
+
+  const { menu } = mergeMenus(first, second)
+  assert.deepEqual(menu.courses.map((c) => c.name), ['Alkupala', 'Pääruoka'])
+  assert.deepEqual(menu.courses.map((c) => c.order), [1, 2])
+  assert.equal(menu.name, 'Alkupala') // the target keeps its own name
+  assert.equal(menu.steps.length, 4)
+  assert.deepEqual(errorsOf(validateMenu(menu)), [])
+})
+
+test('merging re-keys colliding ids and rewires the incoming dependencies', () => {
+  // Both documents were authored alone, so both call their dish "osa-1" and
+  // their steps the same slugs.
+  const first = soloMenu('Alkupala', 'Osa', ['Sama', 'Toinen'])
+  const second = soloMenu('Pääruoka', 'Osa', ['Sama', 'Toinen'])
+  assert.deepEqual(first.steps.map((s) => s.id), second.steps.map((s) => s.id))
+
+  const { menu, notes } = mergeMenus(first, second)
+  assert.equal(new Set(menu.steps.map((s) => s.id)).size, 4, 'ids must all be distinct')
+  assert.match(notes.join(' '), /nimettiin uudelleen/)
+
+  // The second course's chain still points inside the second course, not at the
+  // identically-named step of the first.
+  const secondCourse = menu.courses[1]
+  const own = menu.components.filter((c) => c.courseId === secondCourse.id).map((c) => c.id)
+  const ownSteps = menu.steps.filter((s) => own.includes(s.componentId))
+  assert.equal(ownSteps.length, 2)
+  assert.deepEqual(ownSteps[1].deps, [ownSteps[0].id])
+  assert.deepEqual(errorsOf(validateMenu(menu)), [])
+})
+
+test('merging a multi-course document appends all of its courses', () => {
+  const target = soloMenu('Alkupala', 'Keitto', ['Pilko'])
+  const incoming = normalizeMenu({
+    name: 'Loput',
+    courses: [
+      { name: 'Pääruoka', components: [{ name: 'A', steps: [{ title: 'Yksi' }] }] },
+      { name: 'Jälkiruoka', components: [{ name: 'B', steps: [{ title: 'Kaksi' }] }] },
+    ],
+  }).menu
+
+  const { menu } = mergeMenus(target, incoming)
+  assert.deepEqual(menu.courses.map((c) => c.name), ['Alkupala', 'Pääruoka', 'Jälkiruoka'])
+  assert.deepEqual(menu.courses.map((c) => c.order), [1, 2, 3])
+  assert.deepEqual(errorsOf(validateMenu(menu)), [])
+})
+
+test('merging into an empty menu is just the incoming menu', () => {
+  const empty: Menu = { name: 'Tyhjä', courses: [], components: [], steps: [] }
+  const incoming = soloMenu('Alkupala', 'Keitto', ['Pilko', 'Keitä'])
+  const { menu } = mergeMenus(empty, incoming)
+  assert.equal(menu.name, 'Tyhjä')
+  assert.deepEqual(menu.steps.map((s) => s.title), ['Pilko', 'Keitä'])
+  assert.deepEqual(errorsOf(validateMenu(menu)), [])
 })

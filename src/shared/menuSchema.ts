@@ -29,22 +29,26 @@ const StationSchema = z
   .default('muu')
   .meta({
     description:
-      'Missä työ fyysisesti tapahtuu. Vain rajallinen välineistö kannattaa nimetä; ' +
-      'kaikki muu (penkkityö, kylmävalmistelu, annostelu) on "muu".',
+      'Where the work physically happens. Only name equipment several dishes might ' +
+      'compete for; bench work, cold prep and plating are all "muu". ' +
+      'liesi = stovetop, uuni = oven, grilli = grill, muu = anything else.',
   })
 
 const StepSchema = z
   .object({
     id: Id.optional().meta({
-      description: 'Valinnainen. Puuttuessa se johdetaan otsikosta.',
+      description: 'Optional; derived from the title when omitted.',
     }),
     componentId: Id.optional().meta({
-      description: 'Vain litteässä muodossa; sisäkkäisessä se tulee ympäröivästä osasta.',
+      description: 'Flat form only; the nested form takes it from the enclosing component.',
     }),
-    title: Title.meta({ description: 'Lyhyt käskymuoto, esim. "Kuori ja pilko sipuli".' }),
+    title: Title.meta({
+      description: 'A short imperative, in Finnish. E.g. "Kuori ja pilko sipuli".',
+    }),
     detail: z.string().max(4000).optional().meta({
       description:
-        'Koko ohjeteksti. Kypsennysajat kuuluvat tänne — vaiheilla ei ole kestoa.',
+        'The full instruction, in Finnish. Cooking times belong here — steps have no ' +
+        'duration field.',
     }),
     station: StationSchema,
     deps: z
@@ -52,52 +56,59 @@ const StepSchema = z
       .default([])
       .meta({
         description:
-          'Vaiheet, joiden on oltava valmiita ennen tätä. Joko vaiheen tunnus tai ' +
-          'sen otsikko sellaisenaan — otsikot ratkaistaan tunnuksiksi tuonnissa.',
+          'Steps that must be finished before this one may start. Either a step id or a ' +
+          'step title verbatim; titles are resolved to ids on import, and a title ' +
+          'matching two steps is an error rather than a guess.',
       }),
     uses: z.array(z.string().trim().min(1)).optional().meta({
-      description: 'Tämän vaiheen kuluttamat ainekset; poimittu osan ainesluettelosta.',
+      description:
+        "Ingredients this step consumes, spelled exactly as in the component's " +
+        'ingredients list.',
     }),
     holdPoint: z.boolean().optional().meta({
       description:
-        'Tosi, kun vaiheen voi tehdä hyvissä ajoin valmiiksi. Kaikki tämän jälkeen ' +
-        'tuleva on viime hetken työtä.',
+        'True when the step can be finished well ahead of service. Everything ' +
+        'downstream of a hold point is last-minute work.',
     }),
   })
-  .meta({ id: 'Step', title: 'Vaihe', description: 'Yksi atominen työsuoritus.' })
+  .meta({
+    id: 'Step',
+    title: 'Vaihe (step)',
+    description: 'One atomic piece of work: what one cook must finish in one go.',
+  })
 
 const ComponentSchema = z
   .object({
     id: Id.optional(),
     courseId: Id.optional().meta({
-      description: 'Vain litteässä muodossa; sisäkkäisessä se tulee ympäröivästä ruokalajista.',
+      description: 'Flat form only; the nested form takes it from the enclosing course.',
     }),
     name: z.string().trim().min(1).max(120),
     ingredients: z.array(z.string().trim().min(1)).default([]),
     note: z.string().max(2000).optional(),
     steps: z.array(StepSchema).optional().meta({
-      description: 'Sisäkkäinen muoto. Jätä pois, jos vaiheet ovat menun juuressa.',
+      description: 'Nested form. Omit when the steps live at the root of the menu instead.',
     }),
   })
   .meta({
     id: 'Component',
-    title: 'Osa',
-    description: 'Yksi ruokalajin osa — käytännössä yksi ruoka tai lisuke.',
+    title: 'Osa (component)',
+    description: 'One part of a course — in practice one dish or side.',
   })
 
 const CourseSchema = z
   .object({
     id: Id.optional(),
     order: z.number().int().positive().optional().meta({
-      description: 'Valinnainen. Puuttuessa se on ruokalajin järjestysnumero taulukossa.',
+      description: 'Optional; defaults to the course position in the array.',
     }),
     name: z.string().trim().min(1).max(120),
     note: z.string().max(2000).optional(),
     components: z.array(ComponentSchema).optional().meta({
-      description: 'Sisäkkäinen muoto. Jätä pois, jos osat ovat menun juuressa.',
+      description: 'Nested form. Omit when the components live at the root of the menu.',
     }),
   })
-  .meta({ id: 'Course', title: 'Ruokalaji', description: 'Yksi tarjoiltava ruokalaji.' })
+  .meta({ id: 'Course', title: 'Ruokalaji (course)', description: 'One course of the dinner.' })
 
 /**
  * Both accepted shapes in one object rather than a union of two: a root `anyOf`
@@ -110,18 +121,19 @@ export const MenuDocSchema = z
     name: z.string().trim().min(1).max(120),
     courses: z.array(CourseSchema).min(1),
     components: z.array(ComponentSchema).optional().meta({
-      description: 'Litteä muoto. Käytä joko tätä tai ruokalajien sisäkkäisiä osia.',
+      description: 'Flat form. Use either this or the components nested inside courses.',
     }),
     steps: z.array(StepSchema).optional().meta({
-      description: 'Litteä muoto. Käytä joko tätä tai osien sisäkkäisiä vaiheita.',
+      description: 'Flat form. Use either this or the steps nested inside components.',
     }),
   })
   .meta({
     id: 'Menu',
     title: 'Menu',
     description:
-      'Monen ruokalajin illallinen, purettuna vaiheiksi ja niiden välisiksi ' +
-      'riippuvuuksiksi. Kirjoita joko sisäkkäisessä tai litteässä muodossa.',
+      'A multi-course dinner broken into atomic steps and the dependencies between ' +
+      'them. Write it nested or flat. All content text (names, titles, details, ' +
+      'ingredients) is in Finnish; field names and station values are not.',
   })
 
 export type MenuDocInput = z.infer<typeof MenuDocSchema>

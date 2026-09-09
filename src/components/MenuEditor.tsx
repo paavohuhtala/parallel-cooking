@@ -4,6 +4,7 @@ import type { MenuWriteResponse } from '../shared/api.ts'
 import { errorsOf, toExportDoc, validateMenu, type MenuProblem } from '../shared/menuDoc.ts'
 import { MENU_PROMPT } from '../shared/menuPrompt.ts'
 import { ApiError } from '../api/client.ts'
+import { MenuImportDialog } from './MenuImportDialog.tsx'
 import {
   applyDraftAction,
   dependencyCandidates,
@@ -54,6 +55,7 @@ export function MenuEditor({
   const [focus, setFocus] = useState<string | null>(null)
   const [openRow, setOpenRow] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [merging, setMerging] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
 
@@ -181,6 +183,11 @@ export function MenuEditor({
           onChange={(e) => dispatch({ type: 'rename_menu', value: e.target.value })}
         />
         <div className="editor-actions">
+          {/* One recipe at a time is how a model converts them, so assembling a
+              multi-course dinner means merging several documents into this one. */}
+          <button className="btn btn-ghost" onClick={() => setMerging(true)}>
+            Tuo ja yhdistä
+          </button>
           <button className="btn btn-ghost" onClick={() => void copyPrompt()}>
             Kopioi LLM-kehote
           </button>
@@ -228,9 +235,22 @@ export function MenuEditor({
         ))}
       </div>
 
+      {merging && (
+        <MenuImportDialog
+          title="Tuo ja yhdistä"
+          acceptLabel="Yhdistä"
+          onClose={() => setMerging(false)}
+          onAccept={(incoming) => {
+            dispatch({ type: 'merge', incoming })
+            setMerging(false)
+            setNote('Ruokalajit lisättiin. Tarkista ja tallenna.')
+          }}
+        />
+      )}
+
       <p className="muted small editor-hint">
-        Enter lisää rivin · Sarkain siirtää osan edelliseen · Vaihto+Sarkain nostaa vaiheen
-        omaksi osaksi · Alt+↑/↓ siirtää · Askelpalautin tyhjällä rivillä poistaa
+        Enter lisää rivin · ↑/↓ siirtyy rivien välillä · Alt+↑/↓ siirtää riviä ·
+        Askelpalautin tyhjällä rivillä poistaa
       </p>
     </div>
   )
@@ -309,17 +329,10 @@ function Row({
       }
       return
     }
-    // Tab only crosses the step/dish boundary; anywhere else it stays the
-    // ordinary "move to the next control", which is what people expect.
-    if (e.key === 'Tab' && !e.shiftKey && row.kind === 'component') {
-      e.preventDefault()
-      dispatch({ type: 'demote_component', id: row.id })
-      return
-    }
-    if (e.key === 'Tab' && e.shiftKey && row.kind === 'step') {
-      e.preventDefault()
-      dispatch({ type: 'promote_step', id: row.id })
-    }
+    // Tab is deliberately left alone. It is the one key every user already
+    // knows the meaning of — move to the next control — and a version of it
+    // that restructures the document means tabbing out of a field silently
+    // rewrites the recipe. Rows move with Alt+arrows and nothing else.
   }
 
   return (

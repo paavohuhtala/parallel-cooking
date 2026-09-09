@@ -15,6 +15,8 @@ export class MenuEditorModel {
   readonly dirtyFlag: Locator
   readonly problems: Locator
   readonly closeButton: Locator
+  readonly mergeButton: Locator
+  readonly importDialog: Locator
 
   constructor(page: Page) {
     // Locators are built here, not as field initialisers: `useDefineForClassFields`
@@ -26,6 +28,8 @@ export class MenuEditorModel {
     this.dirtyFlag = this.root.locator('.editor-dirty')
     this.problems = this.root.locator('.editor-problems')
     this.closeButton = this.root.getByRole('button', { name: 'Sulje' })
+    this.mergeButton = this.root.getByRole('button', { name: 'Tuo ja yhdistä' })
+    this.importDialog = page.getByRole('dialog', { name: 'Tuo ja yhdistä' })
   }
 
   /** The title input of a row, found by the text currently in it. */
@@ -85,6 +89,15 @@ export class MenuEditorModel {
 
   async deleteRow(title: string): Promise<void> {
     await this.root.getByRole('button', { name: `Poista ${title}` }).click()
+  }
+
+  /** Append another converted recipe to the menu that is open. */
+  async merge(doc: unknown): Promise<void> {
+    await this.mergeButton.click()
+    await expect(this.importDialog).toBeVisible()
+    await this.importDialog.getByLabel('Menu JSON-muodossa').fill(JSON.stringify(doc))
+    await this.importDialog.getByRole('button', { name: 'Yhdistä' }).click()
+    await expect(this.importDialog).toBeHidden()
   }
 
   async save(): Promise<void> {

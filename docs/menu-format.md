@@ -90,7 +90,7 @@ either can't parallelise anything or drowns you in trivia.
 | `id` | — | Derived from `title`. |
 | `componentId` | — | Flat form only. |
 | `detail` | — | The full instruction, including times. |
-| `station` | — | `liesi` \| `uuni` \| `grilli` \| `muu`. Defaults to `muu`. |
+| `station` | — | `liesi` (stovetop) \| `uuni` (oven) \| `grilli` (grill) \| `muu` (everything else). Defaults to `muu`. |
 | `deps` | — | Step ids **or step titles**. Defaults to `[]`. |
 | `uses` | — | Ingredients this step consumes; use the component's exact strings. |
 | `holdPoint` | — | `true` when the step can be finished well ahead of service. |
@@ -213,3 +213,8 @@ kept, even when a generated one would have wanted the same name.
 Paste [menu-prompt.md](menu-prompt.md) followed by the recipe, and import the JSON that
 comes back. The editor has a **Kopioi LLM-kehote** button that puts the same text on your
 clipboard.
+
+The prompt is written in English while the menu it asks for is in Finnish — models follow
+instructions in English noticeably more reliably, and the two are different audiences: the
+instructions are read by the model, the menu is read by cooks. The recipe you paste can be
+in any language.

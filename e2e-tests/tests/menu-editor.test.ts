@@ -246,3 +246,133 @@ test('declining the confirmation leaves the kitchen exactly as it was', async ({
   await editor.closeButton.click()
   await expect(row).toHaveClass(/status-active/)
 })
+
+/** One recipe converted on its own, which is the unit an LLM produces. */
+const course = (courseName: string, dish: string, steps: string[]) => ({
+  name: courseName,
+  courses: [
+    {
+      name: courseName,
+      components: [
+        {
+          name: dish,
+          ingredients: ['suolaa'],
+          steps: steps.map((title, i) => ({
+            title,
+            ...(i === 0 ? {} : { deps: [steps[i - 1]] }),
+          })),
+        },
+      ],
+    },
+  ],
+})
+
+test('several separately converted recipes assemble into one multi-course menu', async ({
+  page,
+  library,
+  editor,
+}) => {
+  await page.goto('/')
+  // Recipe one becomes the menu; the rest are merged into it, which is what
+  // converting a four-course dinner one recipe at a time actually looks like.
+  await library.import(course('Alkupala', 'Keitto', ['Pilko sipuli', 'Keitä liemi']))
+  await editor.expectOpen()
+
+  await editor.merge(course('Pääruoka', 'Paisti', ['Mausta liha', 'Paista uunissa']))
+  await editor.merge(course('Jälkiruoka', 'Jäätelö', ['Nostetaan pakkasesta']))
+
+  await editor.expectTitles([
+    'Alkupala',
+    'Keitto',
+    'Pilko sipuli',
+    'Keitä liemi',
+    'Pääruoka',
+    'Paisti',
+    'Mausta liha',
+    'Paista uunissa',
+    'Jälkiruoka',
+    'Jäätelö',
+    'Nostetaan pakkasesta',
+  ])
+  await editor.save()
+
+  // The assembled menu cooks: each course keeps its own chain.
+  await page.goto('/')
+  await library.startKitchen('Alkupala')
+  await expect(page.locator('.course')).toHaveCount(3)
+  const roast = page.locator('.step-row').filter({ hasText: 'Paista uunissa' })
+  const season = page.locator('.step-row').filter({ hasText: 'Mausta liha' })
+  await expect(roast).toHaveClass(/status-blocked/)
+  await season.getByRole('button', { name: 'Aloita' }).click()
+  await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
+  await season.getByRole('button', { name: 'Valmis' }).click()
+  await expect(roast).toHaveClass(/status-ready/)
+})
+
+test('merging two recipes that use the same names keeps their chains apart', async ({
+  page,
+  library,
+  editor,
+}) => {
+  await page.goto('/')
+  // Both documents were authored alone, so both slugify to the same ids.
+  await library.import(course('Alkupala', 'Osa', ['Pilko', 'Paista']))
+  await editor.merge(course('Pääruoka', 'Osa', ['Pilko', 'Paista']))
+  await editor.save()
+
+  await page.goto('/')
+  await library.startKitchen('Alkupala')
+  // Four distinct steps, not two collapsed pairs.
+  await expect(page.locator('.step-row')).toHaveCount(4)
+
+  // Finishing the first course's "Pilko" must not unblock the second course's
+  // "Paista" — that is exactly what an id collision would have caused.
+  const rows = page.locator('.step-row').filter({ hasText: 'Paista' })
+  await expect(rows).toHaveCount(2)
+  await expect(rows.nth(0)).toHaveClass(/status-blocked/)
+  await expect(rows.nth(1)).toHaveClass(/status-blocked/)
+
+  const firstPilko = page.locator('.step-row').filter({ hasText: 'Pilko' }).nth(0)
+  await firstPilko.getByRole('button', { name: 'Aloita' }).click()
+  await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
+  await firstPilko.getByRole('button', { name: 'Valmis' }).click()
+
+  // Exactly one of the two "Paista" steps became ready.
+  await expect(page.locator('.step-row.status-ready').filter({ hasText: 'Paista' })).toHaveCount(1)
+})
+
+test('tabbing through the editor never changes the recipe', async ({ page, library, editor }) => {
+  await page.goto('/')
+  await library.import({
+    name: 'Koskematon',
+    courses: [
+      {
+        name: 'Alkupala',
+        components: [
+          {
+            name: 'Keitto',
+            steps: [{ title: 'Pilko' }, { title: 'Keitä', deps: ['Pilko'] }],
+          },
+        ],
+      },
+    ],
+  })
+  const before = ['Alkupala', 'Keitto', 'Pilko', 'Keitä']
+  await editor.expectTitles(before)
+  await editor.expectClean()
+
+  // Tab is the one key everyone already knows: it moves between controls and
+  // must never restructure the document, forwards or backwards, at any level.
+  await editor.row('Ruokalaji', 'Alkupala').click()
+  for (let i = 0; i < 12; i++) await page.keyboard.press('Tab')
+  await editor.row('Osa', 'Keitto').click()
+  for (let i = 0; i < 12; i++) await page.keyboard.press('Tab')
+  await editor.step('Pilko').click()
+  for (let i = 0; i < 12; i++) await page.keyboard.press('Shift+Tab')
+  await editor.row('Osa', 'Keitto').click()
+  for (let i = 0; i < 12; i++) await page.keyboard.press('Shift+Tab')
+
+  await editor.expectTitles(before)
+  // Nothing was touched at all, so there is nothing to save.
+  await editor.expectClean()
+})

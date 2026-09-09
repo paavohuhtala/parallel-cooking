@@ -1,4 +1,5 @@
 import type { Component, Course, Menu, Station, Step } from '../model/types.ts'
+import { mergeMenus } from '../shared/menuDoc.ts'
 
 /*
  * The outliner's reducer. Pure, DOM-free and React-free, so every structural
@@ -184,10 +185,8 @@ export type MenuAction =
   | { type: 'delete_row'; kind: RowKind; id: string }
   /** Alt+↑/↓ within siblings. */
   | { type: 'move'; kind: RowKind; id: string; delta: -1 | 1 }
-  /** Shift+Tab on a step: it becomes a component, taking the steps below it. */
-  | { type: 'promote_step'; id: string }
-  /** Tab on a component: it becomes a step of the component above it. */
-  | { type: 'demote_component'; id: string }
+  /** Append another menu's courses — one converted recipe at a time. */
+  | { type: 'merge'; incoming: Menu }
 
 export interface DraftResult {
   menu: Menu
@@ -196,12 +195,13 @@ export interface DraftResult {
 }
 
 /**
- * Tab and Shift+Tab only cross the step/component boundary.
+ * Note what is deliberately absent: there is no promote/demote between levels.
  *
- * Course-level restructuring is done with explicit buttons instead: converting
- * a course into a component would have to do something with the components it
- * already holds, and every answer to that silently destroys structure the user
- * typed. A keystroke should not be able to do that.
+ * A course, a component and a step are three different kinds of thing, not
+ * three depths of one thing — a component is a noun ("Kantarellikeitto") and a
+ * step is a verb ("Pilko sipuli"). Turning one into the other is a category
+ * error, however natural it looks in an outliner, so rows are created and
+ * deleted at the level they belong to and never converted between levels.
  */
 export function applyDraftAction(menu: Menu, action: MenuAction): DraftResult {
   const keep = (next: Menu, focus: string | null = null): DraftResult => ({ menu: next, focus })
@@ -340,11 +340,12 @@ export function applyDraftAction(menu: Menu, action: MenuAction): DraftResult {
     case 'move':
       return moveRow(menu, action.kind, action.id, action.delta)
 
-    case 'promote_step':
-      return promoteStep(menu, action.id)
+    case 'merge': {
+      const merged = mergeMenus(menu, action.incoming)
+      const firstNew = merged.menu.courses[menu.courses.length]
+      return keep(merged.menu, firstNew ? rowKey('course', firstNew.id) : null)
+    }
 
-    case 'demote_component':
-      return demoteComponent(menu, action.id)
   }
 }
 
@@ -501,97 +502,6 @@ function moveRow(menu: Menu, kind: RowKind, id: string, delta: -1 | 1): DraftRes
   const steps = menu.steps.map((s) => (s.componentId === source.componentId ? reordered[next++] : s))
 
   return { menu: { ...menu, steps: relink(steps, source.componentId, wasDefault) }, focus }
-}
-
-/**
- * Shift+Tab on a step: it becomes a component of its own, and the steps that
- * followed it move under it — the outliner reading of "promote", and the way
- * you split one dish into two once it turns out to be two.
- */
-function promoteStep(menu: Menu, id: string): DraftResult {
-  const step = menu.steps.find((s) => s.id === id)
-  if (!step) return { menu, focus: null }
-  const parent = menu.components.find((c) => c.id === step.componentId)
-  if (!parent) return { menu, focus: null }
-
-  const siblings = menu.steps.filter((s) => s.componentId === parent.id)
-  const at = siblings.findIndex((s) => s.id === id)
-  const following = siblings.slice(at + 1)
-
-  const component: Component = {
-    id: freshId('osa', allIds(menu)),
-    courseId: parent.courseId,
-    name: step.title,
-    ingredients: [],
-    ...(step.detail ? { note: step.detail } : {}),
-  }
-
-  const insertAtComponent = menu.components.findIndex((c) => c.id === parent.id) + 1
-  const components = [...menu.components]
-  components.splice(insertAtComponent, 0, component)
-
-  const movedIds = new Set(following.map((s) => s.id))
-  // The step itself is consumed by the heading it became; splice it out so the
-  // steps that depended on it inherit what it was waiting for.
-  const steps = spliceOut(
-    menu.steps.map((s) => (movedIds.has(s.id) ? { ...s, componentId: component.id } : s)),
-    new Set([id]),
-  )
-
-  const wasDefault = defaultChained({ ...menu, steps }, component.id)
-  return {
-    menu: { ...menu, components, steps: relink(steps, component.id, wasDefault) },
-    focus: rowKey('component', component.id),
-  }
-}
-
-/**
- * Tab on a component: it becomes the last step of the component above it, and
- * its own steps follow it there. The inverse of `promoteStep`, so a mistaken
- * Shift+Tab is one keystroke to undo.
- */
-function demoteComponent(menu: Menu, id: string): DraftResult {
-  const component = menu.components.find((c) => c.id === id)
-  if (!component) return { menu, focus: null }
-  const siblings = menu.components.filter((c) => c.courseId === component.courseId)
-  const at = siblings.findIndex((c) => c.id === id)
-  if (at <= 0) return { menu, focus: rowKey('component', id) } // nothing above to join
-  const target = siblings[at - 1]
-
-  const targetSteps = menu.steps.filter((s) => s.componentId === target.id)
-  const previousId = targetSteps.length ? targetSteps[targetSteps.length - 1].id : null
-
-  const heading: Step = {
-    id: freshId('vaihe', allIds(menu)),
-    componentId: target.id,
-    title: component.name,
-    station: 'muu',
-    deps: previousId ? [previousId] : [],
-    ...(component.note ? { detail: component.note } : {}),
-  }
-
-  const own = menu.steps.filter((s) => s.componentId === id)
-  const others = menu.steps.filter((s) => s.componentId !== id)
-  const lastOfTarget = others.map((s) => s.componentId).lastIndexOf(target.id)
-  const insertAt = lastOfTarget === -1 ? others.length : lastOfTarget + 1
-
-  const moved = own.map((s) => ({ ...s, componentId: target.id }))
-  const steps = [...others]
-  steps.splice(insertAt, 0, heading, ...moved)
-
-  // The first moved step used to start its own dish; it now follows the heading.
-  const relinked = steps.map((s) =>
-    s.id === moved[0]?.id && onDefaultChain(s, null) ? { ...s, deps: [heading.id] } : s,
-  )
-
-  return {
-    menu: {
-      ...menu,
-      components: menu.components.filter((c) => c.id !== id),
-      steps: relinked,
-    },
-    focus: rowKey('step', heading.id),
-  }
 }
 
 /* -------------------------------------------------------------------- deps */
