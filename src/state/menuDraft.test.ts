@@ -211,3 +211,89 @@ test('merging a converted recipe appends its course and focuses it', () => {
   assert.equal(focus, rowKey('course', menu.courses[1].id))
   assert.deepEqual(buildIndex(menu).problems, [])
 })
+
+/* ------------------------------------------------ the tail rows: first child */
+
+test('an empty course can be given its first dish', () => {
+  const empty: Menu = { name: 'Tyhjä', courses: [{ id: 'c1', order: 1, name: 'K' }], components: [], steps: [] }
+  const { menu, focus } = applyDraftAction(empty, { type: 'insert_child', kind: 'course', id: 'c1' })
+  assert.equal(menu.components.length, 1)
+  assert.equal(menu.components[0].courseId, 'c1')
+  assert.deepEqual(menu.components[0].ingredients, [])
+  assert.equal(focus, rowKey('component', menu.components[0].id))
+})
+
+test('an empty dish can be given its first step, which waits for nothing', () => {
+  const empty: Menu = {
+    name: 'Tyhjä',
+    courses: [{ id: 'c1', order: 1, name: 'K' }],
+    components: [{ id: 'k1', courseId: 'c1', name: 'Osa', ingredients: [] }],
+    steps: [],
+  }
+  const { menu, focus } = applyDraftAction(empty, { type: 'insert_child', kind: 'component', id: 'k1' })
+  assert.equal(menu.steps.length, 1)
+  assert.equal(menu.steps[0].componentId, 'k1')
+  assert.deepEqual(menu.steps[0].deps, [])
+  assert.equal(menu.steps[0].station, 'muu')
+  assert.equal(focus, rowKey('step', menu.steps[0].id))
+})
+
+test('a first step in a second dish is not chained to the first dish', () => {
+  const two = run(base(), { type: 'insert_after', kind: 'component', id: 'k1' })
+  const second = two.components[1].id
+  const { menu } = applyDraftAction(two, { type: 'insert_child', kind: 'component', id: second })
+  const added = menu.steps.find((s) => s.componentId === second)!
+  assert.deepEqual(added.deps, [])
+  assert.deepEqual(buildIndex(menu).problems, [])
+})
+
+test('adding to a dish that already has steps appends and auto-chains', () => {
+  // The tail row is "Enter on the last step", so it must chain like one.
+  const { menu, focus } = applyDraftAction(base(), { type: 'insert_child', kind: 'component', id: 'k1' })
+  const added = menu.steps[menu.steps.length - 1]
+  assert.deepEqual(added.deps, ['c'])
+  assert.equal(focus, rowKey('step', added.id))
+})
+
+test('adding to a course that already has dishes appends a sibling at the end', () => {
+  const { menu, focus } = applyDraftAction(base(), { type: 'insert_child', kind: 'course', id: 'c1' })
+  assert.equal(menu.components.length, 2)
+  assert.equal(menu.components[1].courseId, 'c1')
+  assert.equal(focus, rowKey('component', menu.components[1].id))
+})
+
+test('a course can be added to a menu that has none left', () => {
+  const bare = run(base(), { type: 'delete_row', kind: 'course', id: 'c1' })
+  assert.deepEqual(bare.courses, [])
+  const { menu, focus } = applyDraftAction(bare, { type: 'add_course' })
+  assert.deepEqual(menu.courses.map((c) => c.order), [1])
+  assert.equal(focus, rowKey('course', menu.courses[0].id))
+})
+
+test('a whole menu can be built from nothing but the tail rows', () => {
+  let menu: Menu = { name: 'Alusta', courses: [], components: [], steps: [] }
+  const step = (action: MenuAction) => {
+    const result = applyDraftAction(menu, action)
+    menu = result.menu
+    return result.focus
+  }
+
+  step({ type: 'add_course' })
+  const courseId = menu.courses[0].id
+  step({ type: 'rename', kind: 'course', id: courseId, value: 'Alkupala' })
+  step({ type: 'insert_child', kind: 'course', id: courseId })
+  const componentId = menu.components[0].id
+  step({ type: 'rename', kind: 'component', id: componentId, value: 'Keitto' })
+  step({ type: 'insert_child', kind: 'component', id: componentId })
+  step({ type: 'rename', kind: 'step', id: menu.steps[0].id, value: 'Pilko' })
+  step({ type: 'insert_child', kind: 'component', id: componentId })
+  step({ type: 'rename', kind: 'step', id: menu.steps[1].id, value: 'Keitä' })
+
+  assert.deepEqual(
+    flattenMenu(menu).map((r) => `${r.depth}:${r.title}`),
+    ['0:Alkupala', '1:Keitto', '2:Pilko', '2:Keitä'],
+  )
+  // Typed top to bottom, so the chain is there without any dependency work.
+  assert.deepEqual(depsOf(menu, menu.steps[1].id), [menu.steps[0].id])
+  assert.deepEqual(buildIndex(menu).problems, [])
+})

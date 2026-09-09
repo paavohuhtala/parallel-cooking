@@ -6,6 +6,8 @@ import { expect, type Locator, type Page } from '@playwright/test'
  * Rows are addressed by their visible title through the dynamic `aria-label`
  * the editor puts on every title input — React does not reflect a controlled
  * input's value into the DOM attribute, so there is nothing else to match on.
+ * The same trick names each row's `⋯` menu and each list's tail row, so a move
+ * here reads as "the thing called X", never as a nth-child.
  */
 export class MenuEditorModel {
   readonly page: Page
@@ -17,6 +19,8 @@ export class MenuEditorModel {
   readonly closeButton: Locator
   readonly mergeButton: Locator
   readonly importDialog: Locator
+  readonly inspector: Locator
+  readonly addCourseButton: Locator
 
   constructor(page: Page) {
     // Locators are built here, not as field initialisers: `useDefineForClassFields`
@@ -27,9 +31,11 @@ export class MenuEditorModel {
     this.saveButton = this.root.getByRole('button', { name: 'Tallenna', exact: true })
     this.dirtyFlag = this.root.locator('.editor-dirty')
     this.problems = this.root.locator('.editor-problems')
-    this.closeButton = this.root.getByRole('button', { name: 'Sulje' })
+    this.closeButton = this.root.getByRole('button', { name: 'Sulje', exact: true })
     this.mergeButton = this.root.getByRole('button', { name: 'Tuo ja yhdistä' })
     this.importDialog = page.getByRole('dialog', { name: 'Tuo ja yhdistä' })
+    this.inspector = this.root.locator('.inspector')
+    this.addCourseButton = this.root.getByLabel('Lisää ruokalaji', { exact: true })
   }
 
   /** The title input of a row, found by the text currently in it. */
@@ -74,21 +80,130 @@ export class MenuEditorModel {
     await this.page.keyboard.press('Enter')
   }
 
-  async openDetails(stepTitle: string): Promise<void> {
-    await this.stepRow(stepTitle).getByRole('button', { name: `Tiedot: ${stepTitle}` }).click()
+  /* ------------------------------------------------------------ tail rows */
+
+  /**
+   * The "+ Osa" / "+ Vaihe" / "+ Ruokalaji" rows. Each leaves the cursor in
+   * the row it made, so `name` is typed straight into it.
+   */
+  async addCourse(name: string): Promise<void> {
+    await this.addCourseButton.click()
+    await this.page.keyboard.type(name)
   }
 
+  async addComponent(courseName: string, name: string): Promise<void> {
+    await this.root.getByLabel(`Lisää osa kohtaan ${courseName}`, { exact: true }).click()
+    await this.page.keyboard.type(name)
+  }
+
+  async addStep(componentName: string, title: string): Promise<void> {
+    await this.root.getByLabel(`Lisää vaihe kohtaan ${componentName}`, { exact: true }).click()
+    await this.page.keyboard.type(title)
+  }
+
+  /* -------------------------------------------------------- the row's menu */
+
+  /**
+   * Open a row's `⋯`, which is where everything but typing lives. Matched as a
+   * substring, so a spec can name a long step by the part that identifies it.
+   */
+  async openRowMenu(title: string): Promise<Locator> {
+    await this.root.getByLabel(`Toiminnot: ${title}`).click()
+    return this.page.getByRole('menu')
+  }
+
+  async openDetails(title: string): Promise<void> {
+    // A step wears its details on the station glyph; a course or a dish has
+    // nothing in that slot but its disclosure triangle, so it goes via ⋯.
+    const glyph = this.root.getByLabel(`Tiedot: ${title}`)
+    if (await glyph.count()) {
+      await glyph.click()
+    } else {
+      const menu = await this.openRowMenu(title)
+      await menu.getByRole('menuitem', { name: 'Tiedot' }).click()
+    }
+    await expect(this.inspector).toBeVisible()
+  }
+
+  async moveRow(title: string, direction: 'ylös' | 'alas'): Promise<void> {
+    const menu = await this.openRowMenu(title)
+    await menu.getByRole('menuitem', { name: `Siirrä ${direction}` }).click()
+  }
+
+  async deleteRow(title: string): Promise<void> {
+    const menu = await this.openRowMenu(title)
+    // The item is labelled with the row's name for a screen reader; inside an
+    // open menu there is only ever one of them.
+    await menu.getByRole('menuitem', { name: 'Poista' }).click()
+  }
+
+  async toggleCollapse(title: string, to: 'Näytä' | 'Piilota'): Promise<void> {
+    await this.root.getByLabel(`${to} sisältö: ${title}`, { exact: true }).click()
+  }
+
+  /* -------------------------------------------------------- the inspector */
+
   async setStation(stepTitle: string, station: string): Promise<void> {
-    await this.stepRow(stepTitle).getByRole('button', { name: station, exact: true }).click()
+    await this.openDetails(stepTitle)
+    await this.inspector.getByLabel(station, { exact: true }).click()
+  }
+
+  /**
+   * The inspector is a fixed column, so nothing inside it may take its width
+   * from its content — a long step title in a dependency chip, or as an option
+   * in the picker, would otherwise hand the panel a horizontal scrollbar.
+   *
+   * The picker is measured against the panel rather than just checking the
+   * scroll width, because a `select` is sized by its widest *option*: a step
+   * with nothing left to depend on has an empty picker that fits no matter what
+   * the CSS says, and an assertion that only ever saw one of those would pass
+   * while the panel was visibly broken.
+   */
+  async expectNoHorizontalOverflow(): Promise<void> {
+    await expect
+      .poll(() =>
+        this.inspector.evaluate((el) => {
+          const picker = el.querySelector('.dep-picker') as HTMLSelectElement | null
+          return {
+            panelOverflow: el.scrollWidth - el.clientWidth,
+            pageOverflow:
+              document.documentElement.scrollWidth - document.documentElement.clientWidth,
+            pickerFits: picker === null || picker.getBoundingClientRect().width <= el.clientWidth,
+          }
+        }),
+      )
+      .toEqual({ panelOverflow: 0, pageOverflow: 0, pickerFits: true })
+  }
+
+  /**
+   * The rendered distance between a field's label and the controls under it.
+   *
+   * Measured in pixels rather than read off `row-gap`, because the property can
+   * say 10px while nothing moves: a `<legend>` is not a flex item, so a gap on
+   * its fieldset applies to nothing, and an assertion on the declared value
+   * passes while the label sits flush against its own controls.
+   */
+  async labelSpacing(label: string): Promise<number | null> {
+    return this.inspector.evaluate((panel, label) => {
+      const el = [...panel.querySelectorAll('legend, .field > span')].find(
+        (x) => x.textContent?.trim() === label,
+      )
+      const next = el?.parentElement?.querySelector('.chips, textarea, input')
+      if (!el || !next) return null
+      return Math.round(next.getBoundingClientRect().top - el.getBoundingClientRect().bottom)
+    }, label)
+  }
+
+  /** Guards the test above against going vacuous: an empty picker proves nothing. */
+  async expectDependencyOptions(atLeast: number): Promise<void> {
+    await expect
+      .poll(() => this.inspector.locator('.dep-picker option').count())
+      .toBeGreaterThanOrEqual(atLeast)
   }
 
   async addDependency(stepTitle: string, optionText: string): Promise<void> {
     await this.openDetails(stepTitle)
-    await this.root.getByLabel('Lisää riippuvuus').selectOption({ label: optionText })
-  }
-
-  async deleteRow(title: string): Promise<void> {
-    await this.root.getByRole('button', { name: `Poista ${title}` }).click()
+    await this.inspector.getByLabel('Lisää riippuvuus').selectOption({ label: optionText })
   }
 
   /** Append another converted recipe to the menu that is open. */

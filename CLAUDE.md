@@ -79,6 +79,21 @@ tabbing out of a field rewrites the recipe — and rows are only ever created, m
 deleted **at their own level**, because a dish is a noun and a step is a verb, so an
 outliner's usual promote/demote between levels would be a category error.
 
+The editor around that reducer is shaped by three rules, and the first two exist because
+"expand" otherwise means two things at once:
+
+- **The left glyph is the only disclosure.** On a course or a dish it shows or hides the
+  children and does nothing else. A step has no children, so its slot carries the station
+  instead — and opens the details.
+- **Details are never inline.** They live in the inspector — a column beside the outline on
+  a desktop, a sheet over it on a phone — so no second toggle competes with the first, and
+  the outline holds still while you edit a step.
+- **Every list ends in a tail row.** "+ Osa" / "+ Vaihe" / "+ Ruokalaji" are always there,
+  not only when a parent is empty. `insert_after` derives a new row's parent from a sibling,
+  so without `insert_child` behind those tails an empty course or dish is a dead end — and
+  they are what makes any of this work without a keyboard. Reordering and deleting sit in
+  the row's `⋯` for the same reason: `Alt+↑/↓` has no thumb equivalent.
+
 ### Isomorphic boundary
 
 One package, two TS projects (not a workspace) because `checkTransition` and

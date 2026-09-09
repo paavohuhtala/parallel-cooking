@@ -237,7 +237,10 @@ p {
   background: color-mix(in srgb, var(--critical) 16%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--critical) 45%, transparent);
 }
-.banner button {
+/* The dismiss button, pushed to the trailing edge. Direct child only: the
+   problem list nests buttons in an <li>, and an auto margin on a shrink-to-fit
+   block right-aligns each one, indenting every message by its own length. */
+.banner > button {
   margin-left: auto;
 }
 
@@ -1183,8 +1186,10 @@ p {
   padding: 0;
 }
 
+/* `.ingredient-add` opts out: it is a tag you type into, sitting in a row of
+   tags, not a form field — and this rule out-specifies its own. */
 .field input[type='text'],
-.field input:not([type]) {
+.field input:not([type]):not(.ingredient-add) {
   padding: 9px 11px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -1374,7 +1379,7 @@ p {
 /* ----------------------------------------------------------- menu editor */
 
 .editor-page {
-  max-width: 60rem;
+  max-width: 72rem;
   margin: 0 auto;
   padding: 1rem;
 }
@@ -1396,7 +1401,7 @@ p {
 }
 
 .editor {
-  max-width: 60rem;
+  max-width: 72rem;
   margin: 0 auto;
 }
 .editor-head {
@@ -1438,6 +1443,12 @@ p {
 .editor-hint {
   margin-top: 0.8rem;
 }
+/* The app shell's banners are full-bleed inside a flex column; the editor's sit
+   in the document flow, so they line up with the outline and own the gap down
+   to it rather than butting straight against the first row. */
+.editor > .banner {
+  margin: 0.1rem 0 0.9rem;
+}
 .editor-problems .plain-list {
   margin: 0;
 }
@@ -1447,19 +1458,32 @@ p {
   border: 1px solid color-mix(in srgb, var(--done) 40%, transparent);
 }
 
+.editor-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 21rem;
+  gap: 1rem;
+  align-items: start;
+}
+
 .outline {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
+}
+/* Rows and tail rows are both direct children, and both are indented by the
+   level they sit at — a tail row is a row of the kind it creates. */
+.outline > .depth-1 {
+  margin-left: 1.1rem;
+}
+.outline > .depth-2 {
+  margin-left: 2.2rem;
 }
 .outline-row {
   border-radius: 8px;
 }
-.outline-row.depth-1 {
-  margin-left: 1.1rem;
-}
-.outline-row.depth-2 {
-  margin-left: 2.2rem;
+.outline-row.is-selected {
+  background: color-mix(in srgb, var(--ready) 9%, transparent);
 }
 .outline-main {
   display: flex;
@@ -1467,12 +1491,53 @@ p {
   gap: 0.35rem;
   padding: 1px 0;
 }
-.outline-bullet {
-  width: 1rem;
-  text-align: center;
+
+/* The left slot: one glyph, one meaning. On a course or a dish it is the
+   disclosure triangle and nothing else; on a step it is the station, which is
+   the only thing a step's slot could usefully say. */
+.row-glyph {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
   color: var(--muted);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.outline-row:hover .row-glyph,
+.outline-row.is-selected .row-glyph {
+  color: var(--text);
+}
+.row-glyph:hover {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+/* `muu` is the unremarkable default and shows as a plain bullet: a menu has to
+   be scannable for what is actually competing for the stove. The bullet is
+   still the way into a step's details, so it needs enough weight to be seen. */
+.station-glyph {
+  font-size: 0.95rem;
+}
+.station-glyph.is-quiet {
+  font-size: 1.5rem;
+  color: var(--border);
+}
+.outline-row:hover .station-glyph.is-quiet,
+.outline-row.is-selected .station-glyph.is-quiet {
+  color: var(--muted);
+}
+.row-hidden {
   flex: none;
 }
+
 .outline-title {
   flex: 1 1 auto;
   min-width: 6rem;
@@ -1498,48 +1563,173 @@ p {
   font-weight: 600;
 }
 
-/* The station a step is actually on is always visible — otherwise a menu
-   cannot be scanned for what is competing for the stove. The other three
-   appear only while the row is hovered or focused, so a long outline still
-   reads as a list of titles rather than a wall of icons. `muu` is the
-   unremarkable default and stays hidden even when it is the one selected. */
-.outline-stations {
-  display: flex;
-  gap: 2px;
+/* Everything you can do to a row that is not typing in it lives behind one
+   button, so that delete is never adjacent to the thing you meant to press,
+   and so reordering exists for a thumb as well as for Alt+arrows. */
+.row-menu {
+  position: relative;
   flex: none;
 }
-.outline-stations .chip.station {
-  display: none;
-  padding: 0.15rem 0.35rem;
-  font-size: 0.85rem;
-  line-height: 1;
+.row-menu-open {
+  opacity: 0;
 }
-.outline-stations .chip.station.is-active:not(.is-quiet) {
-  display: inline-flex;
+.outline-row:hover .row-menu-open,
+.outline-row:focus-within .row-menu-open,
+.row-menu-open[aria-expanded='true'] {
+  opacity: 1;
 }
-/* `.chip.is-active` inverts to a dark fill, which turns an emoji into a blob.
-   A tinted ring marks the selection and leaves the icon readable. */
-.outline-stations .chip.station.is-active {
-  background: color-mix(in srgb, var(--ready) 16%, transparent);
-  border-color: color-mix(in srgb, var(--ready) 60%, transparent);
-  color: var(--text);
-}
-.outline-row:hover .outline-stations .chip.station,
-.outline-row:focus-within .outline-stations .chip.station {
-  display: inline-flex;
-}
-
-.outline-detail {
+.row-menu-list {
+  position: absolute;
+  top: calc(100% + 2px);
+  right: 0;
+  z-index: 30;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  margin: 0.3rem 0 0.6rem 1.35rem;
-  padding: 0.6rem;
+  min-width: 10rem;
+  padding: 0.25rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
+  box-shadow: 0 8px 30px rgb(0 0 0 / 0.25);
 }
-.outline-detail textarea {
+.row-menu-list button {
+  padding: 0.4rem 0.55rem;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+.row-menu-list button:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+.row-menu-list button:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+.row-menu-list button.is-danger {
+  color: var(--critical);
+}
+
+/* The tail rows. Present at the end of every list rather than only when the
+   parent is empty: one mechanic at all three levels, nothing to discover, and
+   the only route into a course or dish that has no children yet. */
+.outline-tail {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.5rem 0.28rem 0;
+  border: 1px dashed transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+.outline-tail:hover,
+.outline-tail:focus-visible {
+  border-color: var(--border);
+  color: var(--text);
+}
+.outline-tail.kind-course {
+  font-weight: 600;
+}
+
+/* The inspector: a column beside the outline on a desktop, a sheet over it on
+   a phone. Details never open inline, so the outline holds still while you
+   edit and the disclosure triangle keeps its single meaning. */
+.inspector {
+  position: sticky;
+  top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+  min-width: 0;
+  padding: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+}
+.inspector-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid var(--border);
+}
+.inspector-title {
+  font-size: 1rem;
+  margin: 0;
+}
+/* The panel says what it is looking at, and then each field says what it is,
+   in one voice: the same micro-label the kitchen's detail panel already uses,
+   so a heading is never two things at once. */
+.inspector-kind,
+.inspector .field > span,
+.inspector .field > legend {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/*
+ * The air under a label is the label's own margin, not the field's flex `gap`.
+ * A `<legend>` is not a flex item in any engine — a fieldset renders it outside
+ * its anonymous inner box — so a gap on the fieldset applies to nothing at all
+ * and Asema, Edellyttää and Tarvitaan sit flush against their controls, while
+ * the `<label>` fields above them look right because a `<span>` *is* a flex
+ * item. Verified in Chromium and Firefox; both measured 0px before this.
+ * A margin works for both kinds of label, so both use one.
+ *
+ * Fixed pixels rather than rem: this is spacing that should not grow with the
+ * font, and an uppercase micro-label needs more air than a sentence-case one,
+ * since the cap height runs the full line and 6px reads as touching.
+ */
+.inspector .field {
+  gap: 0;
+}
+.inspector .field > span,
+.inspector .field > legend {
+  margin-bottom: 10px;
+}
+.inspector .chips {
+  gap: 6px;
+}
+
+/* The panel is a fixed column, so nothing inside it may take its width from its
+   content — one long step title would otherwise push it wide and hand it a
+   horizontal scrollbar. Three separate things have to be said to get that:
+   a chip is `nowrap`; a `<fieldset>` carries a UA `min-inline-size: min-content`
+   that refuses to shrink and passes a wide child's demand up to the panel; and
+   a `select` is sized by its *widest option*, which a percentage `max-width`
+   cannot cap, because percentages count as indefinite while a browser is
+   measuring intrinsic width. Only a length clamps that one. */
+.inspector .field {
+  min-inline-size: 0;
+}
+.inspector .chips > * {
+  min-width: 0;
+  max-width: 100%;
+}
+.inspector .chips > .dep-picker {
+  max-width: 11rem;
+}
+.inspector .chip {
+  white-space: normal;
+  text-align: left;
+}
+
+.inspector textarea {
   padding: 0.4rem 0.5rem;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -1548,39 +1738,77 @@ p {
   font: inherit;
   resize: vertical;
 }
+/* On a desktop the panel simply follows the selection, so it has nothing to
+   close; the button is for the sheet. */
+.inspector-close {
+  display: none;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
   gap: 0.3rem;
   align-items: center;
 }
+/* Both adders are chips with a dashed edge — the shape says "another one of
+   these", so they have to carry the chip's own metrics exactly. */
 .dep-picker,
 .ingredient-add {
-  padding: 0.24rem 0.5rem;
+  padding: 0.25rem 0.7rem;
   border: 1px dashed var(--border);
   border-radius: 999px;
   background: transparent;
   color: var(--muted);
   font: inherit;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
 }
 .ingredient-add {
-  min-width: 8rem;
+  min-width: 7rem;
+  max-width: 100%;
+}
+.ingredient-add:focus,
+.dep-picker:focus {
+  outline: none;
+  border-style: solid;
+  border-color: var(--ready);
+  color: var(--text);
 }
 
-@media (max-width: 640px) {
-  .outline-row.depth-1 {
-    margin-left: 0.6rem;
+@media (max-width: 900px) {
+  .editor-body {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .outline-row.depth-2 {
-    margin-left: 1.2rem;
+  /* Nothing hovers on a phone, so the row's actions are simply always there. */
+  .row-menu-open {
+    opacity: 1;
   }
-  .outline-stations .chip.station {
+  .inspector {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 40;
+    max-height: 70dvh;
+    border-radius: var(--radius) var(--radius) 0 0;
+    box-shadow: 0 -8px 40px rgb(0 0 0 / 0.35);
+  }
+  .inspector:not(.is-open) {
+    display: none;
+  }
+  .inspector-close {
     display: inline-flex;
   }
 }
 
+@media (max-width: 640px) {
+  .outline > .depth-1 {
+    margin-left: 0.6rem;
+  }
+  .outline > .depth-2 {
+    margin-left: 1.2rem;
+  }
+}
+
 .editor-live-note {
-  max-width: 60rem;
+  max-width: 72rem;
   margin: 0 auto 0.6rem;
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { STATIONS, type Menu, type Station } from '../model/types.ts'
 import type { MenuWriteResponse } from '../shared/api.ts'
 import { errorsOf, toExportDoc, validateMenu, type MenuProblem } from '../shared/menuDoc.ts'
@@ -6,16 +6,33 @@ import { MENU_PROMPT } from '../shared/menuPrompt.ts'
 import { ApiError } from '../api/client.ts'
 import { MenuImportDialog } from './MenuImportDialog.tsx'
 import {
+  ancestorKeys,
   applyDraftAction,
   dependencyCandidates,
-  flattenMenu,
+  outlineItems,
   rowKey,
   type MenuAction,
+  type OutlineItem,
   type OutlineRow,
 } from '../state/menuDraft.ts'
 
 /*
- * The menu editor: a keyboard-first outliner over course → dish → step.
+ * The menu editor: course → dish → step as an outline, with an inspector
+ * beside it.
+ *
+ * Three rules decide the layout, and they are what keep the two kinds of
+ * "expand" from colliding:
+ *
+ *  - **The left glyph is the only disclosure.** On a course or a dish it means
+ *    one thing and nothing else: show or hide the children. A step has no
+ *    children, so its slot carries the station instead — and opens the details.
+ *  - **Details are never inline.** They live in the inspector, which is a
+ *    column on a desktop and a sheet on a phone. So there is no second toggle
+ *    on a row competing with the first, and the outline never reflows while
+ *    you edit a step.
+ *  - **Every list ends in a tail row.** "+ Osa" and "+ Vaihe" are always there,
+ *    which is the only way an empty course or dish can be filled at all, and
+ *    the only way any of this works without a keyboard.
  *
  * Saving is explicit rather than per-keystroke, unlike the cook editor. Three
  * reasons it has to be: a half-typed menu is routinely invalid, every save
@@ -41,6 +58,11 @@ export interface MenuEditorProps {
 
 const KIND_LABEL = { course: 'Ruokalaji', component: 'Osa', step: 'Vaihe' } as const
 
+/** "1 osa" but "2 osaa": the partitive the counts need. */
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+
+const stationOf = (id: Station) => STATIONS.find((s) => s.id === id)!
+
 export function MenuEditor({
   initial,
   initialVersion,
@@ -53,23 +75,66 @@ export function MenuEditor({
   const [draft, setDraft] = useState<Menu>(() => restore(storageKey) ?? initial)
   const [version, setVersion] = useState(initialVersion)
   const [focus, setFocus] = useState<string | null>(null)
-  const [openRow, setOpenRow] = useState<string | null>(null)
+  const [selected, setSelected] = useState<string | null>(null)
+  /** Only the phone-sized inspector needs opening; the column is always there. */
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set())
   const [busy, setBusy] = useState(false)
   const [merging, setMerging] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
 
-  const rows = useMemo(() => flattenMenu(draft), [draft])
+  const items = useMemo(() => outlineItems(draft, collapsed), [draft, collapsed])
   const problems = useMemo(() => validateMenu(draft), [draft])
   const blocking = useMemo(() => errorsOf(problems), [problems])
   const dirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(saved), [draft, saved])
 
-  const dispatch = useCallback((action: MenuAction) => {
-    setDraft((current) => {
-      const result = applyDraftAction(current, action)
-      if (result.focus) setFocus(result.focus)
-      return result.menu
+  /** Rows currently on screen — what ↑/↓ walks, so collapsed rows are skipped. */
+  const visible = useMemo(
+    () => items.flatMap((item) => (item.type === 'row' ? [item.row] : [])),
+    [items],
+  )
+  const selectedRow = useMemo(
+    () => visible.find((r) => r.key === selected) ?? null,
+    [visible, selected],
+  )
+
+  const reveal = useCallback((menu: Menu, key: string) => {
+    const hidden = ancestorKeys(menu, key)
+    if (hidden.length > 0) {
+      setCollapsed((current) => {
+        if (!hidden.some((k) => current.has(k))) return current
+        const next = new Set(current)
+        hidden.forEach((k) => next.delete(k))
+        return next
+      })
+    }
+    setSelected(key)
+    setFocus(key)
+  }, [])
+
+  const dispatch = useCallback(
+    (action: MenuAction) => {
+      setDraft((current) => {
+        const result = applyDraftAction(current, action)
+        if (result.focus) reveal(result.menu, result.focus)
+        return result.menu
+      })
+    },
+    [reveal],
+  )
+
+  const toggleCollapse = useCallback((key: string) => {
+    setCollapsed((current) => {
+      const next = new Set(current)
+      if (!next.delete(key)) next.add(key)
+      return next
     })
+  }, [])
+
+  const openDetails = useCallback((key: string) => {
+    setSelected(key)
+    setSheetOpen(true)
   }, [])
 
   // Mirror the draft so a reload, or a stray back button, does not cost work.
@@ -98,11 +163,11 @@ export function MenuEditor({
       el.setSelectionRange(el.value.length, el.value.length)
     }
     setFocus(null)
-  }, [focus, rows])
+  }, [focus, items])
 
   const moveFocus = (from: string, delta: -1 | 1) => {
-    const at = rows.findIndex((r) => r.key === from)
-    const next = rows[at + delta]
+    const at = visible.findIndex((r) => r.key === from)
+    const next = visible[at + delta]
     if (next) setFocus(next.key)
   }
 
@@ -219,20 +284,35 @@ export function MenuEditor({
       )}
       {note && !error && <div className="banner banner-ok">{note}</div>}
 
-      <ProblemList problems={problems} onGo={(key) => setFocus(key)} />
+      <ProblemList problems={problems} onGo={(key) => reveal(draft, key)} />
 
-      <div className="outline" role="tree" aria-label="Menun rakenne">
-        {rows.map((row) => (
-          <Row
-            key={row.key}
-            row={row}
-            draft={draft}
-            dispatch={dispatch}
-            open={openRow === row.key}
-            onToggleOpen={() => setOpenRow((cur) => (cur === row.key ? null : row.key))}
-            onMoveFocus={moveFocus}
-          />
-        ))}
+      <div className="editor-body">
+        <div className="outline" role="tree" aria-label="Menun rakenne">
+          {items.map((item) =>
+            item.type === 'row' ? (
+              <Row
+                key={item.key}
+                item={item}
+                dispatch={dispatch}
+                selected={selected === item.key}
+                onSelect={setSelected}
+                onOpenDetails={openDetails}
+                onToggleCollapse={toggleCollapse}
+                onMoveFocus={moveFocus}
+              />
+            ) : (
+              <TailRow key={item.key} item={item} dispatch={dispatch} />
+            ),
+          )}
+        </div>
+
+        <Inspector
+          draft={draft}
+          row={selectedRow}
+          dispatch={dispatch}
+          open={sheetOpen}
+          onClose={() => setSheetOpen(false)}
+        />
       </div>
 
       {merging && (
@@ -249,8 +329,8 @@ export function MenuEditor({
       )}
 
       <p className="muted small editor-hint">
-        Enter lisää rivin · ↑/↓ siirtyy rivien välillä · Alt+↑/↓ siirtää riviä ·
-        Askelpalautin tyhjällä rivillä poistaa
+        Enter lisää rivin · Vaihto+Enter lisää sisällön · ↑/↓ siirtyy rivien välillä ·
+        Alt+↑/↓ siirtää riviä · Askelpalautin tyhjällä rivillä poistaa · ⋯ tekee saman hiirellä
       </p>
     </div>
   )
@@ -288,29 +368,39 @@ function ProblemList({
   )
 }
 
+/* --------------------------------------------------------------------- rows */
+
 function Row({
-  row,
-  draft,
+  item,
   dispatch,
-  open,
-  onToggleOpen,
+  selected,
+  onSelect,
+  onOpenDetails,
+  onToggleCollapse,
   onMoveFocus,
 }: {
-  row: OutlineRow
-  draft: Menu
+  item: Extract<OutlineItem, { type: 'row' }>
   dispatch: (action: MenuAction) => void
-  open: boolean
-  onToggleOpen: () => void
+  selected: boolean
+  onSelect: (key: string) => void
+  onOpenDetails: (key: string) => void
+  onToggleCollapse: (key: string) => void
   onMoveFocus: (from: string, delta: -1 | 1) => void
 }) {
-  const step = row.kind === 'step' ? draft.steps.find((s) => s.id === row.id) : undefined
-  const component =
-    row.kind === 'component' ? draft.components.find((c) => c.id === row.id) : undefined
+  const { row, collapsed, hidden } = item
+  const name = row.title || 'nimetön'
+  const parent = row.kind !== 'step'
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter') {
       e.preventDefault()
-      dispatch({ type: 'insert_after', kind: row.kind, id: row.id })
+      // Shift+Enter reaches inwards, which is the only direction Enter cannot:
+      // the first dish of a course, the first step of a dish.
+      if (e.shiftKey && parent) {
+        dispatch({ type: 'insert_child', kind: row.kind as 'course' | 'component', id: row.id })
+      } else {
+        dispatch({ type: 'insert_after', kind: row.kind, id: row.id })
+      }
       return
     }
     if (e.key === 'Backspace' && e.currentTarget.value === '') {
@@ -320,13 +410,9 @@ function Row({
     }
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       const delta = e.key === 'ArrowUp' ? -1 : 1
-      if (e.altKey) {
-        e.preventDefault()
-        dispatch({ type: 'move', kind: row.kind, id: row.id, delta })
-      } else {
-        e.preventDefault()
-        onMoveFocus(row.key, delta)
-      }
+      e.preventDefault()
+      if (e.altKey) dispatch({ type: 'move', kind: row.kind, id: row.id, delta })
+      else onMoveFocus(row.key, delta)
       return
     }
     // Tab is deliberately left alone. It is the one key every user already
@@ -336,80 +422,264 @@ function Row({
   }
 
   return (
-    <div className={`outline-row depth-${row.depth} kind-${row.kind}`} role="treeitem" aria-level={row.depth + 1}>
+    <div
+      className={`outline-row depth-${row.depth} kind-${row.kind}${selected ? ' is-selected' : ''}`}
+      role="treeitem"
+      aria-level={row.depth + 1}
+      aria-selected={selected}
+      {...(parent ? { 'aria-expanded': !collapsed } : {})}
+    >
       <div className="outline-main">
-        <span className="outline-bullet" aria-hidden>
-          {row.kind === 'course' ? '▣' : row.kind === 'component' ? '▸' : '·'}
-        </span>
+        {parent ? (
+          <button
+            className="row-glyph"
+            aria-label={`${collapsed ? 'Näytä' : 'Piilota'} sisältö: ${name}`}
+            onClick={() => onToggleCollapse(row.key)}
+          >
+            {collapsed ? '▸' : '▾'}
+          </button>
+        ) : (
+          <StationGlyph item={item} onOpenDetails={onOpenDetails} />
+        )}
+
         <input
           data-rowkey={row.key}
           className="outline-title"
           value={row.title}
           aria-label={`${KIND_LABEL[row.kind]}: ${row.title || 'nimetön'}`}
-          placeholder={row.kind === 'step' ? 'Uusi vaihe' : `Uusi ${KIND_LABEL[row.kind].toLowerCase()}`}
+          placeholder={`Uusi ${KIND_LABEL[row.kind].toLowerCase()}`}
           onChange={(e) =>
             dispatch({ type: 'rename', kind: row.kind, id: row.id, value: e.target.value })
           }
+          onFocus={() => onSelect(row.key)}
           onKeyDown={onKeyDown}
         />
 
-        {step && (
-          <span className="outline-stations">
-            {STATIONS.map((s) => (
-              <button
-                key={s.id}
-                // `muu` is the unremarkable default, so an active `muu` stays
-                // quiet; every other station shows even when the row is idle,
-                // or you could not scan a menu for what is on the stove.
-                className={`chip station${step.station === s.id ? ' is-active' : ''}${
-                  s.id === 'muu' ? ' is-quiet' : ''
-                }`}
-                aria-pressed={step.station === s.id}
-                aria-label={s.label}
-                title={s.label}
-                onClick={() => dispatch({ type: 'set_station', id: row.id, station: s.id as Station })}
-              >
-                {s.icon}
-              </button>
-            ))}
+        {/* A collapsed row must still say what it is hiding, or collapsing is
+            just losing track of a course. */}
+        {hidden && (
+          <span className="row-hidden muted small">
+            {row.kind === 'course' && `${plural(hidden.components, 'osa', 'osaa')} · `}
+            {plural(hidden.steps, 'vaihe', 'vaihetta')}
           </span>
         )}
 
-        <button className="btn btn-ghost icon" onClick={onToggleOpen} aria-expanded={open}
-          aria-label={`Tiedot: ${row.title || 'nimetön'}`}>
-          {open ? '▾' : '▸'}
-        </button>
-        <button
-          className="btn btn-ghost icon"
-          onClick={() => dispatch({ type: 'delete_row', kind: row.kind, id: row.id })}
-          aria-label={`Poista ${row.title || 'nimetön'}`}
-        >
-          ✕
-        </button>
+        <RowMenu row={row} parent={parent} dispatch={dispatch} onOpenDetails={onOpenDetails} />
       </div>
+    </div>
+  )
+}
 
-      {open && step && <StepDetails draft={draft} stepId={row.id} dispatch={dispatch} />}
-      {open && component && (
-        <ComponentDetails component={component} dispatch={dispatch} />
-      )}
-      {open && row.kind === 'course' && (
-        <div className="outline-detail">
-          <label className="field">
-            <span>Huomio</span>
-            <input
-              value={draft.courses.find((c) => c.id === row.id)?.note ?? ''}
-              onChange={(e) =>
-                dispatch({ type: 'set_note', kind: 'course', id: row.id, value: e.target.value })
-              }
-            />
-          </label>
+/**
+ * A step's left slot. It shows the station, because a menu that cannot be
+ * scanned for what is competing for the stove is not much of a plan — and
+ * `muu` stays a plain bullet, since the unremarkable default is not news.
+ */
+function StationGlyph({
+  item,
+  onOpenDetails,
+}: {
+  item: Extract<OutlineItem, { type: 'row' }>
+  onOpenDetails: (key: string) => void
+}) {
+  const station = item.row.station ?? 'muu'
+  const label = stationOf(station).label
+  return (
+    <button
+      className={`row-glyph station-glyph${station === 'muu' ? ' is-quiet' : ''}`}
+      aria-label={`Tiedot: ${item.row.title || 'nimetön'}`}
+      title={`${label} — avaa tiedot`}
+      onClick={() => onOpenDetails(item.key)}
+    >
+      {station === 'muu' ? '·' : stationOf(station).icon}
+    </button>
+  )
+}
+
+/**
+ * Everything you can do to a row that is not typing in it: details, reorder,
+ * delete. One menu rather than a strip of icons, so that delete is never the
+ * thing next to the thing you meant to click, and so that reordering exists at
+ * all without a keyboard.
+ */
+function RowMenu({
+  row,
+  parent,
+  dispatch,
+  onOpenDetails,
+}: {
+  row: OutlineRow
+  parent: boolean
+  dispatch: (action: MenuAction) => void
+  onOpenDetails: (key: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
+  const name = row.title || 'nimetön'
+
+  useEffect(() => {
+    if (!open) return
+    const away = (e: PointerEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const escape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', away)
+    document.addEventListener('keydown', escape)
+    return () => {
+      document.removeEventListener('pointerdown', away)
+      document.removeEventListener('keydown', escape)
+    }
+  }, [open])
+
+  const act = (fn: () => void) => () => {
+    fn()
+    setOpen(false)
+  }
+
+  return (
+    <div className="row-menu" ref={box}>
+      <button
+        className="btn btn-ghost icon row-menu-open"
+        aria-label={`Toiminnot: ${name}`}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={() => setOpen((v) => !v)}
+      >
+        ⋯
+      </button>
+      {open && (
+        <div className="row-menu-list" role="menu">
+          <button role="menuitem" onClick={act(() => onOpenDetails(row.key))}>
+            Tiedot
+          </button>
+          {parent && (
+            <button
+              role="menuitem"
+              onClick={act(() =>
+                dispatch({ type: 'insert_child', kind: row.kind as 'course' | 'component', id: row.id }),
+              )}
+            >
+              {row.kind === 'course' ? 'Lisää osa' : 'Lisää vaihe'}
+            </button>
+          )}
+          <button
+            role="menuitem"
+            disabled={row.index === 0}
+            onClick={act(() => dispatch({ type: 'move', kind: row.kind, id: row.id, delta: -1 }))}
+          >
+            Siirrä ylös
+          </button>
+          <button
+            role="menuitem"
+            disabled={row.index === row.siblingCount - 1}
+            onClick={act(() => dispatch({ type: 'move', kind: row.kind, id: row.id, delta: 1 }))}
+          >
+            Siirrä alas
+          </button>
+          <button
+            role="menuitem"
+            className="is-danger"
+            aria-label={`Poista ${name}`}
+            onClick={act(() => dispatch({ type: 'delete_row', kind: row.kind, id: row.id }))}
+          >
+            Poista
+          </button>
         </div>
       )}
     </div>
   )
 }
 
-function StepDetails({
+/** "+ Osa" / "+ Vaihe" / "+ Ruokalaji": the end of every list, always there. */
+function TailRow({
+  item,
+  dispatch,
+}: {
+  item: Extract<OutlineItem, { type: 'tail' }>
+  dispatch: (action: MenuAction) => void
+}) {
+  const label = KIND_LABEL[item.childKind]
+  const where = item.parentName || 'nimetön'
+  return (
+    <button
+      className={`outline-tail depth-${item.depth} kind-${item.childKind}`}
+      aria-label={
+        item.parentId === null
+          ? 'Lisää ruokalaji'
+          : `Lisää ${label.toLowerCase()} kohtaan ${where}`
+      }
+      onClick={() =>
+        item.parentId === null
+          ? dispatch({ type: 'add_course' })
+          : dispatch({
+              type: 'insert_child',
+              kind: item.childKind === 'component' ? 'course' : 'component',
+              id: item.parentId,
+            })
+      }
+    >
+      <span className="row-glyph" aria-hidden>
+        +
+      </span>
+      {label}
+    </button>
+  )
+}
+
+/* ---------------------------------------------------------------- inspector */
+
+function Inspector({
+  draft,
+  row,
+  dispatch,
+  open,
+  onClose,
+}: {
+  draft: Menu
+  row: OutlineRow | null
+  dispatch: (action: MenuAction) => void
+  open: boolean
+  onClose: () => void
+}) {
+  return (
+    <aside className={`inspector${open ? ' is-open' : ''}`} aria-label="Rivin tiedot">
+      {row === null ? (
+        <p className="muted small">Valitse rivi nähdäksesi sen tiedot.</p>
+      ) : (
+        <>
+          <div className="inspector-head">
+            <div>
+              <span className="inspector-kind muted small">{KIND_LABEL[row.kind]}</span>
+              <h3 className="inspector-title">{row.title || 'nimetön'}</h3>
+            </div>
+            <button className="btn btn-ghost icon inspector-close" onClick={onClose} aria-label="Sulje tiedot">
+              ✕
+            </button>
+          </div>
+          {row.kind === 'step' && <StepFields draft={draft} stepId={row.id} dispatch={dispatch} />}
+          {row.kind === 'component' && (
+            <ComponentFields draft={draft} componentId={row.id} dispatch={dispatch} />
+          )}
+          {row.kind === 'course' && (
+            <label className="field">
+              <span>Huomio</span>
+              <input
+                value={draft.courses.find((c) => c.id === row.id)?.note ?? ''}
+                onChange={(e) =>
+                  dispatch({ type: 'set_note', kind: 'course', id: row.id, value: e.target.value })
+                }
+              />
+            </label>
+          )}
+        </>
+      )}
+    </aside>
+  )
+}
+
+function StepFields({
   draft,
   stepId,
   dispatch,
@@ -418,22 +688,40 @@ function StepDetails({
   stepId: string
   dispatch: (action: MenuAction) => void
 }) {
-  const step = draft.steps.find((s) => s.id === stepId)!
-  const component = draft.components.find((c) => c.id === step.componentId)
+  const step = draft.steps.find((s) => s.id === stepId)
   const [adding, setAdding] = useState('')
   const candidates = useMemo(() => dependencyCandidates(draft, stepId), [draft, stepId])
+  if (!step) return null
+  const component = draft.components.find((c) => c.id === step.componentId)
   const titleOf = (id: string) => draft.steps.find((s) => s.id === id)?.title || id
 
   return (
-    <div className="outline-detail">
+    <>
       <label className="field">
         <span>Ohje</span>
         <textarea
-          rows={2}
+          rows={3}
           value={step.detail ?? ''}
           onChange={(e) => dispatch({ type: 'set_detail', id: stepId, value: e.target.value })}
         />
       </label>
+
+      <fieldset className="field">
+        <legend>Asema</legend>
+        <div className="chips">
+          {STATIONS.map((s) => (
+            <button
+              key={s.id}
+              className={`chip station${step.station === s.id ? ' is-active' : ''}`}
+              aria-pressed={step.station === s.id}
+              aria-label={s.label}
+              onClick={() => dispatch({ type: 'set_station', id: stepId, station: s.id })}
+            >
+              {s.icon} {s.label}
+            </button>
+          ))}
+        </div>
+      </fieldset>
 
       <fieldset className="field">
         <legend>Edellyttää</legend>
@@ -513,20 +801,25 @@ function StepDetails({
         />
         Voi tehdä etukäteen
       </label>
-    </div>
+    </>
   )
 }
 
-function ComponentDetails({
-  component,
+function ComponentFields({
+  draft,
+  componentId,
   dispatch,
 }: {
-  component: { id: string; note?: string; ingredients: string[] }
+  draft: Menu
+  componentId: string
   dispatch: (action: MenuAction) => void
 }) {
+  const component = draft.components.find((c) => c.id === componentId)
   const [adding, setAdding] = useState('')
+  if (!component) return null
+
   return (
-    <div className="outline-detail">
+    <>
       <label className="field">
         <span>Huomio</span>
         <input
@@ -566,7 +859,7 @@ function ComponentDetails({
           />
         </div>
       </fieldset>
-    </div>
+    </>
   )
 }
 

@@ -60,6 +60,142 @@ test('a dish can be typed with the keyboard alone, and auto-chains as it goes', 
   await expect(second).toHaveClass(/status-ready/)
 })
 
+test('a multi-course menu can be built from a blank one by clicking alone', async ({
+  page,
+  library,
+  editor,
+}) => {
+  // No keyboard shortcuts anywhere in this test beyond typing the names: this
+  // is the phone path, and it is the one that used to dead-end. A blank menu
+  // arrives with one course and one dish and *no* steps, so every level below
+  // has to be reachable from a tail row.
+  await page.goto('/')
+  await library.newButton.click()
+  await editor.expectOpen()
+  await editor.title.fill('Alusta')
+  await editor.expectTitles(['Ruokalaji 1', 'Osa 1'])
+
+  await editor.row('Ruokalaji', 'Ruokalaji 1').fill('Alkupala')
+  await editor.row('Osa', 'Osa 1').fill('Keitto')
+
+  // The first step of a dish that has none: unreachable before the tail rows.
+  await editor.addStep('Keitto', 'Pilko sipuli')
+  await editor.addStep('Keitto', 'Keitä liemi')
+
+  // A second dish in the same course, and its own first step.
+  await editor.addComponent('Alkupala', 'Salaatti')
+  await editor.addStep('Salaatti', 'Pese salaatti')
+
+  // A second course, from the tail row under the whole outline.
+  await editor.addCourse('Jälkiruoka')
+  await editor.addComponent('Jälkiruoka', 'Jäätelö')
+  await editor.addStep('Jäätelö', 'Nosta pakkasesta')
+
+  await editor.expectTitles([
+    'Alkupala',
+    'Keitto',
+    'Pilko sipuli',
+    'Keitä liemi',
+    'Salaatti',
+    'Pese salaatti',
+    'Jälkiruoka',
+    'Jäätelö',
+    'Nosta pakkasesta',
+  ])
+  await editor.save()
+
+  // It is a real menu: it cooks, and the dependencies are the ones implied by
+  // the order things were typed in — chained inside a dish, independent across
+  // dishes, so the two starters can be cooked by two people at once.
+  await page.goto('/')
+  await library.startKitchen('Alusta')
+  await expect(page.locator('.course')).toHaveCount(2)
+
+  const chop = page.locator('.step-row').filter({ hasText: 'Pilko sipuli' })
+  const broth = page.locator('.step-row').filter({ hasText: 'Keitä liemi' })
+  const salad = page.locator('.step-row').filter({ hasText: 'Pese salaatti' })
+  const icecream = page.locator('.step-row').filter({ hasText: 'Nosta pakkasesta' })
+
+  await expect(chop).toHaveClass(/status-ready/)
+  await expect(broth).toHaveClass(/status-blocked/)
+  // First in their own dish, so they wait for nothing at all.
+  await expect(salad).toHaveClass(/status-ready/)
+  await expect(icecream).toHaveClass(/status-ready/)
+
+  await chop.getByRole('button', { name: 'Aloita' }).click()
+  await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
+  await chop.getByRole('button', { name: 'Valmis' }).click()
+  await expect(broth).toHaveClass(/status-ready/)
+})
+
+test('a course collapses to a summary and reopens, without touching the menu', async ({
+  page,
+  library,
+  editor,
+}) => {
+  await page.goto('/')
+  await library.import(smallDoc('Kokoontaitto'))
+  await editor.expectOpen()
+
+  await editor.toggleCollapse('Alkupala', 'Piilota')
+  // Only the course itself is left, and it says what it is hiding.
+  await editor.expectTitles(['Alkupala'])
+  await expect(editor.root).toContainText('1 osa · 1 vaihe')
+
+  await editor.toggleCollapse('Alkupala', 'Näytä')
+  await editor.expectTitles(['Alkupala', 'Keitto', 'Pilko sipuli'])
+  // Collapsing is a way of looking, not a way of editing.
+  await editor.expectClean()
+})
+
+test('every field in the inspector keeps its label off its controls', async ({
+  page,
+  library,
+  editor,
+}) => {
+  await page.goto('/')
+  await library.import(smallDoc('Välit'))
+  await editor.expectOpen()
+  await editor.openDetails('Pilko sipuli')
+
+  // Ohje is a <label>, the rest are <fieldset>s, and only the first of those
+  // spaces itself with the field's flex gap — a <legend> is not a flex item, so
+  // the fieldsets need a margin and the declared gap proves nothing.
+  for (const label of ['Ohje', 'Asema', 'Edellyttää', 'Tarvitaan']) {
+    expect(await editor.labelSpacing(label), `${label} sits flush against its controls`).toBe(10)
+  }
+})
+
+test('a long step title never widens the inspector', async ({ page, library, editor }) => {
+  const long = 'Paahda sienet, ruskista voissa ja nosta neljäsosa sivuun koristeeksi hienovaraisesti'
+  await page.goto('/')
+  // Two dishes, so the second one's step still has something to depend on: a
+  // step with no candidates left has an empty picker, which fits whatever the
+  // CSS does and would make this test prove nothing.
+  await library.import({
+    name: 'Pitkät nimet',
+    courses: [
+      {
+        name: 'Alkupala',
+        components: [
+          { name: 'Kantarellikeitto', steps: [{ title: long }] },
+          { name: 'Bruschetta', steps: [{ title: 'Siivuta leivät' }] },
+        ],
+      },
+    ],
+  })
+  await editor.expectOpen()
+
+  // The picker: sized by its widest option, here "Kantarellikeitto — <long>".
+  await editor.openDetails('Siivuta leivät')
+  await editor.expectDependencyOptions(2)
+  await editor.expectNoHorizontalOverflow()
+
+  // And the chip, once that dependency is actually taken.
+  await editor.addDependency('Siivuta leivät', `Kantarellikeitto — ${long}`)
+  await editor.expectNoHorizontalOverflow()
+})
+
 test('Alt+Arrow reorders a step and rebuilds the chain around it', async ({
   page,
   library,
