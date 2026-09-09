@@ -9,7 +9,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
-    "test": "node --test 'src/**/*.test.ts'",
+    "test": "node --test \"src/**/*.test.ts\"",
     "check:bundle": "grep -rlq ZodDiscriminatedUnion dist/assets/ && (echo 'zod leaked into the client bundle' && exit 1) || echo 'bundle clean'",
     "dev:server": "node --watch src/server/main.ts",
     "start": "node src/server/main.ts",

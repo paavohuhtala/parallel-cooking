@@ -93,6 +93,10 @@ in [constants.ts](src/shared/constants.ts) so the client's only edge into schema
   pnpm both run scripts through cmd.exe on Windows, where `;` separates arguments and
   `&` runs the next command instead of backgrounding. The old one-liner started Vite
   without the server, so every `/api` call came back ECONNREFUSED through the proxy.
+- `pnpm test` quotes its glob with **double** quotes: scripts run through cmd.exe on
+  Windows, which does not strip single quotes, so `'src/**/*.test.ts'` reached Node as a
+  literal and matched nothing — reported as a green run of zero tests. Node expands the
+  pattern itself, so it must arrive unexpanded but unquoted.
 - pnpm (pinned by `packageManager`, enabled via corepack in the Dockerfile and
   compose). It blocks install scripts by default: a new dep with a postinstall stays
   silently unbuilt until it is listed in `pnpm.onlyBuiltDependencies` — `esbuild` is
