@@ -17,5 +17,13 @@
      the tests take types from are named here. Keeping it to a list rather than
      a directory is what stops the e2e project from quietly growing an
      understanding of the app's internals. */
-  "files": ["src/model/types.ts", "src/shared/api.ts"]
+  "files": [
+    "src/model/types.ts",
+    "src/shared/api.ts",
+    /* Pulled in by `api.ts` for `MenuProblem`, and by that in turn. Both are
+       pure and DOM-free; `api.ts` deliberately does *not* reach into
+       `menuSchema.ts`, which would drag zod in here as well. */
+    "src/shared/menuDoc.ts",
+    "src/state/graph.ts"
+  ]
 }

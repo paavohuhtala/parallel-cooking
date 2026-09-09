@@ -68,6 +68,21 @@ export function createRoomFromRoom(fromRoomId: string, name?: string): CreateRes
   return { ok: true, id }
 }
 
+/**
+ * "Start a kitchen from this menu." The library entry is *copied*, so editing it
+ * later never touches a dinner already in progress.
+ */
+export function createRoomFromMenu(fromMenuId: string, name?: string): CreateResult {
+  const source = getMenu(fromMenuId)
+  if (!source) return { ok: false, reason: 'Menua ei löytynyt.' }
+  const id = transact(() => {
+    const menuId = copyMenu(fromMenuId)
+    const menu = JSON.parse(source.doc) as Menu
+    return insertRoom(menuId, name?.trim() || menu.name)
+  })
+  return { ok: true, id }
+}
+
 export function renameRoom(id: string, name: string): boolean {
   const result = run('UPDATE room SET name = ?, updated_at = ? WHERE id = ?', name, Date.now(), id)
   return result.changes > 0

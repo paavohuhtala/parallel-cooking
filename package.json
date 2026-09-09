@@ -10,14 +10,15 @@
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "test": "node --test \"src/**/*.test.ts\"",
-    "check:bundle": "grep -rlq ZodDiscriminatedUnion dist/assets/ && (echo 'zod leaked into the client bundle' && exit 1) || echo 'bundle clean'",
+    "check:bundle": "(grep -rlq ZodDiscriminatedUnion dist/assets/ || grep -rlq ZodObject dist/assets/) && (echo 'zod leaked into the client bundle' && exit 1) || echo 'bundle clean'",
     "dev:server": "node --watch src/server/main.ts",
     "start": "node src/server/main.ts",
     "dev:all": "node scripts/dev-all.mjs",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "e2e:report": "playwright show-report",
-    "e2e:install": "playwright install chromium"
+    "e2e:install": "playwright install chromium",
+    "gen:schema": "node scripts/menu-schema.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",

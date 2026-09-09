@@ -42,6 +42,15 @@ const MIGRATIONS: string[] = [
     PRIMARY KEY (room_id, version)
   );
   `,
+
+  `
+  -- A library menu is one nobody is cooking yet: editable, listable, and copied
+  -- rather than shared when a kitchen starts from it. Room-owned copies keep the
+  -- default 0, so every existing row is already correct.
+  ALTER TABLE menu ADD COLUMN is_library INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE menu ADD COLUMN description TEXT;
+  CREATE INDEX menu_library_idx ON menu(is_library, updated_at);
+  `,
 ]
 
 export function migrate(db: DatabaseSync): number {

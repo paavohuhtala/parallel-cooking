@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/Menu",
+  "$defs": {
+    "Menu": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "courses": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Course"
+          }
+        },
+        "components": {
+          "description": "Litteä muoto. Käytä joko tätä tai ruokalajien sisäkkäisiä osia.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Component"
+          }
+        },
+        "steps": {
+          "description": "Litteä muoto. Käytä joko tätä tai osien sisäkkäisiä vaiheita.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Step"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "courses"
+      ],
+      "title": "Menu",
+      "description": "Monen ruokalajin illallinen, purettuna vaiheiksi ja niiden välisiksi riippuvuuksiksi. Kirjoita joko sisäkkäisessä tai litteässä muodossa."
+    },
+    "Course": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "order": {
+          "description": "Valinnainen. Puuttuessa se on ruokalajin järjestysnumero taulukossa.",
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "components": {
+          "description": "Sisäkkäinen muoto. Jätä pois, jos osat ovat menun juuressa.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Component"
+          }
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "Ruokalaji",
+      "description": "Yksi tarjoiltava ruokalaji."
+    },
+    "Component": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "courseId": {
+          "description": "Vain litteässä muodossa; sisäkkäisessä se tulee ympäröivästä ruokalajista.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "ingredients": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "steps": {
+          "description": "Sisäkkäinen muoto. Jätä pois, jos vaiheet ovat menun juuressa.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Step"
+          }
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "Osa",
+      "description": "Yksi ruokalajin osa — käytännössä yksi ruoka tai lisuke."
+    },
+    "Step": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Valinnainen. Puuttuessa se johdetaan otsikosta.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "componentId": {
+          "description": "Vain litteässä muodossa; sisäkkäisessä se tulee ympäröivästä osasta.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "description": "Lyhyt käskymuoto, esim. \"Kuori ja pilko sipuli\"."
+        },
+        "detail": {
+          "description": "Koko ohjeteksti. Kypsennysajat kuuluvat tänne — vaiheilla ei ole kestoa.",
+          "type": "string",
+          "maxLength": 4000
+        },
+        "station": {
+          "default": "muu",
+          "description": "Missä työ fyysisesti tapahtuu. Vain rajallinen välineistö kannattaa nimetä; kaikki muu (penkkityö, kylmävalmistelu, annostelu) on \"muu\".",
+          "type": "string",
+          "enum": [
+            "liesi",
+            "uuni",
+            "grilli",
+            "muu"
+          ]
+        },
+        "deps": {
+          "default": [],
+          "description": "Vaiheet, joiden on oltava valmiita ennen tätä. Joko vaiheen tunnus tai sen otsikko sellaisenaan — otsikot ratkaistaan tunnuksiksi tuonnissa.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "uses": {
+          "description": "Tämän vaiheen kuluttamat ainekset; poimittu osan ainesluettelosta.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "holdPoint": {
+          "description": "Tosi, kun vaiheen voi tehdä hyvissä ajoin valmiiksi. Kaikki tämän jälkeen tuleva on viime hetken työtä.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "title": "Vaihe",
+      "description": "Yksi atominen työsuoritus."
+    }
+  }
+}

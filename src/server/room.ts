@@ -72,6 +72,39 @@ export function loadRoom(roomId: string): LiveRoom | null {
   return entry
 }
 
+/**
+ * A menu row was rewritten. Refresh the copy this room is cooking from and tell
+ * everyone connected.
+ *
+ * Must be called synchronously after the write that produced it — an `await` in
+ * between would let a socket command apply against the pre-prune state and be
+ * persisted on top of it.
+ *
+ * The menu goes out *before* the snapshot: the client rebuilds its index when it
+ * sees a menu, and a render landing between the two must not evaluate a step
+ * against an index that no longer describes it.
+ */
+export function menuChanged(
+  roomId: string,
+  menu: Menu,
+  menuVersion: number,
+  pruned: { state: KitchenState; version: number } | null,
+): void {
+  const room = live.get(roomId)
+  // Not in memory: nobody is connected, and `loadRoom` will read it fresh.
+  if (!room) return
+
+  room.menu = menu
+  room.menuVersion = menuVersion
+  room.index = buildIndex(menu)
+  broadcast(room, { type: 'menu', menu, menuVersion })
+
+  if (!pruned) return
+  room.state = pruned.state
+  room.version = pruned.version
+  broadcast(room, { type: 'snapshot', version: pruned.version, state: pruned.state, origin: null })
+}
+
 export const send = (socket: WebSocket, msg: ServerMessage): void => {
   if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(msg))
 }

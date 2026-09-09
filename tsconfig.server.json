@@ -20,6 +20,7 @@
     "src/shared",
     "src/model",
     "src/state/graph.ts",
-    "src/data/menu.ts"
+    "src/data/menu.ts",
+    "scripts/menu-schema.ts"
   ]
 }

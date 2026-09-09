@@ -36,6 +36,18 @@ export function buildIndex(menu: Menu): GraphIndex {
   const dependents = new Map<string, string[]>(menu.steps.map((s) => [s.id, []]))
   const problems: string[] = []
 
+  // Two steps sharing an id would silently collapse into one above, taking the
+  // last one's deps with them — so say so rather than quietly losing a step.
+  if (steps.size !== menu.steps.length) {
+    const seen = new Set<string>()
+    const duplicates = new Set<string>()
+    for (const step of menu.steps) {
+      if (seen.has(step.id)) duplicates.add(step.id)
+      seen.add(step.id)
+    }
+    problems.push(`Sama vaihetunnus esiintyy useasti: ${[...duplicates].join(', ')}.`)
+  }
+
   for (const step of menu.steps) {
     for (const dep of step.deps) {
       const list = dependents.get(dep)
@@ -89,6 +101,23 @@ export function buildIndex(menu: Menu): GraphIndex {
   }
 
   return { steps, dependents, topoOrder, chainLength, criticalPath, problems }
+}
+
+/**
+ * Every step reachable by following dependents from `id`, excluding `id`. What a
+ * dependency picker must refuse to offer: adding any of these as a dependency of
+ * `id` would close a cycle.
+ */
+export function reachableFrom(index: GraphIndex, id: string): Set<string> {
+  const seen = new Set<string>()
+  const queue = [...(index.dependents.get(id) ?? [])]
+  while (queue.length) {
+    const next = queue.shift()!
+    if (seen.has(next)) continue
+    seen.add(next)
+    queue.push(...(index.dependents.get(next) ?? []))
+  }
+  return seen
 }
 
 export const recordOf = (state: KitchenState, id: string): StepRecord =>

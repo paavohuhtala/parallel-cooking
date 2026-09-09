@@ -62,6 +62,9 @@ export interface MenuRow {
   doc_hash: string
   template_id: string | null
   follows_template: number
+  /** 1 when this is a library menu rather than the private copy a room cooks from. */
+  is_library: number
+  description: string | null
   version: number
   created_at: number
   updated_at: number

@@ -17,8 +17,8 @@ export function createMenuFromTemplate(template: MenuTemplate): string {
   const now = Date.now()
   const doc = JSON.stringify(template.menu)
   run(
-    `INSERT INTO menu (id, name, doc, doc_hash, template_id, follows_template, version, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+    `INSERT INTO menu (id, name, description, doc, doc_hash, template_id, follows_template, is_library, version, created_at, updated_at)
+     VALUES (?, ?, NULL, ?, ?, ?, ?, 0, 1, ?, ?)`,
     id,
     template.menu.name,
     doc,
@@ -31,18 +31,112 @@ export function createMenuFromTemplate(template: MenuTemplate): string {
   return id
 }
 
-/** Duplicates an existing menu, keeping its provenance. Used by "new room, same menu". */
-export function copyMenu(sourceId: string): string {
+/**
+ * Duplicates an existing menu, keeping its provenance. Used by "new room, same
+ * menu" and by starting a kitchen from the library.
+ *
+ * `isLibrary` defaults to false, which is the guarantee that matters: a kitchen
+ * started from a library menu gets its *own* copy, so editing the library entry
+ * tomorrow cannot rewrite a dinner that is already being cooked.
+ */
+export function copyMenu(sourceId: string, isLibrary = false): string {
   const source = getMenu(sourceId)
   if (!source) throw new Error(`No such menu: ${sourceId}`)
   const id = newId()
   const now = Date.now()
   run(
-    `INSERT INTO menu (id, name, doc, doc_hash, template_id, follows_template, version, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`,
-    id, source.name, source.doc, source.doc_hash, source.template_id, source.follows_template, now, now,
+    `INSERT INTO menu (id, name, description, doc, doc_hash, template_id, follows_template, is_library, version, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+    id, source.name, source.description, source.doc, source.doc_hash,
+    // A library menu must never follow a code template, or the next dev restart
+    // would rewrite what the user just authored.
+    isLibrary ? null : source.template_id,
+    isLibrary ? 0 : source.follows_template,
+    isLibrary ? 1 : 0,
+    now, now,
   )
   return id
+}
+
+/** A menu authored or imported in the app, owned by nobody until a kitchen copies it. */
+export function createLibraryMenu(menu: Menu, name?: string, description?: string): string {
+  const id = newId()
+  const now = Date.now()
+  run(
+    `INSERT INTO menu (id, name, description, doc, doc_hash, template_id, follows_template, is_library, version, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, NULL, 0, 1, 1, ?, ?)`,
+    id, name?.trim() || menu.name, description ?? null,
+    JSON.stringify(menu), hashMenu(menu), now, now,
+  )
+  return id
+}
+
+export function listLibraryMenus(): MenuRow[] {
+  return all<MenuRow>('SELECT * FROM menu WHERE is_library = 1 ORDER BY updated_at DESC')
+}
+
+/** Library entries only; a room's own copy is not the user's to delete. */
+export function deleteLibraryMenu(id: string): boolean {
+  return run('DELETE FROM menu WHERE id = ? AND is_library = 1', id).changes > 0
+}
+
+export interface MenuWriteRoom {
+  roomId: string
+  /** Set when the edit dropped steps this room had progress recorded against. */
+  pruned: { state: KitchenState; version: number } | null
+}
+
+export type UpdateMenuResult =
+  | { ok: true; version: number; rooms: MenuWriteRoom[] }
+  | { ok: false; code: 'not_found' }
+  | { ok: false; code: 'conflict'; current: { menu: Menu; version: number } }
+
+/**
+ * The only writer of an authored menu.
+ *
+ * `expectedVersion` makes a concurrent edit a visible 409 instead of a silent
+ * clobber — the whole document is replaced, so last-write-wins would quietly
+ * discard the other person's work.
+ *
+ * Clearing `follows_template` *and* `template_id` is what stops the next dev
+ * restart reverting the edit through `refreshFollowedMenus()`, which selects on
+ * both columns.
+ */
+export function updateMenu(id: string, next: Menu, expectedVersion: number): UpdateMenuResult {
+  return transact(() => {
+    // Re-read inside the transaction: checking the version before BEGIN would
+    // leave a window for another writer to land in between.
+    const row = getMenu(id)
+    if (!row) return { ok: false, code: 'not_found' }
+    if (row.version !== expectedVersion) {
+      return {
+        ok: false,
+        code: 'conflict',
+        current: { menu: JSON.parse(row.doc) as Menu, version: row.version },
+      }
+    }
+
+    const now = Date.now()
+    run(
+      `UPDATE menu SET name = ?, doc = ?, doc_hash = ?, version = version + 1, updated_at = ?,
+                       follows_template = 0, template_id = NULL
+       WHERE id = ?`,
+      next.name, JSON.stringify(next), hashMenu(next), now, id,
+    )
+
+    const rooms = all<RoomRow>('SELECT * FROM room WHERE menu_id = ?', id).map((room) => {
+      const pruned = pruneState(JSON.parse(room.state) as KitchenState, next)
+      if (!pruned) return { roomId: room.id, pruned: null }
+      const version = room.version + 1
+      run(
+        'UPDATE room SET state = ?, version = ?, updated_at = ? WHERE id = ?',
+        JSON.stringify(pruned), version, now, room.id,
+      )
+      return { roomId: room.id, pruned: { state: pruned, version } }
+    })
+
+    return { ok: true, version: row.version + 1, rooms }
+  })
 }
 
 /** Drops records for steps the menu no longer contains. */
