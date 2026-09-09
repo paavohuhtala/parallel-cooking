@@ -11,6 +11,8 @@ export interface Client {
   id: string
   socket: WebSocket
   alive: boolean
+  /** Which cook this connection says it is, if it has said. */
+  cookId: string | null
 }
 
 /**
@@ -81,6 +83,29 @@ function broadcast(room: LiveRoom, msg: ServerMessage): void {
   }
 }
 
+/**
+ * Cooks somebody is currently connected as. Two clients on the same cook
+ * collapse into one entry — sharing a cook between a phone and a laptop is a
+ * normal way to work, so it is not something to report or prevent.
+ */
+function presenceOf(room: LiveRoom): string[] {
+  const ids = new Set<string>()
+  for (const client of room.clients) if (client.cookId) ids.add(client.cookId)
+  return [...ids]
+}
+
+/** Presence lives only in memory, so it is broadcast rather than persisted. */
+function broadcastPresence(room: LiveRoom): void {
+  broadcast(room, { type: 'presence', cookIds: presenceOf(room) })
+}
+
+/** Called when a client says who it is; a reconnect re-announces on `hello`. */
+export function claim(room: LiveRoom, client: Client, cookId: string | null): void {
+  if (client.cookId === cookId) return
+  client.cookId = cookId
+  broadcastPresence(room)
+}
+
 export function helloFor(room: LiveRoom, clientId: string): ServerMessage {
   return {
     type: 'hello',
@@ -91,6 +116,7 @@ export function helloFor(room: LiveRoom, clientId: string): ServerMessage {
     menuVersion: room.menuVersion,
     state: room.state,
     version: room.version,
+    presence: presenceOf(room),
   }
 }
 
@@ -99,14 +125,15 @@ export function join(room: LiveRoom, socket: WebSocket): Client {
     clearTimeout(room.evictAt)
     room.evictAt = null
   }
-  const client: Client = { id: newId(), socket, alive: true }
+  const client: Client = { id: newId(), socket, alive: true, cookId: null }
   room.clients.add(client)
   touchRoom(room.id)
   return client
 }
 
 export function leave(room: LiveRoom, client: Client): void {
-  room.clients.delete(client)
+  if (!room.clients.delete(client)) return // `close` and `error` can both fire.
+  if (client.cookId) broadcastPresence(room)
   if (room.clients.size > 0 || room.evictAt) return
   room.evictAt = setTimeout(() => {
     // Re-check: a client may have arrived while the timer was pending.

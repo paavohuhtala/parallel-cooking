@@ -21,6 +21,8 @@ export interface SessionSnapshot {
   state: KitchenState
   version: number
   connection: Connection
+  /** Cooks somebody is connected as, this browser included. */
+  presence: ReadonlySet<string>
   rejection: Rejection | null
   /** Set when the room does not exist; no reconnect is attempted. */
   fatal: string | null
@@ -57,6 +59,9 @@ export class Session {
   private index: GraphIndex | null = null
   private room: { id: string; name: string } | null = null
   private connection: Connection = 'connecting'
+  private presence: ReadonlySet<string> = new Set()
+  /** Who this browser says it is; re-announced after every reconnect. */
+  private claimed: string | null = null
   private rejection: Rejection | null = null
   private rejectionTimer: ReturnType<typeof setTimeout> | null = null
   private fatal: string | null = null
@@ -134,6 +139,7 @@ export class Session {
       state: this.optimistic(),
       version: this.version,
       connection: this.connection,
+      presence: this.presence,
       rejection: this.rejection,
       fatal: this.fatal,
     }
@@ -190,6 +196,17 @@ export class Session {
     return true
   }
 
+  /**
+   * Announce which cook is sitting here. Kept on the session rather than sent
+   * and forgotten, because the socket may not be open yet — and after a drop
+   * the server has forgotten, so `hello` says it again.
+   */
+  claim = (cookId: string | null): void => {
+    if (this.claimed === cookId) return
+    this.claimed = cookId
+    this.write({ type: 'presence', cookId })
+  }
+
   /** The state a caller should reason about: confirmed plus everything in flight. */
   current = (): KitchenState => this.snapshot.state
   currentIndex = (): GraphIndex | null => this.index
@@ -221,6 +238,9 @@ export class Session {
       this.socket = null
       if (this.fatal) return
       this.connection = 'offline'
+      // Without a socket there is no telling who is still there, and claiming
+      // to know would be worse than showing nobody.
+      this.presence = new Set()
       this.emit()
       this.scheduleReconnect()
     }
@@ -257,7 +277,9 @@ export class Session {
         // long ago cannot resurrect itself over someone else's later change.
         const cutoff = Date.now() - REPLAY_WINDOW_MS
         this.pending = this.pending.filter((env) => env.at >= cutoff)
+        this.presence = new Set(msg.presence)
         this.emit()
+        if (this.claimed) this.write({ type: 'presence', cookId: this.claimed })
         for (const env of this.pending) this.write({ type: 'command', env })
         return
       }
@@ -270,6 +292,12 @@ export class Session {
           const id = msg.origin.commandId
           this.pending = this.pending.filter((env) => env.id !== id)
         }
+        this.emit()
+        return
+      }
+
+      case 'presence': {
+        this.presence = new Set(msg.cookIds)
         this.emit()
         return
       }

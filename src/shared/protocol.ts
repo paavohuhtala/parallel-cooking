@@ -57,6 +57,11 @@ export const EnvelopeSchema = z.object({
 export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('command'), env: EnvelopeSchema }),
   z.object({ type: z.literal('resync') }),
+  /**
+   * Who is sitting at this socket. Not a command: it is per-connection and
+   * dies with it, so it never reaches `applyCommand` or the database.
+   */
+  z.object({ type: z.literal('presence'), cookId: z.string().min(1).nullable() }),
 ])
 
 export type Command = z.infer<typeof CommandSchema>
@@ -78,6 +83,7 @@ export type ServerMessage =
       menuVersion: number
       state: KitchenState
       version: number
+      presence: string[]
     }
   /**
    * The whole state, every time. It is ~2 KB, and carrying it whole is what
@@ -86,5 +92,11 @@ export type ServerMessage =
    */
   | { type: 'snapshot'; version: number; state: KitchenState; origin: Origin | null }
   | { type: 'menu'; menu: Menu; menuVersion: number }
+  /**
+   * Cooks with at least one connected client claiming them. Deliberately a set
+   * and not a count: two phones on one cook is a normal way to work, not a
+   * conflict to report.
+   */
+  | { type: 'presence'; cookIds: string[] }
   | { type: 'rejected'; commandId: string; stepId?: string; reason: string }
   | { type: 'error'; code: 'room_not_found' | 'protocol' | 'internal'; message: string }

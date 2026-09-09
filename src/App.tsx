@@ -173,7 +173,7 @@ export default function App() {
 }
 
 function CooksModal({ onClose }: { onClose: () => void }) {
-  const { state, addCook, renameCook, removeCook, me, setMe } = useStore()
+  const { state, presence, addCook, renameCook, removeCook, me, setMe } = useStore()
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
@@ -193,6 +193,7 @@ function CooksModal({ onClose }: { onClose: () => void }) {
         <div className="cooks-list">
           {state.cooks.map((cook) => (
             <div key={cook.id} className={`cook-row${me === cook.id ? ' is-me' : ''}`}>
+              <PresenceDot online={presence.has(cook.id)} />
               <span className="cook-dot" style={{ background: cook.color }}>
                 {cook.name.trim().charAt(0).toUpperCase() || '?'}
               </span>
@@ -231,5 +232,20 @@ function CooksModal({ onClose }: { onClose: () => void }) {
         </div>
       </div>
     </div>
+  )
+}
+
+/**
+ * Somebody has this room open as that cook. Always rendered, so a cook
+ * arriving or leaving never shifts the row, and deliberately silent about how
+ * many clients are on one cook — a phone and a laptop on the same name is a
+ * normal way to work, not a clash.
+ */
+function PresenceDot({ online }: { online: boolean }) {
+  return (
+    <span
+      className={`presence${online ? ' is-online' : ''}`}
+      {...(online ? { role: 'img', 'aria-label': 'Paikalla', title: 'Paikalla' } : {})}
+    />
   )
 }

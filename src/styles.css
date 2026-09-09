@@ -469,6 +469,18 @@ p {
 .cook-row.is-me {
   border-color: var(--done);
 }
+/* Space is reserved whether or not anyone is there, so nothing jumps. */
+.presence {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: transparent;
+}
+.presence.is-online {
+  background: var(--done);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--done) 20%, transparent);
+}
 .cook-row input {
   flex: 1;
   min-width: 0;

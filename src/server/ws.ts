@@ -4,6 +4,7 @@ import { WebSocketServer, type WebSocket } from 'ws'
 import { z } from 'zod'
 import { ClientMessageSchema } from '../shared/protocol.ts'
 import {
+  claim,
   helloFor,
   join,
   leave,
@@ -49,6 +50,11 @@ function onConnection(socket: WebSocket, room: LiveRoom): void {
 
     if (msg.data.type === 'resync') {
       send(socket, snapshotFor(room))
+      return
+    }
+
+    if (msg.data.type === 'presence') {
+      claim(room, client, msg.data.cookId)
       return
     }
 

@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   useSyncExternalStore,
@@ -23,6 +24,8 @@ interface Store {
   index: GraphIndex
   state: KitchenState
   connection: Connection
+  /** Cooks with somebody connected as them right now. */
+  presence: ReadonlySet<string>
   /** The cook using this browser, if they have said. */
   me: string | null
   setMe: (cookId: string | null) => void
@@ -72,6 +75,10 @@ export function StoreProvider({ roomId, children }: { roomId: string; children: 
     },
     [roomId],
   )
+
+  // Telling the room who is here is the other half of `me`: local until it is
+  // announced, and announced again by the session after every reconnect.
+  useEffect(() => session.claim(me), [session, me])
 
   const setStepState = useCallback(
     (stepId: string, next: StepState) => session.send({ type: 'set_step_state', stepId, next }),
@@ -146,6 +153,7 @@ export function StoreProvider({ roomId, children }: { roomId: string; children: 
       index,
       state: snapshot.state,
       connection: snapshot.connection,
+      presence: snapshot.presence,
       me,
       setMe,
       rejection: snapshot.rejection,
@@ -161,7 +169,8 @@ export function StoreProvider({ roomId, children }: { roomId: string; children: 
       removeCook,
     }
   }, [
-    room, menu, index, snapshot.state, snapshot.connection, snapshot.rejection,
+    room, menu, index, snapshot.state, snapshot.connection, snapshot.presence,
+    snapshot.rejection,
     me, setMe, session, pendingStart, requestStart, confirmStart, cancelStart,
     setStepState, assign, addCook, renameCook, removeCook,
   ])

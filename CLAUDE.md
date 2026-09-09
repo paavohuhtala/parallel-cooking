@@ -33,6 +33,11 @@ a new room from the same menu.
 Protocol: **commands in, whole versioned snapshots out**. State is ~2 KB, so there is no
 reason to diff it, and carrying it whole lets the server delete records without tombstones.
 
+Presence is the one thing outside that loop: a client announces which cook is sitting at
+it, the server keeps that on the connection and broadcasts the set of claimed cooks. It
+never reaches `applyCommand` or the database, because it is only true while the socket is
+open — the client re-announces on every `hello`.
+
 ### The invariant that holds it together
 
 [src/shared/apply.ts](src/shared/apply.ts) exports one pure `applyCommand(index, state,
