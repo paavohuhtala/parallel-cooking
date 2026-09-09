@@ -16,6 +16,8 @@ export interface SessionSnapshot {
   ready: boolean
   room: { id: string; name: string } | null
   menu: Menu | null
+  /** The menu's own version, separate from `version`. The editor's precondition. */
+  menuVersion: number
   index: GraphIndex | null
   /** Confirmed state with the pending queue replayed on top. */
   state: KitchenState
@@ -56,6 +58,7 @@ export class Session {
   private version = 0
   private pending: Envelope[] = []
   private menu: Menu | null = null
+  private menuVersion = 0
   private index: GraphIndex | null = null
   private room: { id: string; name: string } | null = null
   private connection: Connection = 'connecting'
@@ -135,6 +138,7 @@ export class Session {
       ready: this.menu !== null && this.room !== null,
       room: this.room,
       menu: this.menu,
+      menuVersion: this.menuVersion,
       index: this.index,
       state: this.optimistic(),
       version: this.version,
@@ -268,6 +272,7 @@ export class Session {
           this.menu = msg.menu
           this.index = buildIndex(msg.menu)
         }
+        this.menuVersion = msg.menuVersion
         this.confirmed = msg.state
         this.version = msg.version
         this.connection = 'online'
@@ -304,6 +309,7 @@ export class Session {
 
       case 'menu': {
         this.menu = msg.menu
+        this.menuVersion = msg.menuVersion
         this.index = buildIndex(msg.menu)
         this.emit()
         return

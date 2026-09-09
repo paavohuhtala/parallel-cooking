@@ -2,6 +2,8 @@ import { test, type BrowserContext } from '@playwright/test'
 import type { RoomSummary } from '../src/shared/api.ts'
 import { KitchenPageModel } from './pom/KitchenPageModel.ts'
 import { LandingPageModel } from './pom/LandingPageModel.ts'
+import { MenuEditorModel } from './pom/MenuEditorModel.ts'
+import { MenuLibraryModel } from './pom/MenuLibraryModel.ts'
 import { startBackend, type BackendServer } from './server.ts'
 import { TestApiClient } from './testApiClient.ts'
 
@@ -15,6 +17,10 @@ interface PcTestFixtures {
   /** A room of this test's own, created before the test body runs. */
   room: RoomSummary
   landingPage: LandingPageModel
+  /** The "Omat menut" card on the landing page. */
+  library: MenuLibraryModel
+  /** The menu outliner, wherever it is open. */
+  editor: MenuEditorModel
   /** The kitchen page object for `page`; the test navigates it. */
   kitchen: KitchenPageModel
   /** A second cook: another browser context on the same room. */
@@ -51,6 +57,14 @@ export const pcTest = test.extend<PcTestFixtures, PcWorkerFixtures>({
   room: async ({ api }, use, testInfo) => {
     // Naming the room after the test makes a failure screenshot self-explanatory.
     await use(await api.createRoomFromDefaultMenu(testInfo.title.slice(0, 80)))
+  },
+
+  library: async ({ page }, use) => {
+    await use(new MenuLibraryModel(page))
+  },
+
+  editor: async ({ page }, use) => {
+    await use(new MenuEditorModel(page))
   },
 
   serverOutputOnFailure: [

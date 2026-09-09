@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { createRoom, getRoom, listTemplates } from '../api/client.ts'
 import type { TemplateSummary } from '../shared/api.ts'
+import { MenuLibrary } from '../components/MenuLibrary.tsx'
 import { forgetRoom, listRecent, type RecentRoom } from '../state/recent.ts'
 
 export default function LandingRoute() {
@@ -96,6 +97,8 @@ export default function LandingRoute() {
         </button>
         <p className="muted">Jaa linkki muille kokeille — kaikki näkevät saman tilanteen.</p>
       </section>
+
+      <MenuLibrary />
 
       {recent.length > 0 && (
         <section className="landing-card">

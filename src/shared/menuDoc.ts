@@ -54,6 +54,7 @@ export type MenuProblemCode =
   | 'self_dep'
   | 'cycle'
   | 'empty_menu'
+  | 'empty_name'
   | 'empty_course'
   | 'empty_component'
   | 'unknown_use'
@@ -100,6 +101,10 @@ export function validateMenu(menu: Menu): MenuProblem[] {
       }
       seen.add(entry.id)
     }
+  }
+
+  if (!menu.name.trim()) {
+    add('empty_name', 'error', 'Menulla pitää olla nimi.')
   }
 
   if (menu.steps.length === 0) {

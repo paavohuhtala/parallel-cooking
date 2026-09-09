@@ -139,15 +139,48 @@ count of steps rather than of minutes, so it says nothing about which work actua
 the longest, and ties between equally long chains are broken arbitrarily. As an ordering
 it is still useful; as a per-step badge it would claim more than it knows.
 
-## Adding the remaining courses
+## Writing a menu
 
-Only course 1 is transcribed so far, from [reseptit.md](reseptit.md). To add another,
-append to the three arrays in [src/data/menu.ts](src/data/menu.ts) — a `Course`, its
-`Component`s, and their `Step`s. Nothing else needs touching: the graph, the board, the
-ordering and the layout all derive from the data. Bad references and dependency
-cycles are caught at load and reported in a banner rather than crashing. Rooms created in
-development pick the change up on the next server restart (see *Editing the menu while
-developing*).
+Three ways in, all producing the same document:
+
+**The editor.** *Omat menut* on the landing page holds menus you have written or imported.
+Opening one gives a keyboard-first outliner over course → dish → step: Enter starts the
+next row, Tab folds a dish into the one above it, Shift+Tab lifts a step out into a dish of
+its own, Alt+↑/↓ reorders. A new step automatically waits on the one above it in the same
+dish, so typing a recipe top to bottom produces a correct dependency chain and you only
+edit the exceptions — the forks and the joins. A step whose dependencies you have edited by
+hand is never re-linked again.
+
+Saving is explicit rather than per keystroke: a half-typed menu is routinely invalid, and
+every save is broadcast to everyone connected to a kitchen using that menu. Drafts are kept
+in `sessionStorage` meanwhile.
+
+A kitchen can be fixed while it is running, from **✏️ Muokkaa menua** in the top bar.
+Removing a step that somebody has already started asks first, and names what will be lost.
+Starting a kitchen from a library menu *copies* it, so editing the library entry afterwards
+never touches a dinner in progress.
+
+**Import and export.** Every menu exports as JSON and imports back, which is how a menu
+moves between two instances of the app. Import is deliberately forgiving — see
+[docs/menu-format.md](docs/menu-format.md).
+
+**In code.** [src/data/menu.ts](src/data/menu.ts) is still a menu template, and appending a
+`Course`, its `Component`s and their `Step`s there works as it always did. Nothing else
+needs touching: the graph, the board, the ordering and the layout all derive from the data.
+Bad references and dependency cycles are caught at load and reported in a banner rather
+than crashing.
+
+### Converting a recipe with an LLM
+
+[docs/menu-format.md](docs/menu-format.md) is the reference: the field table, both accepted
+shapes, and the rules for splitting a recipe into steps that are worth parallelising.
+[docs/menu-prompt.md](docs/menu-prompt.md) is a ready-to-paste prompt — the editor's
+**Kopioi LLM-kehote** button copies the same text. The JSON Schema is checked in as
+[docs/menu.schema.json](docs/menu.schema.json) and served by a running instance at
+`GET /api/menus/schema.json`, generated from the same zod schema that validates an import,
+so it cannot describe a format the server would reject.
+
+Both are regenerated with `pnpm gen:schema`, and a test fails if they fall behind.
 
 
 ## Architecture
@@ -208,12 +241,13 @@ That is why `erasableSyntaxOnly` is on.
 
 ### Editing the menu while developing
 
-The menu is still authored in [src/data/menu.ts](src/data/menu.ts). A room created in
+The starter menu is authored in [src/data/menu.ts](src/data/menu.ts). A room created in
 development keeps *following* the template it came from, so editing that file and letting
 `node --watch` restart the server updates the room's menu in place, pruning progress only
 for steps that no longer exist. `MENU_FOLLOW_TEMPLATE` controls it; it defaults **off**
 under `NODE_ENV=production`, so a redeploy can never rewrite a dinner in progress. The
-first in-app menu edit (once there is an editor) will clear the flag for that room.
+first in-app edit of a menu clears the flag, so the editor and the template loop cannot
+fight over the same row.
 
 ## Tests
 

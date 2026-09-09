@@ -1307,3 +1307,298 @@ p {
   border-color: color-mix(in srgb, var(--critical) 45%, transparent);
   background: color-mix(in srgb, var(--critical) 12%, transparent);
 }
+
+/* ---------------------------------------------------------- menu library */
+
+.library-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.library-head h2 {
+  margin: 0;
+}
+.library-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.menu-list {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.menu-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.menu-open {
+  flex: 1 1 12rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.menu-open small {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.menu-row-actions {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.import-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.import-text {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  resize: vertical;
+}
+.modal-wide {
+  width: min(760px, 100%);
+}
+
+/* ----------------------------------------------------------- menu editor */
+
+.editor-page {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+.editor-nav {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+}
+
+/* In a room the editor covers the kitchen rather than replacing the route, so
+   the socket stays open and the views underneath update on save. */
+.editor-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow-y: auto;
+  padding: 1rem;
+  background: var(--bg);
+}
+
+.editor {
+  max-width: 60rem;
+  margin: 0 auto;
+}
+.editor-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+.editor-title {
+  flex: 1 1 14rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+}
+.editor-title:hover,
+.editor-title:focus {
+  border-color: var(--border);
+  background: var(--surface);
+}
+.editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.editor-dirty {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.editor-dirty.is-dirty {
+  color: var(--active);
+}
+.editor-hint {
+  margin-top: 0.8rem;
+}
+.editor-problems .plain-list {
+  margin: 0;
+}
+
+.banner-ok {
+  background: color-mix(in srgb, var(--done) 14%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--done) 40%, transparent);
+}
+
+.outline {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.outline-row {
+  border-radius: 8px;
+}
+.outline-row.depth-1 {
+  margin-left: 1.1rem;
+}
+.outline-row.depth-2 {
+  margin-left: 2.2rem;
+}
+.outline-main {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 1px 0;
+}
+.outline-bullet {
+  width: 1rem;
+  text-align: center;
+  color: var(--muted);
+  flex: none;
+}
+.outline-title {
+  flex: 1 1 auto;
+  min-width: 6rem;
+  padding: 0.34rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+}
+.outline-title:hover {
+  border-color: var(--border);
+}
+.outline-title:focus {
+  border-color: var(--ready);
+  background: var(--surface);
+  outline: none;
+}
+.kind-course .outline-title {
+  font-weight: 700;
+}
+.kind-component .outline-title {
+  font-weight: 600;
+}
+
+/* The station a step is actually on is always visible — otherwise a menu
+   cannot be scanned for what is competing for the stove. The other three
+   appear only while the row is hovered or focused, so a long outline still
+   reads as a list of titles rather than a wall of icons. `muu` is the
+   unremarkable default and stays hidden even when it is the one selected. */
+.outline-stations {
+  display: flex;
+  gap: 2px;
+  flex: none;
+}
+.outline-stations .chip.station {
+  display: none;
+  padding: 0.15rem 0.35rem;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+.outline-stations .chip.station.is-active:not(.is-quiet) {
+  display: inline-flex;
+}
+/* `.chip.is-active` inverts to a dark fill, which turns an emoji into a blob.
+   A tinted ring marks the selection and leaves the icon readable. */
+.outline-stations .chip.station.is-active {
+  background: color-mix(in srgb, var(--ready) 16%, transparent);
+  border-color: color-mix(in srgb, var(--ready) 60%, transparent);
+  color: var(--text);
+}
+.outline-row:hover .outline-stations .chip.station,
+.outline-row:focus-within .outline-stations .chip.station {
+  display: inline-flex;
+}
+
+.outline-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.3rem 0 0.6rem 1.35rem;
+  padding: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.outline-detail textarea {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+.dep-picker,
+.ingredient-add {
+  padding: 0.24rem 0.5rem;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.82rem;
+}
+.ingredient-add {
+  min-width: 8rem;
+}
+
+@media (max-width: 640px) {
+  .outline-row.depth-1 {
+    margin-left: 0.6rem;
+  }
+  .outline-row.depth-2 {
+    margin-left: 1.2rem;
+  }
+  .outline-stations .chip.station {
+    display: inline-flex;
+  }
+}
+
+.editor-live-note {
+  max-width: 60rem;
+  margin: 0 auto 0.6rem;
+}

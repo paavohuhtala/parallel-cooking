@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
+import type { Menu } from './model/types'
 import { useNavigate } from '@tanstack/react-router'
-import { createRoom } from './api/client'
+import { createRoom, saveRoomMenu } from './api/client'
+import { MenuEditor } from './components/MenuEditor'
 import { StartDialog } from './components/StepControls'
 import { StepDetail } from './components/StepDetail'
-import { progressOf, suggestedNext } from './state/graph'
+import { progressOf, recordOf, suggestedNext } from './state/graph'
 import { useStore } from './state/store'
 import { GraphView } from './views/GraphView'
 import { KanbanView } from './views/KanbanView'
@@ -30,6 +32,7 @@ export default function App() {
   const [view, setView] = useState<View>('recipe')
   const [selected, setSelected] = useState<string | null>(null)
   const [cooksOpen, setCooksOpen] = useState(false)
+  const [editing, setEditing] = useState(false)
   const [copied, setCopied] = useState(false)
 
   async function copyLink() {
@@ -87,6 +90,9 @@ export default function App() {
           </button>
           <button className="btn btn-ghost" onClick={() => void copyLink()}>
             {copied ? '✓ Kopioitu' : '🔗 Jaa'}
+          </button>
+          <button className="btn btn-ghost" onClick={() => setEditing(true)}>
+            ✏️ Muokkaa menua
           </button>
           <button className="btn btn-ghost" onClick={() => void startFresh()}>
             Uusi keittiö
@@ -168,6 +174,43 @@ export default function App() {
 
       <StartDialog />
       {cooksOpen && <CooksModal onClose={() => setCooksOpen(false)} />}
+      {editing && <MenuEditorOverlay onClose={() => setEditing(false)} />}
+    </div>
+  )
+}
+
+/**
+ * Editing the menu of a kitchen that is already running.
+ *
+ * An overlay rather than a route: `RoomRoute` renders `<App/>` and not an
+ * `<Outlet/>`, and staying mounted keeps the socket open — so the moment the
+ * menu is saved, the views underneath update from the broadcast for free.
+ */
+function MenuEditorOverlay({ onClose }: { onClose: () => void }) {
+  const { room, menu, menuVersion, state } = useStore()
+
+  // Which steps would lose recorded progress if this menu were saved. The
+  // server prunes either way; asking first is what makes that not a surprise.
+  const progressAtRisk = (next: Menu) => {
+    const surviving = new Set(next.steps.map((s) => s.id))
+    return menu.steps
+      .filter((s) => !surviving.has(s.id) && recordOf(state, s.id).state !== 'todo')
+      .map((s) => s.title)
+  }
+
+  return (
+    <div className="editor-overlay">
+      <div className="banner banner-warn editor-live-note">
+        Muokkaat tämän keittiön menua. Tallennus näkyy heti kaikille kokeille.
+      </div>
+      <MenuEditor
+        initial={menu}
+        initialVersion={menuVersion}
+        storageKey={`parallel-cooking/menuDraft/room-${room.id}`}
+        save={(next, expectedVersion) => saveRoomMenu(room.id, next, expectedVersion)}
+        progressAtRisk={progressAtRisk}
+        onClose={onClose}
+      />
     </div>
   )
 }

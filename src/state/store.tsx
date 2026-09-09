@@ -21,6 +21,8 @@ const meKey = (roomId: string) => `parallel-cooking/me/${roomId}`
 interface Store {
   room: { id: string; name: string }
   menu: Menu
+  /** The menu's own version; the editor sends it back as `expectedVersion`. */
+  menuVersion: number
   index: GraphIndex
   state: KitchenState
   connection: Connection
@@ -151,6 +153,7 @@ export function StoreProvider({ roomId, children }: { roomId: string; children: 
       room,
       menu,
       index,
+      menuVersion: snapshot.menuVersion,
       state: snapshot.state,
       connection: snapshot.connection,
       presence: snapshot.presence,
@@ -169,7 +172,8 @@ export function StoreProvider({ roomId, children }: { roomId: string; children: 
       removeCook,
     }
   }, [
-    room, menu, index, snapshot.state, snapshot.connection, snapshot.presence,
+    room, menu, index, snapshot.menuVersion, snapshot.state, snapshot.connection,
+    snapshot.presence,
     snapshot.rejection,
     me, setMe, session, pendingStart, requestStart, confirmStart, cancelStart,
     setStepState, assign, addCook, renameCook, removeCook,
