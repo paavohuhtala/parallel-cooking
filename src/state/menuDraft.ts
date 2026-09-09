@@ -1,5 +1,6 @@
 import type { Component, Course, Menu, Station, Step } from '../model/types.ts'
 import { mergeMenus } from '../shared/menuDoc.ts'
+import { buildIndex, reachableFrom } from './graph.ts'
 
 /*
  * The outliner's reducer. Pure, DOM-free and React-free, so every structural
@@ -511,19 +512,6 @@ function moveRow(menu: Menu, kind: RowKind, id: string, delta: -1 | 1): DraftRes
  * than not offering it.
  */
 export function dependencyCandidates(menu: Menu, stepId: string): Step[] {
-  const dependents = new Map<string, string[]>(menu.steps.map((s) => [s.id, []]))
-  for (const step of menu.steps) {
-    for (const dep of step.deps) dependents.get(dep)?.push(step.id)
-  }
-
-  const downstream = new Set<string>()
-  const queue = [...(dependents.get(stepId) ?? [])]
-  while (queue.length) {
-    const next = queue.shift()!
-    if (downstream.has(next)) continue
-    downstream.add(next)
-    queue.push(...(dependents.get(next) ?? []))
-  }
-
+  const downstream = reachableFrom(buildIndex(menu), stepId)
   return menu.steps.filter((s) => s.id !== stepId && !downstream.has(s.id))
 }

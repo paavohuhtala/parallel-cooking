@@ -106,7 +106,10 @@ menuRoutes.post('/api/menus', async (c) => {
 
   if ('fromMenuId' in parsed.data) {
     if (!getMenu(parsed.data.fromMenuId)) return c.json({ error: 'Menua ei löytynyt.' }, 404)
-    const id = copyMenu(parsed.data.fromMenuId, true)
+    const id = copyMenu(parsed.data.fromMenuId, {
+      isLibrary: true,
+      ...(parsed.data.name === undefined ? {} : { name: parsed.data.name }),
+    })
     return c.json(detailOf(getMenu(id)!), 201)
   }
 

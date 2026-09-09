@@ -39,15 +39,24 @@ export function createMenuFromTemplate(template: MenuTemplate): string {
  * started from a library menu gets its *own* copy, so editing the library entry
  * tomorrow cannot rewrite a dinner that is already being cooked.
  */
-export function copyMenu(sourceId: string, isLibrary = false): string {
+export function copyMenu(
+  sourceId: string,
+  { isLibrary = false, name }: { isLibrary?: boolean; name?: string } = {},
+): string {
   const source = getMenu(sourceId)
   if (!source) throw new Error(`No such menu: ${sourceId}`)
   const id = newId()
   const now = Date.now()
+
+  // Renaming has to reach *inside* the document, not just the row. The editor
+  // saves the whole document back, name included, so a row named differently
+  // from its own doc would quietly revert on the first edit.
+  const renamed = renameDoc(source.doc, name)
+
   run(
     `INSERT INTO menu (id, name, description, doc, doc_hash, template_id, follows_template, is_library, version, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
-    id, source.name, source.description, source.doc, source.doc_hash,
+    id, renamed.name, source.description, renamed.doc, renamed.hash,
     // A library menu must never follow a code template, or the next dev restart
     // would rewrite what the user just authored.
     isLibrary ? null : source.template_id,
@@ -62,13 +71,25 @@ export function copyMenu(sourceId: string, isLibrary = false): string {
 export function createLibraryMenu(menu: Menu, name?: string, description?: string): string {
   const id = newId()
   const now = Date.now()
+  // The document owns the name; the column is a denormalised copy for listing.
+  const named = name?.trim() ? { ...menu, name: name.trim() } : menu
   run(
     `INSERT INTO menu (id, name, description, doc, doc_hash, template_id, follows_template, is_library, version, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, NULL, 0, 1, 1, ?, ?)`,
-    id, name?.trim() || menu.name, description ?? null,
-    JSON.stringify(menu), hashMenu(menu), now, now,
+    id, named.name, description ?? null,
+    JSON.stringify(named), hashMenu(named), now, now,
   )
   return id
+}
+
+/** A stored document with its `name` replaced, ready to insert. */
+function renameDoc(doc: string, name?: string): { name: string; doc: string; hash: string } {
+  const parsed = JSON.parse(doc) as Menu
+  if (!name?.trim() || name.trim() === parsed.name) {
+    return { name: parsed.name, doc, hash: hashMenu(parsed) }
+  }
+  const next = { ...parsed, name: name.trim() }
+  return { name: next.name, doc: JSON.stringify(next), hash: hashMenu(next) }
 }
 
 export function listLibraryMenus(): MenuRow[] {

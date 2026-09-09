@@ -154,6 +154,14 @@ export class Session {
     for (const listener of this.listeners) listener()
   }
 
+  /** Titles of steps this room had recorded progress on that the new menu drops. */
+  private vanishedWithProgress(next: Menu): string[] {
+    const surviving = new Set(next.steps.map((s) => s.id))
+    return Object.entries(this.confirmed.steps)
+      .filter(([id, record]) => !surviving.has(id) && record.state !== 'todo')
+      .map(([id]) => this.index?.steps.get(id)?.title ?? id)
+  }
+
   private setRejection(rejection: Rejection | null): void {
     this.rejection = rejection
     if (this.rejectionTimer) clearTimeout(this.rejectionTimer)
@@ -308,9 +316,25 @@ export class Session {
       }
 
       case 'menu': {
+        // Somebody edited the menu while this kitchen was open. Say so only when
+        // it actually cost this room something: a step that was under way or
+        // finished has just disappeared, and its record is about to be pruned by
+        // the snapshot that follows. Announcing every edit would be noise, and
+        // announcing none leaves a cook staring at work that silently vanished.
+        const lost = this.confirmed.cooks.length ? this.vanishedWithProgress(msg.menu) : []
         this.menu = msg.menu
         this.menuVersion = msg.menuVersion
         this.index = buildIndex(msg.menu)
+        if (lost.length) {
+          this.setRejection({
+            stepId: null,
+            reason:
+              lost.length === 1
+                ? `Menua muokattiin: vaihe "${lost[0]}" poistettiin.`
+                : `Menua muokattiin: ${lost.length} aloitettua vaihetta poistettiin.`,
+            at: Date.now(),
+          })
+        }
         this.emit()
         return
       }

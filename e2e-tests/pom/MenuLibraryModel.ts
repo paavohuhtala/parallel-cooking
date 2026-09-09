@@ -26,8 +26,12 @@ export class MenuLibraryModel {
     this.confirmImportButton = this.dialog.getByRole('button', { name: 'Tuo', exact: true })
   }
 
+  /**
+   * Matched on the name exactly, not as a substring: a duplicate is called
+   * "X (kopio)" and sits next to "X", so a substring match finds both.
+   */
   row(name: string): Locator {
-    return this.rows.filter({ hasText: name })
+    return this.rows.filter({ has: this.page.getByText(name, { exact: true }) })
   }
 
   async open(name: string): Promise<void> {
