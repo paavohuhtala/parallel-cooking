@@ -1964,6 +1964,41 @@ p {
   }
 }
 
+/*
+ * A finger is not a cursor. Under a coarse pointer every control in a row
+ * reaches 44px — the platform guidelines' number — where it measured 28×22 for
+ * the `⋯`, which is a thumb's only way to reorder or delete.
+ *
+ * The row gets there through the title's own padding, so a one-line title is
+ * 44px and everything aligned to `--title-line` follows it without a second
+ * number. The glyph and the `⋯` do not grow: a centred pseudo-element carries
+ * the target, so the icons stay the size the row was drawn at. Their 44px
+ * reaches a few px into the title's padding on either side, never its text.
+ */
+@media (pointer: coarse) {
+  .outline {
+    --title-pad-y: calc((2.75rem - var(--title-lh) - 2px) / 2);
+  }
+  .outline-main > .row-glyph,
+  .row-menu-open {
+    position: relative;
+  }
+  .outline-main > .row-glyph::before,
+  .row-menu-open::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 2.75rem;
+    height: 2.75rem;
+    transform: translate(-50%, -50%);
+  }
+  .outline-tail,
+  .row-menu-list button {
+    min-height: 2.75rem;
+  }
+}
+
 @media (max-width: 640px) {
   .outline > .depth-1 {
     margin-left: 0.6rem;

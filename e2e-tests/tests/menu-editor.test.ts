@@ -514,6 +514,42 @@ test('undo is reachable without a keyboard, and greys out when there is nothing 
   await editor.expectTitles(['Alkupala', 'Keitto', 'Eka', 'Kolmas'])
 })
 
+test.describe('on a touch screen', () => {
+  test.use({ viewport: { width: 390, height: 800 }, hasTouch: true, isMobile: true })
+
+  test('every control on a row is a 44px target, and none takes the title', async ({
+    page,
+    library,
+    editor,
+  }) => {
+    await page.goto('/')
+    await library.import(chainDoc('Sormi'))
+    await editor.expectOpen()
+
+    // A middle step, so a neighbouring row that took part of a target would
+    // show up as a shorter one. The ⋯ measured 28×22 and the glyphs 24×24.
+    const targets = {
+      disclosure: editor.glyph('Osa', 'Keitto'),
+      station: editor.glyph('Vaihe', 'Toka'),
+      'row menu': editor.rowMenuButton('Toka'),
+      'tail row': editor.tailRow('Vaihe', 'Keitto'),
+    }
+    for (const [name, target] of Object.entries(targets)) {
+      const area = await editor.hitArea(target)
+      expect(area.width, `${name} width`).toBeGreaterThanOrEqual(44)
+      expect(area.height, `${name} height`).toBeGreaterThanOrEqual(44)
+    }
+    // The glyph's target grew past the glyph, but not over the title's text.
+    expect(await editor.titleTextTakesTap('Vaihe', 'Toka')).toBe(true)
+
+    // The row menu is where a thumb reorders and deletes, so its items count too.
+    const menu = await editor.openRowMenu('Toka')
+    for (const item of await menu.getByRole('menuitem').all()) {
+      expect((await editor.hitArea(item)).height, await item.innerText()).toBeGreaterThanOrEqual(44)
+    }
+  })
+})
+
 test('a menu with an error cannot be saved, and the problem says where', async ({
   page,
   library,

@@ -168,6 +168,63 @@ export class MenuEditorModel {
     })
   }
 
+  /**
+   * The area a tap on `target` lands in, in whole pixels, found by asking the
+   * page what is under each point rather than by reading the element's box: a
+   * target can be larger than what it draws, and a neighbour can take part of
+   * it. Probed outwards from the centre, each edge bisected to a tenth of a
+   * pixel; capped at 80, since only "at least 44" is ever the question.
+   */
+  async hitArea(target: Locator): Promise<{ width: number; height: number }> {
+    return target.evaluate((el) => {
+      const r = el.getBoundingClientRect()
+      const cx = r.left + r.width / 2
+      const cy = r.top + r.height / 2
+      const hits = (x: number, y: number) => {
+        const at = document.elementFromPoint(x, y)
+        return at !== null && el.contains(at)
+      }
+      const reach = (dx: number, dy: number) => {
+        let inside = 0
+        let outside = 40
+        if (hits(cx + dx * outside, cy + dy * outside)) return outside
+        while (outside - inside > 0.1) {
+          const mid = (inside + outside) / 2
+          if (hits(cx + dx * mid, cy + dy * mid)) inside = mid
+          else outside = mid
+        }
+        return inside
+      }
+      return {
+        width: Math.round(reach(-1, 0) + reach(1, 0)),
+        height: Math.round(reach(0, -1) + reach(0, 1)),
+      }
+    })
+  }
+
+  /** The row's left glyph: a disclosure on a course or a dish, the station on a step. */
+  glyph(kind: 'Ruokalaji' | 'Osa' | 'Vaihe', title: string): Locator {
+    return this.rowBlock(kind, title).locator('.outline-main > .row-glyph')
+  }
+
+  rowMenuButton(title: string): Locator {
+    return this.root.getByRole('button', { name: `Toiminnot: ${title}` })
+  }
+
+  tailRow(kind: 'Osa' | 'Vaihe', parentName: string): Locator {
+    return this.root.getByLabel(`Lisää ${kind.toLowerCase()} kohtaan ${parentName}`, { exact: true })
+  }
+
+  /** What a tap at the first letter of a row's title lands on. */
+  async titleTextTakesTap(kind: 'Ruokalaji' | 'Osa' | 'Vaihe', title: string): Promise<boolean> {
+    return this.row(kind, title).evaluate((el) => {
+      const style = getComputedStyle(el)
+      const r = el.getBoundingClientRect()
+      const x = r.left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft) + 1
+      return document.elementFromPoint(x, r.top + r.height / 2) === el
+    })
+  }
+
   titles(): Locator {
     return this.root.locator('.outline-title')
   }
@@ -206,12 +263,12 @@ export class MenuEditorModel {
   }
 
   async addComponent(courseName: string, name: string): Promise<void> {
-    await this.root.getByLabel(`Lisää osa kohtaan ${courseName}`, { exact: true }).click()
+    await this.tailRow('Osa', courseName).click()
     await this.page.keyboard.type(name)
   }
 
   async addStep(componentName: string, title: string): Promise<void> {
-    await this.root.getByLabel(`Lisää vaihe kohtaan ${componentName}`, { exact: true }).click()
+    await this.tailRow('Vaihe', componentName).click()
     await this.page.keyboard.type(title)
   }
 
@@ -223,7 +280,7 @@ export class MenuEditorModel {
    */
   async openRowMenu(title: string): Promise<Locator> {
     // By role: the open menu carries the same label as the button that opened it.
-    await this.root.getByRole('button', { name: `Toiminnot: ${title}` }).click()
+    await this.rowMenuButton(title).click()
     return this.page.getByRole('menu')
   }
 
