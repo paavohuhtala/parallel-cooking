@@ -8,6 +8,7 @@ import {
   type PointerEvent,
 } from 'react'
 import { STATIONS } from '../model/types'
+import { Icon, STATION_ICON } from '../components/icons.tsx'
 import { recordOf, statusMap, statusOf } from '../state/graph'
 import { buildChains, chainStatus } from '../state/chains'
 import { layoutGraph, NODE_W, type LayoutInput } from '../state/layout'
@@ -180,13 +181,13 @@ export function GraphView({
           className="btn btn-ghost"
           onClick={() => zoomFromCentre(1.15)}
         >
-          +
+          <Icon name="add" />
         </button>
         <button
           className="btn btn-ghost"
           onClick={() => zoomFromCentre(1 / 1.15)}
         >
-          −
+          <Icon name="subtract" />
         </button>
         <label className="toggle">
           <input
@@ -308,7 +309,11 @@ function SingleCard({
       <div className="node-title">{step.title}</div>
       {(step.station !== 'muu' || cook) && (
         <div className="node-facts">
-          {step.station !== 'muu' ? `${station?.icon} ${station?.label}` : ''}
+          {step.station !== 'muu' && (
+            <>
+              <Icon name={STATION_ICON[step.station]} /> {station?.label}
+            </>
+          )}
           {cook ? (
             <span className="node-cook" style={{ color: cook.color }}>
               {step.station !== 'muu' ? ' · ' : ''}
@@ -342,19 +347,18 @@ function ChainCard({
   // heading instead of repeating the icon on each cramped row.
   const stations = new Set(chain.stepIds.map((id) => index.steps.get(id)!.station))
   const shared = stations.size === 1 && !stations.has('muu') ? [...stations][0] : null
-  const sharedIcon = STATIONS.find((s) => s.id === shared)?.icon
+
 
   return (
     <div className="node-body node-chain">
       <div className="node-kicker">
-        {sharedIcon ? `${sharedIcon} ` : ''}
-        {component?.name} · {chain.stepIds.length} vaihetta
+        {shared && <Icon name={STATION_ICON[shared]} />} {component?.name} ·{' '}
+        {chain.stepIds.length} vaihetta
       </div>
       {chain.stepIds.map((id, i) => {
         const step = index.steps.get(id)!
         const status = statusOf(step, state)
         const cook = state.cooks.find((c) => c.id === recordOf(state, id).cookId)
-        const station = STATIONS.find((s) => s.id === step.station)
         return (
           <div
             key={id}
@@ -368,7 +372,7 @@ function ChainCard({
             <span className="node-step-index">{i + 1}</span>
             <span className={`dot status-${status}`} />
             <span className="node-step-title">
-              {!shared && step.station !== 'muu' ? `${station?.icon} ` : ''}
+              {!shared && step.station !== 'muu' && <Icon name={STATION_ICON[step.station]} />}{' '}
               {step.title}
             </span>
             {cook && (

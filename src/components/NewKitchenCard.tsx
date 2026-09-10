@@ -12,6 +12,7 @@ import {
 import type { MenuSummary, TemplateSummary } from '../shared/api.ts'
 import { toExportDoc } from '../shared/menuDoc.ts'
 import { MenuImportDialog } from './MenuImportDialog.tsx'
+import { Icon } from './icons.tsx'
 
 /**
  * "Uusi keittiö": name the dinner, pick the menu, start.
@@ -207,7 +208,7 @@ export function NewKitchenCard() {
                         })
                       }
                     >
-                      ✕
+                      <Icon name="close" />
                     </button>
                   )}
                 </div>

@@ -1,5 +1,6 @@
 import { useMemo, useState, type DragEvent } from 'react'
 import { STATIONS, type Step, type StepState, type StepStatus } from '../model/types'
+import { Icon, STATION_ICON } from '../components/icons.tsx'
 import { recordOf, statusOf } from '../state/graph'
 import { useStore } from '../state/store'
 import { CookDot, STATUS_LABEL, StepControls } from '../components/StepControls'
@@ -54,7 +55,11 @@ export function KanbanView({
       case 'station':
         return STATIONS.map((st) => ({
           id: st.id,
-          label: `${st.icon} ${st.label}`,
+          label: (
+            <>
+              <Icon name={STATION_ICON[st.id]} /> {st.label}
+            </>
+          ),
           color: undefined,
           match: (s: Step) => s.station === st.id,
         }))
@@ -211,7 +216,7 @@ function Card({
       <div className="card-title">{step.title}</div>
       {step.station !== 'muu' && (
         <div className="card-facts muted small">
-          {`${station?.icon} ${station?.label}`}
+          <Icon name={STATION_ICON[step.station]} /> {station?.label}
         </div>
       )}
       <StepControls step={step} status={status} />

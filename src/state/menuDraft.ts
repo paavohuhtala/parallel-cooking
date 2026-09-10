@@ -34,6 +34,12 @@ export interface OutlineRow {
   /** Position among siblings, and how many there are; bounds for Alt+↑/↓. */
   index: number
   siblingCount: number
+  /**
+   * Rows directly under this one — dishes for a course, steps for a dish, and
+   * always 0 for a step. What decides whether Backspace on an empty title may
+   * delete the row: a keystroke never takes a subtree with it.
+   */
+  childCount: number
 }
 
 export const rowKey = (kind: RowKind, id: string): string => `${kind}:${id}`
@@ -51,6 +57,7 @@ export function flattenMenu(menu: Menu): OutlineRow[] {
   const courses = [...menu.courses].sort((a, b) => a.order - b.order)
 
   courses.forEach((course, courseIndex) => {
+    const components = menu.components.filter((c) => c.courseId === course.id)
     rows.push({
       key: rowKey('course', course.id),
       kind: 'course',
@@ -60,10 +67,11 @@ export function flattenMenu(menu: Menu): OutlineRow[] {
       station: null,
       index: courseIndex,
       siblingCount: courses.length,
+      childCount: components.length,
     })
 
-    const components = menu.components.filter((c) => c.courseId === course.id)
     components.forEach((component, componentIndex) => {
+      const steps = menu.steps.filter((s) => s.componentId === component.id)
       rows.push({
         key: rowKey('component', component.id),
         kind: 'component',
@@ -73,9 +81,9 @@ export function flattenMenu(menu: Menu): OutlineRow[] {
         station: null,
         index: componentIndex,
         siblingCount: components.length,
+        childCount: steps.length,
       })
 
-      const steps = menu.steps.filter((s) => s.componentId === component.id)
       steps.forEach((step, stepIndex) => {
         rows.push({
           key: rowKey('step', step.id),
@@ -86,6 +94,7 @@ export function flattenMenu(menu: Menu): OutlineRow[] {
           station: step.station,
           index: stepIndex,
           siblingCount: steps.length,
+          childCount: 0,
         })
       })
     })

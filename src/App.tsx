@@ -3,6 +3,7 @@ import type { Menu } from './model/types'
 import { useNavigate } from '@tanstack/react-router'
 import { createRoom, saveRoomMenu } from './api/client'
 import { MenuEditor } from './components/MenuEditor'
+import { Icon, type IconName } from './components/icons.tsx'
 import { StartDialog } from './components/StepControls'
 import { StepDetail } from './components/StepDetail'
 import { progressOf, recordOf, suggestedNext } from './state/graph'
@@ -19,10 +20,10 @@ const CONNECTION_LABEL: Record<'connecting' | 'online' | 'offline', string> = {
   offline: 'Ei yhteyttä',
 }
 
-const VIEWS: { id: View; label: string; icon: string }[] = [
-  { id: 'recipe', label: 'Resepti', icon: '📖' },
-  { id: 'graph', label: 'Graafi', icon: '🕸️' },
-  { id: 'board', label: 'Keittiötaulu', icon: '🗂️' },
+const VIEWS: { id: View; label: string; icon: IconName }[] = [
+  { id: 'recipe', label: 'Resepti', icon: 'recipe' },
+  { id: 'graph', label: 'Graafi', icon: 'graph' },
+  { id: 'board', label: 'Keittiötaulu', icon: 'board' },
 ]
 
 export default function App() {
@@ -79,20 +80,28 @@ export default function App() {
               className={`tab ${view === v.id ? 'is-active' : ''}`}
               onClick={() => setView(v.id)}
             >
-              <span aria-hidden>{v.icon}</span> {v.label}
+              <Icon name={v.icon} /> {v.label}
             </button>
           ))}
         </nav>
 
         <div className="topbar-actions">
           <button className="btn btn-ghost" onClick={() => setCooksOpen((o) => !o)}>
-            👥 Kokit ({state.cooks.length})
+            <Icon name="cooks" /> Kokit ({state.cooks.length})
           </button>
           <button className="btn btn-ghost" onClick={() => void copyLink()}>
-            {copied ? '✓ Kopioitu' : '🔗 Jaa'}
+            {copied ? (
+              <>
+                <Icon name="check" /> Kopioitu
+              </>
+            ) : (
+              <>
+                <Icon name="share" /> Jaa
+              </>
+            )}
           </button>
           <button className="btn btn-ghost" onClick={() => setEditing(true)}>
-            ✏️ Muokkaa menua
+            <Icon name="edit" /> Muokkaa menua
           </button>
           <button className="btn btn-ghost" onClick={() => void startFresh()}>
             Uusi keittiö
@@ -123,7 +132,7 @@ export default function App() {
           )}
           {rejection.reason}
           <button className="btn btn-ghost icon" onClick={dismissRejection} aria-label="Sulje">
-            ✕
+            <Icon name="close" />
           </button>
         </div>
       )}
@@ -229,7 +238,7 @@ function CooksModal({ onClose }: { onClose: () => void }) {
         <div className="modal-head">
           <h2>Kokit</h2>
           <button className="btn btn-ghost icon" onClick={onClose} aria-label="Sulje">
-            ✕
+            <Icon name="close" />
           </button>
         </div>
 
@@ -259,7 +268,7 @@ function CooksModal({ onClose }: { onClose: () => void }) {
                 aria-label={`Poista ${cook.name}`}
                 disabled={state.cooks.length <= 1}
               >
-                ✕
+                <Icon name="close" />
               </button>
             </div>
           ))}

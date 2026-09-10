@@ -303,9 +303,40 @@ p {
   border-color: color-mix(in srgb, var(--ready) 55%, transparent);
   color: var(--ready);
 }
+/*
+ * The one composed mark in the app, and the one that carries colour of its own:
+ * a white chef's hat with a green play badge. It needs two things the flat
+ * glyphs do not. It runs a size bigger than the button's own text, because the
+ * badge is a detail inside a detail and 13px turns it to mush; and its outline
+ * takes `--text` rather than the button's blue, so the hat reads as a hat
+ * instead of as a third tint of the button.
+ */
+.btn-start .icon {
+  font-size: 1.25em;
+  color: var(--text);
+}
 .btn-done {
   border-color: color-mix(in srgb, var(--done) 55%, transparent);
   color: var(--done);
+}
+/* Both moves put a glyph before their label, so both need the same gap. */
+.btn-start,
+.btn-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/*
+ * Icons are sized in `em`, so a call site sets their size with `font-size`
+ * exactly as it did when they were emoji, and one glyph works in a 15px row and
+ * a 1.05rem heading without a size prop. The negative baseline shift is what
+ * puts an em-tall box on the text baseline instead of hanging it below.
+ */
+.icon {
+  display: inline-block;
+  vertical-align: -0.14em;
+  flex: none;
 }
 
 .chip {
@@ -1433,6 +1464,19 @@ p {
   gap: 0.4rem;
   flex-wrap: wrap;
 }
+/* Undo and redo read as one control, so they sit closer to each other than to
+   anything else in the row and carry a single border around the pair. */
+.editor-history {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.editor-history .btn {
+  font-size: 0.95rem;
+  min-width: 1.9rem;
+}
 .editor-dirty {
   font-size: 0.78rem;
   color: var(--muted);
@@ -1520,19 +1564,35 @@ p {
   background: var(--surface);
   color: var(--text);
 }
-/* `muu` is the unremarkable default and shows as a plain bullet: a menu has to
-   be scannable for what is actually competing for the stove. The bullet is
-   still the way into a step's details, so it needs enough weight to be seen. */
+/* The disclosure is one glyph pointing right; open rotates it, so the two
+   states are the same shape and cannot drift apart. */
+.row-glyph .icon {
+  transition: transform 0.12s ease;
+}
+.outline-row[aria-expanded='true'] > .outline-main > .row-glyph .icon {
+  transform: rotate(90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .row-glyph .icon {
+    transition: none;
+  }
+}
+
+/* `muu` is the unremarkable default, so it stays the quietest of the four —
+   but quiet is `--muted` at 5:1, not the near-invisible `--border` the bullet
+   used to be. It is the only way into a step's details by touch, and a control
+   nobody can see is not a quiet control. */
 .station-glyph {
   font-size: 0.95rem;
 }
 .station-glyph.is-quiet {
-  font-size: 1.5rem;
-  color: var(--border);
+  color: var(--muted);
+  opacity: 0.75;
 }
 .outline-row:hover .station-glyph.is-quiet,
 .outline-row.is-selected .station-glyph.is-quiet {
-  color: var(--muted);
+  color: var(--text);
+  opacity: 1;
 }
 .row-hidden {
   flex: none;
