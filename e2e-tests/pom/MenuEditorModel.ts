@@ -21,6 +21,8 @@ export class MenuEditorModel {
   readonly importDialog: Locator
   readonly inspector: Locator
   readonly addCourseButton: Locator
+  readonly undoButton: Locator
+  readonly redoButton: Locator
 
   constructor(page: Page) {
     // Locators are built here, not as field initialisers: `useDefineForClassFields`
@@ -36,6 +38,33 @@ export class MenuEditorModel {
     this.importDialog = page.getByRole('dialog', { name: 'Tuo ja yhdistä' })
     this.inspector = this.root.locator('.inspector')
     this.addCourseButton = this.root.getByLabel('Lisää ruokalaji', { exact: true })
+    this.undoButton = this.root.getByLabel('Kumoa', { exact: true })
+    this.redoButton = this.root.getByLabel('Tee uudelleen', { exact: true })
+  }
+
+  /* ---------------------------------------------------------------- undo */
+
+  /**
+   * Undo through the keyboard, which is the way it is reached in practice.
+   * `ControlOrMeta` so the same spec means Cmd on a Mac runner.
+   */
+  async undo(): Promise<void> {
+    await this.page.keyboard.press('ControlOrMeta+z')
+  }
+
+  async redo(): Promise<void> {
+    await this.page.keyboard.press('ControlOrMeta+Shift+z')
+  }
+
+  /**
+   * Empty a row's title and press Backspace once more — the keystroke that used
+   * to delete whatever the row was, contents and all.
+   */
+  async backspaceEmptyRow(kind: 'Ruokalaji' | 'Osa' | 'Vaihe', title: string): Promise<void> {
+    await this.row(kind, title).click()
+    await this.page.keyboard.press('ControlOrMeta+a')
+    await this.page.keyboard.press('Backspace')
+    await this.page.keyboard.press('Backspace')
   }
 
   /** The title input of a row, found by the text currently in it. */

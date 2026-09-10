@@ -7,7 +7,6 @@ import { ApiError } from '../api/client.ts'
 import { MenuImportDialog } from './MenuImportDialog.tsx'
 import {
   ancestorKeys,
-  applyDraftAction,
   dependencyCandidates,
   outlineItems,
   rowKey,
@@ -15,6 +14,13 @@ import {
   type OutlineItem,
   type OutlineRow,
 } from '../state/menuDraft.ts'
+import {
+  applyHistory,
+  canRedo,
+  canUndo,
+  initialHistory,
+  type DraftHistory,
+} from '../state/draftHistory.ts'
 
 /*
  * The menu editor: course → dish → step as an outline, with an inspector
@@ -72,7 +78,13 @@ export function MenuEditor({
   onClose,
 }: MenuEditorProps) {
   const [saved, setSaved] = useState<Menu>(initial)
-  const [draft, setDraft] = useState<Menu>(() => restore(storageKey) ?? initial)
+  // The draft and its undo stack are one state value on purpose: pushing the
+  // replaced menu has to happen inside the same pure updater that produces the
+  // new one, or StrictMode's double invocation records the step twice.
+  const [history, setHistory] = useState<DraftHistory>(() =>
+    initialHistory(restore(storageKey) ?? initial),
+  )
+  const draft = history.menu
   const [version, setVersion] = useState(initialVersion)
   const [focus, setFocus] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
@@ -115,14 +127,17 @@ export function MenuEditor({
 
   const dispatch = useCallback(
     (action: MenuAction) => {
-      setDraft((current) => {
-        const result = applyDraftAction(current, action)
-        if (result.focus) reveal(result.menu, result.focus)
-        return result.menu
+      setHistory((current) => {
+        const result = applyHistory(current, { type: 'apply', action })
+        if (result.focus) reveal(result.state.menu, result.focus)
+        return result.state
       })
     },
     [reveal],
   )
+
+  const undo = useCallback(() => setHistory((h) => applyHistory(h, { type: 'undo' }).state), [])
+  const redo = useCallback(() => setHistory((h) => applyHistory(h, { type: 'redo' }).state), [])
 
   const toggleCollapse = useCallback((key: string) => {
     setCollapsed((current) => {
@@ -153,6 +168,31 @@ export function MenuEditor({
     window.addEventListener('beforeunload', warn)
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty])
+
+  /*
+   * Undo is the editor's, not the browser's.
+   *
+   * A row is an `<input>`, so the native stack would only ever reach the text
+   * in one field — and the moment a structural action remounts that input it is
+   * gone anyway. Taking the key means one stack for the whole document, which
+   * is the only kind that can put back a deleted course. Coalescing in
+   * `draftHistory` is what keeps it from feeling coarse: a run of typing is
+   * still one step.
+   *
+   * The import dialog is left alone: it has a textarea of pasted JSON where the
+   * native stack is exactly what you want.
+   */
+  useEffect(() => {
+    if (merging) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== 'z' || !(e.metaKey || e.ctrlKey) || e.altKey) return
+      e.preventDefault()
+      if (e.shiftKey) redo()
+      else undo()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [merging, undo, redo])
 
   // The reducer names the row that should hold the cursor; the view just obeys.
   useLayoutEffect(() => {
@@ -194,7 +234,8 @@ export function MenuEditor({
     try {
       const result = await save(canonical, version)
       setSaved(canonical)
-      setDraft(canonical)
+      // The stack survives a save: saving is not a wall you cannot undo past.
+      setHistory((h) => applyHistory(h, { type: 'replace', menu: canonical }).state)
       // The next save must build on the version this write produced, not on the
       // one echoed back over the socket.
       setVersion(result.version)
@@ -248,6 +289,29 @@ export function MenuEditor({
           onChange={(e) => dispatch({ type: 'rename_menu', value: e.target.value })}
         />
         <div className="editor-actions">
+          {/* Undo has to be reachable without a keyboard too: the row menu's
+              Poista is a thumb's only way to delete, so it needs a thumb's way
+              back. */}
+          <div className="editor-history">
+            <button
+              className="btn btn-ghost icon"
+              onClick={undo}
+              disabled={!canUndo(history)}
+              aria-label="Kumoa"
+              title="Kumoa (Ctrl+Z)"
+            >
+              ↶
+            </button>
+            <button
+              className="btn btn-ghost icon"
+              onClick={redo}
+              disabled={!canRedo(history)}
+              aria-label="Tee uudelleen"
+              title="Tee uudelleen (Vaihto+Ctrl+Z)"
+            >
+              ↷
+            </button>
+          </div>
           {/* One recipe at a time is how a model converts them, so assembling a
               multi-course dinner means merging several documents into this one. */}
           <button className="btn btn-ghost" onClick={() => setMerging(true)}>
@@ -330,7 +394,8 @@ export function MenuEditor({
 
       <p className="muted small editor-hint">
         Enter lisää rivin · Vaihto+Enter lisää sisällön · ↑/↓ siirtyy rivien välillä ·
-        Alt+↑/↓ siirtää riviä · Askelpalautin tyhjällä rivillä poistaa · ⋯ tekee saman hiirellä
+        Alt+↑/↓ siirtää riviä · Askelpalautin tyhjällä rivillä poistaa sen, jos sillä ei ole
+        sisältöä · Ctrl+Z kumoaa · ⋯ tekee saman hiirellä
       </p>
     </div>
   )
@@ -405,7 +470,14 @@ function Row({
     }
     if (e.key === 'Backspace' && e.currentTarget.value === '') {
       e.preventDefault()
-      dispatch({ type: 'delete_row', kind: row.kind, id: row.id })
+      // Only a row with nothing under it. Renaming a course by selecting the
+      // name and retyping it leaves the field empty for exactly as long as it
+      // takes to press Backspace once too often — and for a course that used to
+      // mean the course, every dish in it and every step in those. Emptying a
+      // parent is not a request to delete its contents; that is what the row
+      // menu's Poista is for, deliberately reached on purpose rather than by
+      // one more keystroke.
+      if (row.childCount === 0) dispatch({ type: 'delete_row', kind: row.kind, id: row.id })
       return
     }
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {

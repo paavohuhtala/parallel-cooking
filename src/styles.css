@@ -1433,6 +1433,19 @@ p {
   gap: 0.4rem;
   flex-wrap: wrap;
 }
+/* Undo and redo read as one control, so they sit closer to each other than to
+   anything else in the row and carry a single border around the pair. */
+.editor-history {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.editor-history .btn {
+  font-size: 0.95rem;
+  min-width: 1.9rem;
+}
 .editor-dirty {
   font-size: 0.78rem;
   color: var(--muted);

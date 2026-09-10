@@ -189,6 +189,25 @@ test('the outline lists rows in authoring order, course then dish then steps', (
   assert.equal(rows[4].index, 2)
 })
 
+test('a row knows how many rows are directly under it', () => {
+  // What the editor asks before letting Backspace on an empty title delete the
+  // row: a keystroke may take a leaf, never a subtree.
+  const rows = flattenMenu(base())
+  assert.deepEqual(
+    rows.map((r) => [r.kind, r.childCount]),
+    [
+      ['course', 1],
+      ['component', 3],
+      ['step', 0],
+      ['step', 0],
+      ['step', 0],
+    ],
+  )
+
+  const emptied = run(base(), { type: 'delete_row', kind: 'step', id: 'a' }, { type: 'delete_row', kind: 'step', id: 'b' }, { type: 'delete_row', kind: 'step', id: 'c' })
+  assert.equal(flattenMenu(emptied)[1].childCount, 0)
+})
+
 test('a new course is appended with the next order number', () => {
   const { menu } = applyDraftAction(base(), { type: 'insert_after', kind: 'course', id: 'c1' })
   assert.deepEqual(menu.courses.map((c) => c.order), [1, 2])

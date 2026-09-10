@@ -280,6 +280,117 @@ test('deleting a step in the middle heals the chain instead of breaking it', asy
   await expect(kolmas).toHaveClass(/status-ready/)
 })
 
+/** One course, one dish, three steps in a line — enough to lose by accident. */
+const chainDoc = (name: string) => ({
+  name,
+  courses: [
+    {
+      name: 'Alkupala',
+      components: [
+        {
+          name: 'Keitto',
+          steps: [{ title: 'Eka' }, { title: 'Toka', deps: ['Eka'] }, { title: 'Kolmas', deps: ['Toka'] }],
+        },
+      ],
+    },
+  ],
+})
+
+test('emptying a course name and pressing Backspace does not take the course with it', async ({
+  page,
+  library,
+  editor,
+}) => {
+  await page.goto('/')
+  await library.import(chainDoc('Vahinko'))
+  await editor.expectOpen()
+
+  // Renaming a course by selecting the name and retyping leaves the field empty
+  // for exactly as long as it takes to press Backspace once too often.
+  await editor.backspaceEmptyRow('Ruokalaji', 'Alkupala')
+  await editor.expectTitles(['', 'Keitto', 'Eka', 'Toka', 'Kolmas'])
+
+  // The same keystroke still deletes a leaf, so the guard is a guard and not a
+  // removal of the feature.
+  await editor.backspaceEmptyRow('Vaihe', 'Kolmas')
+  await editor.expectTitles(['', 'Keitto', 'Eka', 'Toka'])
+})
+
+test('a course deleted from the row menu comes back whole, chain and all', async ({
+  page,
+  library,
+  editor,
+}) => {
+  await page.goto('/')
+  await library.import(chainDoc('Kumoa'))
+  await editor.expectOpen()
+
+  await editor.deleteRow('Alkupala')
+  await editor.expectTitles([])
+
+  await editor.undo()
+  await editor.expectTitles(['Alkupala', 'Keitto', 'Eka', 'Toka', 'Kolmas'])
+  // Back to exactly the stored document, not merely to the same row titles —
+  // there is nothing left to save.
+  await editor.expectClean()
+
+  // Whole means the dependencies too. Take a leaf off the end so there is a
+  // real save to make, then check in the kitchen that the chain the undo put
+  // back is the one that got stored.
+  await editor.deleteRow('Kolmas')
+  await editor.save()
+  await page.goto('/')
+  await library.startKitchen('Kumoa')
+  const eka = page.locator('.step-row').filter({ hasText: 'Eka' })
+  const toka = page.locator('.step-row').filter({ hasText: 'Toka' })
+  await expect(toka).toHaveClass(/status-blocked/)
+  await eka.getByRole('button', { name: 'Aloita' }).click()
+  await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
+  await eka.getByRole('button', { name: 'Valmis' }).click()
+  await expect(toka).toHaveClass(/status-ready/)
+})
+
+test('a typed title is one undo step, and redo puts it back', async ({ page, library, editor }) => {
+  await page.goto('/')
+  await library.import(chainDoc('Kirjoitus'))
+  await editor.expectOpen()
+
+  await editor.step('Eka').click()
+  await page.keyboard.press('End')
+  await page.keyboard.type(' ja vielä')
+  await editor.expectTitles(['Alkupala', 'Keitto', 'Eka ja vielä', 'Toka', 'Kolmas'])
+
+  // Not nine presses, one: the run of keystrokes in one field is a single step.
+  await editor.undo()
+  await editor.expectTitles(['Alkupala', 'Keitto', 'Eka', 'Toka', 'Kolmas'])
+
+  await editor.redo()
+  await editor.expectTitles(['Alkupala', 'Keitto', 'Eka ja vielä', 'Toka', 'Kolmas'])
+})
+
+test('undo is reachable without a keyboard, and greys out when there is nothing to undo', async ({
+  page,
+  library,
+  editor,
+}) => {
+  await page.goto('/')
+  await library.import(chainDoc('Peukalo'))
+  await editor.expectOpen()
+
+  await expect(editor.undoButton).toBeDisabled()
+  await expect(editor.redoButton).toBeDisabled()
+
+  await editor.deleteRow('Toka')
+  await editor.expectTitles(['Alkupala', 'Keitto', 'Eka', 'Kolmas'])
+
+  await editor.undoButton.click()
+  await editor.expectTitles(['Alkupala', 'Keitto', 'Eka', 'Toka', 'Kolmas'])
+  await expect(editor.undoButton).toBeDisabled()
+
+  await editor.redoButton.click()
+  await editor.expectTitles(['Alkupala', 'Keitto', 'Eka', 'Kolmas'])
+})
+
 test('a menu with an error cannot be saved, and the problem says where', async ({
   page,
   library,
