@@ -273,6 +273,38 @@ test("on a phone the row menu is how a dish's details are opened", async ({
   await expect(editor.inspectorTitle).toHaveText('Keitto')
 })
 
+test('on a phone a long title wraps instead of being cut through a letter', async ({
+  page,
+  library,
+  editor,
+}) => {
+  const long = 'Alkupala: kantarellikeitto ja valkosipulibruschetta'
+  await page.setViewportSize({ width: 390, height: 800 })
+  await page.goto('/')
+  await library.import({
+    name: 'Rivitys',
+    courses: [{ name: long, components: [{ name: 'Keitto', steps: [{ title: 'Pilko sipuli' }] }] }],
+  })
+  await editor.expectOpen()
+
+  // An <input> showed "…ja valk" and stopped there, with nothing to say so.
+  expect(await editor.titleClipped('Ruokalaji', long)).toBe(false)
+  expect(await editor.titleLines('Ruokalaji', long)).toBe(2)
+  // The disclosure and the ⋯ stay with the line the title starts on.
+  expect(await editor.sideControlOffsets('Ruokalaji', long)).toEqual({ glyph: 0, menu: 0 })
+  // And a title that fits is still one line, with the same alignment.
+  expect(await editor.titleLines('Vaihe', 'Pilko sipuli')).toBe(1)
+  expect(await editor.sideControlOffsets('Vaihe', 'Pilko sipuli')).toEqual({ glyph: 0, menu: 0 })
+
+  // It wraps on screen, but it is still one line of text: a pasted line break
+  // becomes a space, and Enter starts the next row rather than a second line.
+  await editor.step('Pilko sipuli').click()
+  await page.keyboard.press('End')
+  await page.keyboard.insertText(' ja\nvalkosipuli')
+  await page.keyboard.press('Enter')
+  await editor.expectTitles([long, 'Keitto', 'Pilko sipuli ja valkosipuli', ''])
+})
+
 test('Alt+Arrow reorders a step and rebuilds the chain around it', async ({
   page,
   library,

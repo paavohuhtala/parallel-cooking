@@ -1556,6 +1556,14 @@ p {
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  /* A one-line title, border box. A long title wraps, and everything beside it
+     lines up with its first line rather than its middle, so each of those is
+     placed against this — one number, rather than a margin per control that
+     has to be kept in step with the title's padding by hand. rem throughout,
+     so it means the same length on every element that reads it. */
+  --title-pad-y: 0.34rem;
+  --title-lh: 1.4rem;
+  --title-line: calc(var(--title-lh) + 2 * var(--title-pad-y) + 2px);
 }
 /* Rows and tail rows are both direct children, and both are indented by the
    level they sit at — a tail row is a row of the kind it creates. */
@@ -1578,9 +1586,12 @@ p {
 }
 .outline-main {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.35rem;
   padding: 1px 0;
+}
+.outline-main > .row-glyph {
+  margin-top: calc((var(--title-line) - 1.5rem) / 2);
 }
 
 /* The left slot: one glyph, one meaning. On a course or a dish it is the
@@ -1643,6 +1654,7 @@ p {
 }
 .row-hidden {
   flex: none;
+  line-height: var(--title-line);
 }
 
 /* The field is as wide as its text, not as wide as the column, so the collapsed
@@ -1655,12 +1667,19 @@ p {
   flex: 0 1 auto;
   width: 48ch;
   min-width: 6rem;
-  padding: 0.34rem 0.5rem;
+  padding: var(--title-pad-y) 0.5rem;
   border: 1px solid transparent;
   border-radius: 7px;
   background: transparent;
   color: var(--text);
   font: inherit;
+  line-height: var(--title-lh);
+  resize: none;
+  overflow: hidden;
+  /* One line that scrolls, like the `<input>` this was, wherever the field
+     cannot be sized to its text — a wrapping textarea of fixed height would
+     hide a long title's second line entirely, which is worse than clipping. */
+  white-space: pre;
 }
 .outline-title:hover {
   border-color: var(--border);
@@ -1672,12 +1691,16 @@ p {
 }
 /* The floor is what lets a long title shrink to the row on a phone at all — a
    flex item's `auto` minimum would be its text — and it is kept low so a short
-   title's `⋯` is not pushed away by a floor wider than "Eka". */
+   title's `⋯` is not pushed away by a floor wider than "Eka". Once it has
+   shrunk to the row, the text wraps and the field grows a line, instead of
+   cutting "…ja valkosipulibruschetta" off through a letter. */
 @supports (field-sizing: content) {
   .outline-title {
     field-sizing: content;
     width: auto;
     min-width: 3rem;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
   }
 }
 .kind-course .outline-title {
@@ -1693,6 +1716,9 @@ p {
 .row-menu {
   position: relative;
   flex: none;
+  display: flex;
+  align-items: center;
+  height: var(--title-line);
 }
 .row-menu-open {
   opacity: 0;

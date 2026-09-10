@@ -4,8 +4,8 @@ import { expect, type Locator, type Page } from '@playwright/test'
  * The menu outliner, at `/m/<id>` or as the overlay inside a kitchen.
  *
  * Rows are addressed by their visible title through the dynamic `aria-label`
- * the editor puts on every title input — React does not reflect a controlled
- * input's value into the DOM attribute, so there is nothing else to match on.
+ * the editor puts on every title field — React does not reflect a controlled
+ * field's value into the DOM, so there is nothing else to match on.
  * The same trick names each row's `⋯` menu and each list's tail row, so a move
  * here reads as "the thing called X", never as a nth-child.
  */
@@ -103,7 +103,7 @@ export class MenuEditorModel {
    */
   async menuButtonDistance(kind: 'Ruokalaji' | 'Osa' | 'Vaihe', title: string): Promise<number> {
     return this.rowBlock(kind, title).evaluate((row) => {
-      const input = row.querySelector('.outline-title') as HTMLInputElement
+      const input = row.querySelector('.outline-title') as HTMLTextAreaElement
       const button = row.querySelector('.row-menu-open')!
       const style = getComputedStyle(input)
       const ctx = document.createElement('canvas').getContext('2d')!
@@ -117,9 +117,55 @@ export class MenuEditorModel {
     })
   }
 
-  /** An `<input>` cannot ellipsize, so overflow means text cut through a glyph. */
+  /**
+   * A form field cannot ellipsize, so overflow means text cut through a glyph —
+   * sideways in a field that scrolls, or downwards in one that wraps but did
+   * not grow.
+   */
   async titleClipped(kind: 'Ruokalaji' | 'Osa' | 'Vaihe', title: string): Promise<boolean> {
-    return this.row(kind, title).evaluate((el) => el.scrollWidth > el.clientWidth)
+    return this.row(kind, title).evaluate(
+      (el) => el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight,
+    )
+  }
+
+  /** How many lines a row's title is laid out on. */
+  async titleLines(kind: 'Ruokalaji' | 'Osa' | 'Vaihe', title: string): Promise<number> {
+    return this.row(kind, title).evaluate((el) => {
+      const style = getComputedStyle(el)
+      const content =
+        el.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)
+      return Math.round(content / parseFloat(style.lineHeight))
+    })
+  }
+
+  /**
+   * How far the centres of a row's left glyph and its `⋯` sit from the centre
+   * of the title's *first* line, in whole pixels. Beside a wrapped title they
+   * belong to the line the title starts on, not to the middle of the block.
+   */
+  async sideControlOffsets(
+    kind: 'Ruokalaji' | 'Osa' | 'Vaihe',
+    title: string,
+  ): Promise<{ glyph: number; menu: number }> {
+    return this.rowBlock(kind, title).evaluate((row) => {
+      const input = row.querySelector('.outline-title')!
+      const style = getComputedStyle(input)
+      const top = input.getBoundingClientRect().top
+      const firstLine =
+        top +
+        parseFloat(style.borderTopWidth) +
+        parseFloat(style.paddingTop) +
+        parseFloat(style.lineHeight) / 2
+      // `+ 0` turns a -0 into a 0, which `toEqual` would otherwise tell apart.
+      const offset = (el: Element) => {
+        const r = el.getBoundingClientRect()
+        return Math.round(r.top + r.height / 2 - firstLine) + 0
+      }
+      return {
+        glyph: offset(row.querySelector('.row-glyph')!),
+        menu: offset(row.querySelector('.row-menu-open')!),
+      }
+    })
   }
 
   titles(): Locator {
@@ -127,13 +173,13 @@ export class MenuEditorModel {
   }
 
   /**
-   * The outline in order. Rows are `<input>`s, so their text content is always
-   * empty — the value is the thing to compare.
+   * The outline in order. Rows are form fields, so their text content is
+   * always empty — the value is the thing to compare.
    */
   async expectTitles(expected: string[]): Promise<void> {
     await expect
       .poll(() =>
-        this.titles().evaluateAll((els) => els.map((el) => (el as HTMLInputElement).value)),
+        this.titles().evaluateAll((els) => els.map((el) => (el as HTMLTextAreaElement).value)),
       )
       .toEqual(expected)
   }

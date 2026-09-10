@@ -206,7 +206,7 @@ export function MenuEditor({
   // The reducer names the row that should hold the cursor; the view just obeys.
   useLayoutEffect(() => {
     if (!focus) return
-    const el = document.querySelector<HTMLInputElement>(`[data-rowkey="${CSS.escape(focus)}"]`)
+    const el = document.querySelector<HTMLTextAreaElement>(`[data-rowkey="${CSS.escape(focus)}"]`)
     if (el) {
       el.focus()
       el.setSelectionRange(el.value.length, el.value.length)
@@ -483,8 +483,10 @@ function Row({
   /** Held here rather than in the menu, so the row can show whose menu is open. */
   const [menuOpen, setMenuOpen] = useState(false)
 
-  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+  function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter') {
+      // Always ours: the field is a textarea only so that it can wrap, and a
+      // title is one line however it is displayed.
       e.preventDefault()
       // Shift+Enter reaches inwards, which is the only direction Enter cannot:
       // the first dish of a course, the first step of a dish.
@@ -507,6 +509,9 @@ function Row({
       if (row.childCount === 0) dispatch({ type: 'delete_row', kind: row.kind, id: row.id })
       return
     }
+    // Rows, not lines, even in a title that has wrapped: the wrap is the
+    // screen's, not the text's, and ↑/↓ should not mean something different on
+    // a narrow window.
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       const delta = e.key === 'ArrowUp' ? -1 : 1
       e.preventDefault()
@@ -535,7 +540,7 @@ function Row({
         onPointerDown={(e) => {
           if (e.target !== e.currentTarget) return
           e.preventDefault()
-          const input = e.currentTarget.querySelector<HTMLInputElement>('.outline-title')
+          const input = e.currentTarget.querySelector<HTMLTextAreaElement>('.outline-title')
           input?.focus()
           input?.setSelectionRange(input.value.length, input.value.length)
         }}
@@ -552,14 +557,24 @@ function Row({
           <StationGlyph item={item} onOpenDetails={onOpenDetails} />
         )}
 
-        <input
+        {/* A textarea only so that a long title can wrap: an `<input>` cannot,
+            and on a phone it cut a quarter of the titles off mid-letter with
+            nothing to say so. It is still one line of text — Enter is taken
+            above, and a pasted line break becomes a space. */}
+        <textarea
           data-rowkey={row.key}
           className="outline-title"
+          rows={1}
           value={row.title}
           aria-label={`${KIND_LABEL[row.kind]}: ${row.title || 'nimetön'}`}
           placeholder={`Uusi ${KIND_LABEL[row.kind].toLowerCase()}`}
           onChange={(e) =>
-            dispatch({ type: 'rename', kind: row.kind, id: row.id, value: e.target.value })
+            dispatch({
+              type: 'rename',
+              kind: row.kind,
+              id: row.id,
+              value: e.target.value.replace(/[\r\n]+/g, ' '),
+            })
           }
           onFocus={() => onSelect(row.key)}
           onKeyDown={onKeyDown}
