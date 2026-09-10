@@ -431,7 +431,7 @@ test('the menu can be fixed while a kitchen is cooking, and everyone sees it', a
   const second = await openSecondCook()
   await page.goto(`/r/${room.id}`)
 
-  await page.getByRole('button', { name: '✏️ Muokkaa menua' }).click()
+  await page.getByRole('button', { name: 'Muokkaa menua' }).click()
   await editor.expectOpen()
 
   const renamed = 'Puhdista kantarellit huolella'
@@ -456,7 +456,7 @@ test('removing a step that somebody has started asks before discarding it', asyn
   await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
   await expect(row).toHaveClass(/status-active/)
 
-  await page.getByRole('button', { name: '✏️ Muokkaa menua' }).click()
+  await page.getByRole('button', { name: 'Muokkaa menua' }).click()
   await editor.deleteRow(doomed)
 
   // The confirmation names the step whose progress is about to be lost.
@@ -483,7 +483,7 @@ test('declining the confirmation leaves the kitchen exactly as it was', async ({
   await row.getByRole('button', { name: 'Aloita' }).click()
   await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
 
-  await page.getByRole('button', { name: '✏️ Muokkaa menua' }).click()
+  await page.getByRole('button', { name: 'Muokkaa menua' }).click()
   await editor.deleteRow(doomed)
 
   page.on('dialog', (d) => void d.dismiss())

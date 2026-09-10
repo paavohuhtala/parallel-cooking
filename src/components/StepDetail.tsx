@@ -1,4 +1,5 @@
 import { STATIONS } from '../model/types'
+import { Icon, STATION_ICON } from './icons.tsx'
 import { recordOf, statusOf } from '../state/graph'
 import { useStore } from '../state/store'
 import { CookPicker, STATUS_LABEL, StepControls } from './StepControls'
@@ -30,7 +31,7 @@ export function StepDetail({
           <h2>{step.title}</h2>
         </div>
         <button className="btn btn-ghost icon" onClick={onClose} aria-label="Sulje tiedot">
-          ✕
+          <Icon name="close" />
         </button>
       </div>
 
@@ -38,7 +39,7 @@ export function StepDetail({
         <span className={`pill status-${status}`}>{STATUS_LABEL[status]}</span>
         {step.station !== 'muu' && (
           <span className="pill">
-            {station?.icon} {station?.label}
+            <Icon name={STATION_ICON[step.station]} /> {station?.label}
           </span>
         )}
         {step.holdPoint && <span className="pill pill-hold">Voi tehdä etukäteen</span>}

@@ -3,6 +3,7 @@ import type { Menu } from '../model/types.ts'
 import type { MenuImportResponse } from '../shared/api.ts'
 import { MENU_PROMPT } from '../shared/menuPrompt.ts'
 import { ApiError, importMenu } from '../api/client.ts'
+import { Icon } from './icons.tsx'
 
 /**
  * Paste or open a JSON document, check it, and hand the caller the canonical
@@ -89,7 +90,7 @@ export function MenuImportDialog({
         <div className="modal-head">
           <h2>{title}</h2>
           <button className="btn btn-ghost icon" onClick={onClose} aria-label="Sulje">
-            ✕
+            <Icon name="close" />
           </button>
         </div>
 

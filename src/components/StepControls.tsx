@@ -1,6 +1,7 @@
 import type { Step, StepStatus } from '../model/types'
 import { checkTransition, recordOf } from '../state/graph'
 import { useStore } from '../state/store'
+import { Icon, StartIcon } from './icons.tsx'
 
 export const STATUS_LABEL: Record<StepStatus, string> = {
   blocked: 'Odottaa',
@@ -60,7 +61,7 @@ export function StepControls({ step, status }: { step: Step; status: StepStatus 
           title={toActive.reason}
           onClick={() => requestStart(step.id)}
         >
-          Aloita
+          <StartIcon /> Aloita
         </button>
       )}
       {status !== 'done' && (
@@ -70,7 +71,7 @@ export function StepControls({ step, status }: { step: Step; status: StepStatus 
           title={toDone.reason}
           onClick={() => setStepState(step.id, 'done')}
         >
-          Valmis
+          <Icon name="check" /> Valmis
         </button>
       )}
       {status === 'active' && (

@@ -1,4 +1,5 @@
 import { STATIONS } from '../model/types'
+import { Icon, STATION_ICON } from '../components/icons.tsx'
 import { recordOf, statusOf } from '../state/graph'
 import { useStore } from '../state/store'
 import { CookDot, STATUS_LABEL, StepControls } from '../components/StepControls'
@@ -89,7 +90,11 @@ export function RecipeView({
                                 )}
                               </span>
                               <span className="step-facts muted small">
-                                {step.station !== 'muu' && `${station?.icon} ${station?.label} · `}
+                                {step.station !== 'muu' && (
+                                  <>
+                                    <Icon name={STATION_ICON[step.station]} /> {station?.label} ·{' '}
+                                  </>
+                                )}
                                 {STATUS_LABEL[status]}
                               </span>
                               <CookDot cookId={record.cookId} />

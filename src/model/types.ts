@@ -4,11 +4,17 @@
  */
 export type Station = 'liesi' | 'uuni' | 'grilli' | 'muu'
 
-export const STATIONS: { id: Station; label: string; icon: string }[] = [
-  { id: 'liesi', label: 'Liesi', icon: '🍳' },
-  { id: 'uuni', label: 'Uuni', icon: '♨️' },
-  { id: 'grilli', label: 'Grilli', icon: '🔥' },
-  { id: 'muu', label: 'Muu', icon: '🔪' },
+/*
+ * Stations carry no icon: this module is server-reachable, so it holds plain
+ * data and nothing that could drag React or the DOM across the boundary. The
+ * glyph for each id lives in `components/icons.tsx`, which only the client
+ * imports.
+ */
+export const STATIONS: { id: Station; label: string }[] = [
+  { id: 'liesi', label: 'Liesi' },
+  { id: 'uuni', label: 'Uuni' },
+  { id: 'grilli', label: 'Grilli' },
+  { id: 'muu', label: 'Muu' },
 ]
 
 export interface Step {

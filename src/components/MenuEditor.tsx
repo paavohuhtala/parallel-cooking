@@ -5,6 +5,7 @@ import { errorsOf, toExportDoc, validateMenu, type MenuProblem } from '../shared
 import { MENU_PROMPT } from '../shared/menuPrompt.ts'
 import { ApiError } from '../api/client.ts'
 import { MenuImportDialog } from './MenuImportDialog.tsx'
+import { Icon, STATION_ICON } from './icons.tsx'
 import {
   ancestorKeys,
   dependencyCandidates,
@@ -300,7 +301,7 @@ export function MenuEditor({
               aria-label="Kumoa"
               title="Kumoa (Ctrl+Z)"
             >
-              ↶
+              <Icon name="undo" />
             </button>
             <button
               className="btn btn-ghost icon"
@@ -309,7 +310,7 @@ export function MenuEditor({
               aria-label="Tee uudelleen"
               title="Tee uudelleen (Vaihto+Ctrl+Z)"
             >
-              ↷
+              <Icon name="redo" />
             </button>
           </div>
           {/* One recipe at a time is how a model converts them, so assembling a
@@ -335,7 +336,7 @@ export function MenuEditor({
           </button>
           {onClose && (
             <button className="btn btn-ghost icon" onClick={onClose} aria-label="Sulje">
-              ✕
+              <Icon name="close" />
             </button>
           )}
         </div>
@@ -395,7 +396,7 @@ export function MenuEditor({
       <p className="muted small editor-hint">
         Enter lisää rivin · Vaihto+Enter lisää sisällön · ↑/↓ siirtyy rivien välillä ·
         Alt+↑/↓ siirtää riviä · Askelpalautin tyhjällä rivillä poistaa sen, jos sillä ei ole
-        sisältöä · Ctrl+Z kumoaa · ⋯ tekee saman hiirellä
+        sisältöä · Ctrl+Z kumoaa · rivin valikko tekee saman hiirellä
       </p>
     </div>
   )
@@ -508,7 +509,7 @@ function Row({
             aria-label={`${collapsed ? 'Näytä' : 'Piilota'} sisältö: ${name}`}
             onClick={() => onToggleCollapse(row.key)}
           >
-            {collapsed ? '▸' : '▾'}
+            <Icon name="disclosure" />
           </button>
         ) : (
           <StationGlyph item={item} onOpenDetails={onOpenDetails} />
@@ -544,8 +545,10 @@ function Row({
 
 /**
  * A step's left slot. It shows the station, because a menu that cannot be
- * scanned for what is competing for the stove is not much of a plan — and
- * `muu` stays a plain bullet, since the unremarkable default is not news.
+ * scanned for what is competing for the stove is not much of a plan — and `muu`
+ * stays the quietest of the four, since the unremarkable default is not news.
+ * Quiet, not invisible: the same slot is how a step's details are opened by
+ * touch, so it has to be a control you can see.
  */
 function StationGlyph({
   item,
@@ -563,7 +566,7 @@ function StationGlyph({
       title={`${label} — avaa tiedot`}
       onClick={() => onOpenDetails(item.key)}
     >
-      {station === 'muu' ? '·' : stationOf(station).icon}
+      <Icon name={STATION_ICON[station]} />
     </button>
   )
 }
@@ -619,7 +622,7 @@ function RowMenu({
         aria-haspopup="menu"
         onClick={() => setOpen((v) => !v)}
       >
-        ⋯
+        <Icon name="overflow" />
       </button>
       {open && (
         <div className="row-menu-list" role="menu">
@@ -693,7 +696,7 @@ function TailRow({
       }
     >
       <span className="row-glyph" aria-hidden>
-        +
+        <Icon name="add" />
       </span>
       {label}
     </button>
@@ -727,7 +730,7 @@ function Inspector({
               <h3 className="inspector-title">{row.title || 'nimetön'}</h3>
             </div>
             <button className="btn btn-ghost icon inspector-close" onClick={onClose} aria-label="Sulje tiedot">
-              ✕
+              <Icon name="close" />
             </button>
           </div>
           {row.kind === 'step' && <StepFields draft={draft} stepId={row.id} dispatch={dispatch} />}
@@ -789,7 +792,7 @@ function StepFields({
               aria-label={s.label}
               onClick={() => dispatch({ type: 'set_station', id: stepId, station: s.id })}
             >
-              {s.icon} {s.label}
+              <Icon name={STATION_ICON[s.id]} /> {s.label}
             </button>
           ))}
         </div>
@@ -805,7 +808,7 @@ function StepFields({
               onClick={() => dispatch({ type: 'toggle_dep', id: stepId, depId: dep })}
               aria-label={`Poista riippuvuus ${titleOf(dep)}`}
             >
-              {titleOf(dep)} ✕
+              {titleOf(dep)} <Icon name="close" />
             </button>
           ))}
           {/* Only steps that cannot close a cycle are offered at all. */}
@@ -913,7 +916,7 @@ function ComponentFields({
                 dispatch({ type: 'remove_ingredient', componentId: component.id, value: ingredient })
               }
             >
-              {ingredient} ✕
+              {ingredient} <Icon name="close" />
             </button>
           ))}
           <input
