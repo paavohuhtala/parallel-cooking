@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import { STATIONS, type Menu, type Station } from '../model/types.ts'
 import type { MenuWriteResponse } from '../shared/api.ts'
 import { errorsOf, toExportDoc, validateMenu, type MenuProblem } from '../shared/menuDoc.ts'
@@ -119,6 +128,16 @@ export function MenuEditor({
     () => visible.find((r) => r.key === selected) ?? null,
     [visible, selected],
   )
+  /**
+   * The inspector is a modal sheet only where it covers the outline. Beside it,
+   * it is a column, and correctly not a dialog: nothing is blocked, and it has
+   * nothing to close.
+   */
+  const narrow = useMediaQuery(SHEET_QUERY)
+  const sheet = narrow && sheetOpen && selectedRow !== null
+  /** Where focus goes back to when the sheet closes. */
+  const opener = useRef<HTMLElement | null>(null)
+  const restoreFocus = useRef(false)
 
   const reveal = useCallback((menu: Menu, key: string) => {
     const hidden = ancestorKeys(menu, key)
@@ -157,9 +176,55 @@ export function MenuEditor({
   }, [])
 
   const openDetails = useCallback((key: string) => {
+    // A button or nothing: Safari does not focus a button on click, so what is
+    // focused may be some row's title, and giving focus back to that would
+    // open the keyboard.
+    opener.current = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null
     setSelected(key)
     setSheetOpen(true)
   }, [])
+
+  const closeSheet = useCallback(() => {
+    restoreFocus.current = true
+    setSheetOpen(false)
+  }, [])
+
+  // A row deleted or undone out from under an open sheet takes the sheet with
+  // it; left open, it would pop back up at the next row you tapped into.
+  useEffect(() => {
+    if (sheetOpen && selectedRow === null) setSheetOpen(false)
+  }, [sheetOpen, selectedRow])
+
+  useEffect(() => {
+    if (!sheet) return
+    const escape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeSheet()
+    }
+    document.addEventListener('keydown', escape)
+    return () => document.removeEventListener('keydown', escape)
+  }, [sheet, closeSheet])
+
+  /*
+   * Back to whatever opened the sheet — the station glyph, usually. Not on
+   * close but after it: until the render that lifts `inert` off the outline,
+   * nothing there can take focus. And never to the row's title, which on a
+   * phone would open the keyboard over the outline that was just uncovered. A
+   * sheet opened from the row menu has lost its opener with the menu, so the
+   * row's `⋯` stands in for it, as it does when there was no button to note.
+   */
+  useEffect(() => {
+    if (sheet || !restoreFocus.current) return
+    restoreFocus.current = false
+    const back = opener.current?.isConnected
+      ? opener.current
+      : selected
+        ? document
+            .querySelector(`[data-rowkey="${CSS.escape(selected)}"]`)
+            ?.closest('.outline-row')
+            ?.querySelector<HTMLElement>('.row-menu-open')
+        : null
+    back?.focus()
+  }, [sheet, selected])
 
   // Mirror the draft so a reload, or a stray back button, does not cost work.
   useEffect(() => {
@@ -287,9 +352,14 @@ export function MenuEditor({
     }
   }
 
+  // Everything but the sheet, while it is a sheet: `inert` takes the rest of
+  // the editor away from a keyboard and a screen reader — which does not
+  // reliably honour `aria-modal` on its own — as the backdrop does from a finger.
+  const behindSheet = sheet || undefined
+
   return (
     <div className="editor">
-      <header className="editor-head">
+      <header className="editor-head" inert={behindSheet}>
         <input
           className="editor-title"
           value={draft.name}
@@ -364,16 +434,25 @@ export function MenuEditor({
       </header>
 
       {error && (
-        <div className="banner banner-error" role="alert">
+        <div className="banner banner-error" role="alert" inert={behindSheet}>
           {error}
         </div>
       )}
-      {note && !error && <div className="banner banner-ok">{note}</div>}
+      {note && !error && (
+        <div className="banner banner-ok" inert={behindSheet}>
+          {note}
+        </div>
+      )}
 
-      <ProblemList id={problemsId} problems={problems} onGo={(key) => reveal(draft, key)} />
+      <ProblemList
+        id={problemsId}
+        problems={problems}
+        onGo={(key) => reveal(draft, key)}
+        inert={behindSheet}
+      />
 
       <div className="editor-body">
-        <div className="outline" role="tree" aria-label="Menun rakenne">
+        <div className="outline" role="tree" aria-label="Menun rakenne" inert={behindSheet}>
           {items.map((item) =>
             item.type === 'row' ? (
               <Row
@@ -392,12 +471,17 @@ export function MenuEditor({
           )}
         </div>
 
+        {/* The kitchen's own sheet backdrop, with the same rule: a tap that
+            misses the sheet closes it, instead of landing on a row behind it
+            and changing what the sheet is editing. */}
+        {sheet && <div className="detail-backdrop" onClick={closeSheet} />}
         <Inspector
           draft={draft}
           row={selectedRow}
           dispatch={dispatch}
           open={sheetOpen}
-          onClose={() => setSheetOpen(false)}
+          modal={sheet}
+          onClose={closeSheet}
         />
       </div>
 
@@ -414,7 +498,7 @@ export function MenuEditor({
         />
       )}
 
-      <p className="muted small editor-hint">
+      <p className="muted small editor-hint" inert={behindSheet}>
         Enter lisää rivin · Vaihto+Enter lisää sisällön · ↑/↓ siirtyy rivien välillä ·
         Alt+↑/↓ siirtää riviä · Askelpalautin tyhjällä rivillä poistaa sen, jos sillä ei ole
         sisältöä · Ctrl+Z kumoaa · rivin valikko tekee saman hiirellä
@@ -427,16 +511,22 @@ function ProblemList({
   id,
   problems,
   onGo,
+  inert,
 }: {
   /** What a blocked save button points at to say why it is blocked. */
   id: string
   problems: MenuProblem[]
   onGo: (key: string) => void
+  inert?: boolean
 }) {
   if (problems.length === 0) return null
   const errors = problems.filter((p) => p.severity === 'error')
   return (
-    <div id={id} className={`banner ${errors.length ? 'banner-error' : 'banner-warn'} editor-problems`}>
+    <div
+      id={id}
+      className={`banner ${errors.length ? 'banner-error' : 'banner-warn'} editor-problems`}
+      inert={inert}
+    >
       <ul className="plain-list">
         {problems.slice(0, 6).map((problem, i) => (
           <li key={`${problem.code}-${i}`}>
@@ -812,33 +902,116 @@ function TailRow({
 
 /* ---------------------------------------------------------------- inspector */
 
+/** How far the sheet's head has to be pulled down to let go of it. */
+const DISMISS_DRAG_PX = 80
+
+const FOCUSABLE =
+  'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])'
+
 function Inspector({
   draft,
   row,
   dispatch,
   open,
+  modal,
   onClose,
 }: {
   draft: Menu
   row: OutlineRow | null
   dispatch: (action: MenuAction) => void
   open: boolean
+  /** A sheet over the outline, rather than a column beside it. */
+  modal: boolean
   onClose: () => void
 }) {
+  const panel = useRef<HTMLDivElement>(null)
+  const drag = useRef<{ pointer: number; from: number } | null>(null)
+
+  // Into the sheet, so the keyboard is where the eye is — the panel itself,
+  // not its first field, which on a phone would put the keyboard up unasked.
+  useEffect(() => {
+    if (modal) panel.current?.focus()
+  }, [modal])
+
+  /*
+   * The head pulls down to dismiss, which is what a sheet's handle promises.
+   * The panel follows the finger by style rather than by state, so a drag does
+   * not re-render every field under it; letting go short of the threshold puts
+   * it back.
+   */
+  const follow = (dy: number) => {
+    if (panel.current) panel.current.style.transform = dy > 0 ? `translateY(${dy}px)` : ''
+  }
+  const grab = {
+    onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!modal || (e.target as Element).closest('button')) return
+      drag.current = { pointer: e.pointerId, from: e.clientY }
+      e.currentTarget.setPointerCapture(e.pointerId)
+    },
+    onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => {
+      if (drag.current?.pointer === e.pointerId) follow(e.clientY - drag.current.from)
+    },
+    onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => {
+      if (drag.current?.pointer !== e.pointerId) return
+      const pulled = e.clientY - drag.current.from
+      drag.current = null
+      follow(0)
+      if (pulled > DISMISS_DRAG_PX) onClose()
+    },
+    onPointerCancel: () => {
+      drag.current = null
+      follow(0)
+    },
+  }
+
+  /*
+   * Tab wraps inside the sheet. `inert` already takes the rest of the editor
+   * out of reach, but not the page around it — the library's nav, the kitchen
+   * under the overlay — and a modal the keyboard can walk out of is not one.
+   */
+  const trapTab = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Tab') return
+    const stops = [...e.currentTarget.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) =>
+      el.checkVisibility(),
+    )
+    const first = stops[0]
+    const last = stops.at(-1)
+    if (!first || !last) return
+    const at = document.activeElement
+    if (e.shiftKey && (at === first || at === e.currentTarget)) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && at === last) {
+      e.preventDefault()
+      first.focus()
+    }
+  }
+
   return (
-    <aside className={`inspector${open ? ' is-open' : ''}`} aria-label="Rivin tiedot">
+    <div
+      ref={panel}
+      className={`inspector${open ? ' is-open' : ''}`}
+      role={modal ? 'dialog' : 'complementary'}
+      aria-modal={modal || undefined}
+      aria-label="Rivin tiedot"
+      tabIndex={modal ? -1 : undefined}
+      onKeyDown={modal ? trapTab : undefined}
+    >
       {row === null ? (
         <p className="muted small">Valitse rivi nähdäksesi sen tiedot.</p>
       ) : (
         <>
-          <div className="inspector-head">
-            <div>
-              <span className="inspector-kind muted small">{KIND_LABEL[row.kind]}</span>
-              <h3 className="inspector-title">{row.title || 'nimetön'}</h3>
+          <div className="inspector-grab" {...grab}>
+            <div className="sheet-handle" aria-hidden />
+            <div className="inspector-head">
+              <div>
+                <span className="inspector-kind muted small">{KIND_LABEL[row.kind]}</span>
+                <h3 className="inspector-title">{row.title || 'nimetön'}</h3>
+              </div>
+              <button className="btn btn-ghost icon inspector-close" onClick={onClose} aria-label="Sulje tiedot">
+                <Icon name="close" />
+              </button>
             </div>
-            <button className="btn btn-ghost icon inspector-close" onClick={onClose} aria-label="Sulje tiedot">
-              <Icon name="close" />
-            </button>
           </div>
           {row.kind === 'step' && <StepFields draft={draft} stepId={row.id} dispatch={dispatch} />}
           {row.kind === 'component' && (
@@ -857,7 +1030,7 @@ function Inspector({
           )}
         </>
       )}
-    </aside>
+    </div>
   )
 }
 
@@ -1043,6 +1216,26 @@ function ComponentFields({
       </fieldset>
     </>
   )
+}
+
+/** Where the inspector stops being a column. Must match `styles.css`. */
+const SHEET_QUERY = '(max-width: 900px)'
+
+/**
+ * CSS decides how the inspector looks at a width, but not what it *is*: a
+ * dialog's role, `inert` behind it and the Escape key are the script's, so the
+ * script has to know which side of the breakpoint it is on.
+ */
+function useMediaQuery(query: string): boolean {
+  const subscribe = useCallback(
+    (notify: () => void) => {
+      const list = window.matchMedia(query)
+      list.addEventListener('change', notify)
+      return () => list.removeEventListener('change', notify)
+    },
+    [query],
+  )
+  return useSyncExternalStore(subscribe, () => window.matchMedia(query).matches)
 }
 
 function restore(key: string): Menu | null {

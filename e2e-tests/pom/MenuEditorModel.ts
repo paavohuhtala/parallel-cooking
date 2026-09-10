@@ -20,6 +20,10 @@ export class MenuEditorModel {
   readonly importDialog: Locator
   readonly inspector: Locator
   readonly inspectorTitle: Locator
+  /** The inspector as a modal sheet — only below 900px is it one. */
+  readonly sheet: Locator
+  readonly sheetBackdrop: Locator
+  readonly sheetHead: Locator
   readonly addCourseButton: Locator
   readonly undoButton: Locator
   readonly redoButton: Locator
@@ -38,6 +42,9 @@ export class MenuEditorModel {
     this.importDialog = page.getByRole('dialog', { name: 'Tuo ja yhdistä' })
     this.inspector = this.root.locator('.inspector')
     this.inspectorTitle = this.inspector.locator('.inspector-title')
+    this.sheet = this.root.getByRole('dialog', { name: 'Rivin tiedot' })
+    this.sheetBackdrop = this.root.locator('.detail-backdrop')
+    this.sheetHead = this.inspector.locator('.inspector-grab')
     this.addCourseButton = this.root.getByLabel('Lisää ruokalaji', { exact: true })
     this.undoButton = this.root.getByLabel('Kumoa', { exact: true })
     this.redoButton = this.root.getByLabel('Tee uudelleen', { exact: true })
@@ -323,6 +330,34 @@ export class MenuEditorModel {
     const menu = await this.openRowMenu(title)
     await menu.getByRole('menuitem', { name: 'Tiedot' }).click()
     await expect(this.inspector).toBeVisible()
+  }
+
+  /**
+   * Press where a row shows above the open sheet. Before the sheet had a
+   * backdrop, this landed on the row and quietly swapped what the sheet was
+   * editing.
+   */
+  async pressRowBehindSheet(kind: 'Ruokalaji' | 'Osa' | 'Vaihe', title: string): Promise<void> {
+    const box = await this.row(kind, title).boundingBox()
+    if (!box) throw new Error(`row ${kind}: ${title} is not on screen`)
+    await this.page.mouse.click(box.x + 20, box.y + box.height / 2)
+  }
+
+  /** Pull the sheet down by its head, as a finger would, and let go. */
+  async pullSheetDown(px: number): Promise<void> {
+    const box = await this.sheetHead.boundingBox()
+    if (!box) throw new Error('the sheet is not open')
+    const x = box.x + box.width / 3
+    const y = box.y + 8
+    await this.page.mouse.move(x, y)
+    await this.page.mouse.down()
+    await this.page.mouse.move(x, y + px, { steps: 8 })
+    await this.page.mouse.up()
+  }
+
+  /** Whether keyboard focus is anywhere inside the open sheet. */
+  async focusInSheet(): Promise<boolean> {
+    return this.sheet.evaluate((el) => el.contains(document.activeElement))
   }
 
   async moveRow(title: string, direction: 'ylös' | 'alas'): Promise<void> {

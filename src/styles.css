@@ -1901,8 +1901,9 @@ p {
   resize: vertical;
 }
 /* On a desktop the panel simply follows the selection, so it has nothing to
-   close; the button is for the sheet. */
-.inspector-close {
+   close; the button and the handle are for the sheet. */
+.inspector-close,
+.sheet-handle {
   display: none;
 }
 
@@ -1948,19 +1949,47 @@ p {
   .row-menu-list .row-menu-details {
     display: block;
   }
+  /* Over the kitchen's `.detail-backdrop` (z-index 40), which the editor
+     borrows as it is: a sheet is modal, and a tap beside it closes it. */
   .inspector {
     position: fixed;
     inset: auto 0 0 0;
-    z-index: 40;
+    z-index: 41;
     max-height: 70dvh;
+    padding-top: 0;
     border-radius: var(--radius) var(--radius) 0 0;
     box-shadow: 0 -8px 40px rgb(0 0 0 / 0.35);
+    overscroll-behavior: contain;
+  }
+  /* Focus lands on the panel itself when it opens; the ring would outline the
+     whole sheet for no reason. */
+  .inspector:focus {
+    outline: none;
   }
   .inspector:not(.is-open) {
     display: none;
   }
   .inspector-close {
     display: inline-flex;
+  }
+  /* The head is what a finger pulls the sheet down by, handle and title alike,
+     so it cannot also scroll the sheet or select the title's text. */
+  .inspector-grab {
+    touch-action: none;
+    user-select: none;
+    cursor: grab;
+  }
+  .sheet-handle {
+    display: flex;
+    justify-content: center;
+    padding: 0.5rem 0 0.55rem;
+  }
+  .sheet-handle::before {
+    content: '';
+    width: 2.25rem;
+    height: 4px;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--muted) 55%, transparent);
   }
 }
 
@@ -1974,17 +2003,20 @@ p {
  * number. The glyph and the `⋯` do not grow: a centred pseudo-element carries
  * the target, so the icons stay the size the row was drawn at. Their 44px
  * reaches a few px into the title's padding on either side, never its text.
+ * The sheet's ✕ gets the same, being the one way to close it you can see.
  */
 @media (pointer: coarse) {
   .outline {
     --title-pad-y: calc((2.75rem - var(--title-lh) - 2px) / 2);
   }
   .outline-main > .row-glyph,
-  .row-menu-open {
+  .row-menu-open,
+  .inspector-close {
     position: relative;
   }
   .outline-main > .row-glyph::before,
-  .row-menu-open::before {
+  .row-menu-open::before,
+  .inspector-close::before {
     content: '';
     position: absolute;
     top: 50%;

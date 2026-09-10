@@ -548,6 +548,57 @@ test.describe('on a touch screen', () => {
       expect((await editor.hitArea(item)).height, await item.innerText()).toBeGreaterThanOrEqual(44)
     }
   })
+
+  test('the details sheet is modal, and a tap beside it closes it rather than editing the row behind', async ({
+    page,
+    library,
+    editor,
+  }) => {
+    await page.goto('/')
+    await library.import(chainDoc('Arkki'))
+    await editor.expectOpen()
+
+    await editor.openDetails('Toka')
+    await expect(editor.sheet).toBeVisible()
+    await expect(editor.sheet).toBeFocused()
+    // The keyboard cannot walk out of it, into the outline or off the editor.
+    for (let i = 0; i < 12; i++) {
+      await page.keyboard.press('Tab')
+      expect(await editor.focusInSheet(), `Tab ${i + 1} left the sheet`).toBe(true)
+    }
+
+    // A press that misses the sheet used to land on the row behind it: the
+    // course got selected and the sheet went on editing that instead.
+    await editor.pressRowBehindSheet('Ruokalaji', 'Alkupala')
+    await expect(editor.sheet).toBeHidden()
+    await expect(editor.row('Ruokalaji', 'Alkupala')).not.toBeFocused()
+    // Focus goes back to what opened it — not to a title, or the keyboard
+    // would come up over the outline that was just uncovered.
+    await expect(editor.glyph('Vaihe', 'Toka')).toBeFocused()
+
+    await editor.openDetails('Kolmas')
+    await page.keyboard.press('Escape')
+    await expect(editor.sheet).toBeHidden()
+    await expect(editor.glyph('Vaihe', 'Kolmas')).toBeFocused()
+
+    // A pull on the head: short springs back, long lets go.
+    await editor.openDetails('Eka')
+    await editor.pullSheetDown(30)
+    await expect(editor.sheet).toBeVisible()
+    await expect(editor.inspectorTitle).toHaveText('Eka')
+    await editor.pullSheetDown(150)
+    await expect(editor.sheet).toBeHidden()
+
+    // Wide enough for a column, the same panel is not a dialog at all: nothing
+    // behind it is blocked, and there is nothing to close.
+    await editor.openDetails('Eka')
+    await page.setViewportSize({ width: 1440, height: 800 })
+    await expect(editor.sheet).toHaveCount(0)
+    await expect(editor.sheetBackdrop).toHaveCount(0)
+    await expect(editor.inspectorTitle).toHaveText('Eka')
+    await editor.step('Toka').click()
+    await expect(editor.inspectorTitle).toHaveText('Toka')
+  })
 })
 
 test('a menu with an error cannot be saved, and the problem says where', async ({
