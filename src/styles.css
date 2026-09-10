@@ -1529,6 +1529,11 @@ p {
 .outline-row.is-selected {
   background: color-mix(in srgb, var(--ready) 9%, transparent);
 }
+/* The row whose `⋯` is open. A ring rather than a fill, because opening the
+   menu does not select the row and must not look as if it had. */
+.outline-row.is-menu-open {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 28%, transparent);
+}
 .outline-main {
   display: flex;
   align-items: center;
@@ -1658,7 +1663,7 @@ p {
 .row-menu-list {
   position: absolute;
   top: calc(100% + 2px);
-  right: 0;
+  left: 0;
   z-index: 30;
   display: flex;
   flex-direction: column;
@@ -1669,6 +1674,10 @@ p {
   background: var(--surface);
   box-shadow: 0 8px 30px rgb(0 0 0 / 0.25);
 }
+.row-menu-list.is-end {
+  left: auto;
+  right: 0;
+}
 .row-menu-list button {
   padding: 0.4rem 0.55rem;
   border: 0;
@@ -1678,8 +1687,8 @@ p {
   font: inherit;
   font-size: 0.85rem;
   text-align: left;
-  /* "Poista ruokalaji (3 osaa, 22 vaihetta)" is one statement; the menu grows
-     leftwards from its button, so it has the room. */
+  /* "Poista ruokalaji (3 osaa, 22 vaihetta)" is one statement; the menu opens
+     toward whichever side of its button has the room. */
   white-space: nowrap;
   cursor: pointer;
 }
@@ -1692,6 +1701,11 @@ p {
 }
 .row-menu-list button.is-danger {
   color: var(--critical);
+}
+/* Beside the outline, the inspector follows the selection and has nothing to
+   open; the item comes back with the sheet, below. */
+.row-menu-list .row-menu-details {
+  display: none;
 }
 
 /* The tail rows. Present at the end of every list rather than only when the
@@ -1862,6 +1876,9 @@ p {
   /* Nothing hovers on a phone, so the row's actions are simply always there. */
   .row-menu-open {
     opacity: 1;
+  }
+  .row-menu-list .row-menu-details {
+    display: block;
   }
   .inspector {
     position: fixed;

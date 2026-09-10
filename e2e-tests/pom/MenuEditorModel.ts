@@ -182,21 +182,44 @@ export class MenuEditorModel {
     return this.page.getByRole('menu')
   }
 
+  /** The open row menu lies wholly inside the viewport, whichever way it opened. */
+  async expectRowMenuOnScreen(): Promise<void> {
+    await expect
+      .poll(() =>
+        this.page.getByRole('menu').evaluate((el) => {
+          const r = el.getBoundingClientRect()
+          return r.left >= 0 && r.right <= document.documentElement.clientWidth
+        }),
+      )
+      .toBe(true)
+  }
+
   async closeRowMenu(): Promise<void> {
     await this.page.keyboard.press('Escape')
     await expect(this.page.getByRole('menu')).toBeHidden()
   }
 
   async openDetails(title: string): Promise<void> {
-    // A step wears its details on the station glyph; a course or a dish has
-    // nothing in that slot but its disclosure triangle, so it goes via ⋯.
+    // A step wears its details on the station glyph. A course or a dish has
+    // nothing in that slot but its disclosure triangle; beside the outline the
+    // inspector follows the selection, so being in the row is enough.
     const glyph = this.root.getByLabel(`Tiedot: ${title}`)
     if (await glyph.count()) {
       await glyph.click()
     } else {
-      const menu = await this.openRowMenu(title)
-      await menu.getByRole('menuitem', { name: 'Tiedot' }).click()
+      await this.row('Ruokalaji', title).or(this.row('Osa', title)).click()
     }
+    await expect(this.inspector).toBeVisible()
+  }
+
+  /**
+   * The phone's route to a course's or a dish's details: there the inspector
+   * is a sheet, selecting a row does not open it, and the row menu carries a
+   * Tiedot item that the desktop layout hides.
+   */
+  async openDetailsFromMenu(title: string): Promise<void> {
+    const menu = await this.openRowMenu(title)
+    await menu.getByRole('menuitem', { name: 'Tiedot' }).click()
     await expect(this.inspector).toBeVisible()
   }
 

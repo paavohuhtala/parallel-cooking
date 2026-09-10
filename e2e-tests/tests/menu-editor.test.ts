@@ -196,7 +196,7 @@ test('a long step title never widens the inspector', async ({ page, library, edi
   await editor.expectNoHorizontalOverflow()
 })
 
-test("a row's ⋯ sits beside its title, and opening it selects that row", async ({
+test("a row's ⋯ sits beside its title, and opening it marks the row without selecting it", async ({
   page,
   library,
   editor,
@@ -225,9 +225,51 @@ test("a row's ⋯ sits beside its title, and opening it selects that row", async
   await expect(editor.step('Eka')).toBeFocused()
   await expect(editor.inspectorTitle).toHaveText('Eka')
 
-  // The menu acts on its row, so the inspector must be describing that row and
-  // not whatever was selected before.
-  await editor.openRowMenu('Keitto')
+  // Looking at a row's menu is not choosing to edit the row: the inspector stays
+  // where it was, and the row the menu belongs to is marked instead.
+  const menu = await editor.openRowMenu('Keitto')
+  await expect(editor.rowBlock('Osa', 'Keitto')).toHaveClass(/is-menu-open/)
+  // A short title puts the ⋯ near the left edge; a menu that ends at its button
+  // would open off the screen.
+  await editor.expectRowMenuOnScreen()
+  await expect(editor.inspectorTitle).toHaveText('Eka')
+  // Beside the outline the inspector already follows the selection, so the
+  // menu has no details item to offer.
+  await expect(menu.getByRole('menuitem', { name: 'Tiedot' })).toBeHidden()
+  await editor.closeRowMenu()
+  await expect(editor.rowBlock('Osa', 'Keitto')).not.toHaveClass(/is-menu-open/)
+})
+
+test("on a phone the row menu is how a dish's details are opened", async ({
+  page,
+  library,
+  editor,
+}) => {
+  await page.setViewportSize({ width: 390, height: 800 })
+  await page.goto('/')
+  await library.import({
+    name: 'Puhelin',
+    courses: [
+      {
+        name: 'Alkupala: kantarellikeitto ja valkosipulibruschetta',
+        components: [{ name: 'Keitto', steps: [{ title: 'Pilko sipuli' }] }],
+      },
+    ],
+  })
+  await editor.expectOpen()
+
+  // Being in the row selects it, but the sheet stays shut: it would cover the
+  // outline on every tap.
+  await editor.row('Osa', 'Keitto').click()
+  await expect(editor.inspector).toBeHidden()
+
+  // A long title pushes the ⋯ to the right edge, so the menu has to open the
+  // other way.
+  await editor.openRowMenu('Alkupala')
+  await editor.expectRowMenuOnScreen()
+  await editor.closeRowMenu()
+
+  await editor.openDetailsFromMenu('Keitto')
   await expect(editor.inspectorTitle).toHaveText('Keitto')
 })
 

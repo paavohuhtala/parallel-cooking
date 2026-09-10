@@ -456,6 +456,8 @@ function Row({
   const { row, collapsed } = item
   const name = row.title || 'nimetön'
   const parent = row.kind !== 'step'
+  /** Held here rather than in the menu, so the row can show whose menu is open. */
+  const [menuOpen, setMenuOpen] = useState(false)
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter') {
@@ -496,7 +498,7 @@ function Row({
 
   return (
     <div
-      className={`outline-row depth-${row.depth} kind-${row.kind}${selected ? ' is-selected' : ''}`}
+      className={`outline-row depth-${row.depth} kind-${row.kind}${selected ? ' is-selected' : ''}${menuOpen ? ' is-menu-open' : ''}`}
       role="treeitem"
       aria-level={row.depth + 1}
       aria-selected={selected}
@@ -551,8 +553,9 @@ function Row({
         <RowMenu
           row={row}
           parent={parent}
+          open={menuOpen}
+          onOpenChange={setMenuOpen}
           dispatch={dispatch}
-          onSelect={onSelect}
           onOpenDetails={onOpenDetails}
         />
       </div>
@@ -589,27 +592,42 @@ function StationGlyph({
 }
 
 /**
- * Everything you can do to a row that is not typing in it: details, reorder,
- * delete. One menu rather than a strip of icons, so that delete is never the
- * thing next to the thing you meant to click, and so that reordering exists at
- * all without a keyboard.
+ * Everything you can do to a row that is not typing in it: reorder, delete, and
+ * on a phone open its details. One menu rather than a strip of icons, so that
+ * delete is never the thing next to the thing you meant to click, and so that
+ * reordering exists at all without a keyboard.
  */
 function RowMenu({
   row,
   parent,
+  open,
+  onOpenChange: setOpen,
   dispatch,
-  onSelect,
   onOpenDetails,
 }: {
   row: OutlineRow
   parent: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
   dispatch: (action: MenuAction) => void
-  onSelect: (key: string) => void
   onOpenDetails: (key: string) => void
 }) {
-  const [open, setOpen] = useState(false)
   const box = useRef<HTMLDivElement>(null)
+  const list = useRef<HTMLDivElement>(null)
   const name = row.title || 'nimetön'
+  /**
+   * The menu opens rightwards, over the blank row the title no longer fills,
+   * and flips to end at its button only where that would leave the screen — a
+   * phone, or a title long enough to reach the column's edge. Measured from the
+   * button rather than the list, so a stale flip cannot measure itself as fine.
+   */
+  const [alignEnd, setAlignEnd] = useState(false)
+
+  useLayoutEffect(() => {
+    if (!open || !box.current || !list.current) return
+    const start = box.current.getBoundingClientRect().left
+    setAlignEnd(start + list.current.offsetWidth > document.documentElement.clientWidth - 8)
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -625,7 +643,7 @@ function RowMenu({
       document.removeEventListener('pointerdown', away)
       document.removeEventListener('keydown', escape)
     }
-  }, [open])
+  }, [open, setOpen])
 
   const act = (fn: () => void) => () => {
     fn()
@@ -639,18 +657,28 @@ function RowMenu({
         aria-label={`Toiminnot: ${name}`}
         aria-expanded={open}
         aria-haspopup="menu"
-        onClick={() => {
-          // Opening the menu is acting on this row, so the row is what the
-          // selection and the inspector show — not whatever was selected before.
-          if (!open) onSelect(row.key)
-          setOpen(!open)
-        }}
+        // Opening the menu does not select the row: looking at what you could
+        // do to a row is not choosing to edit it, and the inspector should not
+        // change under you for a peek. The row is marked instead.
+        onClick={() => setOpen(!open)}
       >
         <Icon name="overflow" />
       </button>
       {open && (
-        <div className="row-menu-list" role="menu" aria-label={`Toiminnot: ${name}`}>
-          <button role="menuitem" onClick={act(() => onOpenDetails(row.key))}>
+        <div
+          ref={list}
+          className={`row-menu-list${alignEnd ? ' is-end' : ''}`}
+          role="menu"
+          aria-label={`Toiminnot: ${name}`}
+        >
+          {/* Phone only (CSS): beside the outline the inspector already shows
+              whatever row you are in, but as a sheet it has to be opened, and a
+              course or a dish has no station glyph to open it with. */}
+          <button
+            role="menuitem"
+            className="row-menu-details"
+            onClick={act(() => onOpenDetails(row.key))}
+          >
             Tiedot
           </button>
           {parent && (
