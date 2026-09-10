@@ -9,7 +9,12 @@
   --muted: #6f6659;
 
   --blocked: #9b948a;
-  --ready: #2f7ec4;
+  /* 5:1 under white and on white, 4.6:1 on the page. The old #2f7ec4 was a
+     hair short of 4.5:1 as a button fill and as text alike. */
+  --ready: #2a72b3;
+  /* Text on a `--ready` fill. White here; dark in the dark theme, whose blue is
+     light enough that white on it read at 2.56:1. */
+  --on-ready: #ffffff;
   --active: #d98410;
   --done: #3f9159;
   --critical: #c2454f;
@@ -30,6 +35,10 @@
 
     --blocked: #77716a;
     --ready: #63a8e0;
+    /* 7:1. Darkening the fill instead would take it to a muted #487ba4 before
+       white passed, and `--ready` is also this theme's text colour, which has
+       to stay light. */
+    --on-ready: #16150f;
     --active: #e2a03f;
     --done: #5cb479;
     --critical: #e2707a;
@@ -1232,7 +1241,7 @@ p {
 .btn-primary {
   background: var(--ready);
   border-color: var(--ready);
-  color: #fff;
+  color: var(--on-ready);
   font-weight: 600;
 }
 
@@ -1515,7 +1524,7 @@ p {
 .editor-save[data-state='saving'] {
   background: var(--ready);
   border-color: var(--ready);
-  color: #fff;
+  color: var(--on-ready);
 }
 .editor-hint {
   margin-top: 0.8rem;
