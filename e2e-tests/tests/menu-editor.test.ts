@@ -514,6 +514,22 @@ test('undo is reachable without a keyboard, and greys out when there is nothing 
   await editor.expectTitles(['Alkupala', 'Keitto', 'Eka', 'Kolmas'])
 })
 
+/** One dish long enough to scroll well past the header: forty steps. */
+const longDoc = (name: string) => ({
+  name,
+  courses: [
+    {
+      name: 'Alkupala',
+      components: [
+        {
+          name: 'Keitto',
+          steps: Array.from({ length: 40 }, (_, i) => ({ title: `Vaihe ${i + 1}` })),
+        },
+      ],
+    },
+  ],
+})
+
 test.describe('on a touch screen', () => {
   test.use({ viewport: { width: 390, height: 800 }, hasTouch: true, isMobile: true })
 
@@ -547,6 +563,45 @@ test.describe('on a touch screen', () => {
     for (const item of await menu.getByRole('menuitem').all()) {
       expect((await editor.hitArea(item)).height, await item.innerText()).toBeGreaterThanOrEqual(44)
     }
+  })
+
+  test('the header is one sticky line of undo and save, with the rest behind ⋯', async ({
+    page,
+    library,
+    editor,
+  }) => {
+    await page.goto('/')
+    await library.import(longDoc('Kapea'))
+    await editor.expectOpen()
+
+    // Tuo ja yhdistä, Kopioi LLM-kehote and Vie JSON took a line of their own
+    // above undo and save, and pushed save onto a third.
+    await expect(editor.mergeButton).toBeHidden()
+    expect(await editor.headerActionLines()).toBe(1)
+
+    // Forty steps down, save is still there to press.
+    await editor.step('Vaihe 40').click()
+    await page.keyboard.press('End')
+    await page.keyboard.type('!')
+    await editor.expectDirty()
+    expect(await editor.isUncovered(editor.saveButton)).toBe(true)
+    expect(await editor.isUncovered(editor.undoButton)).toBe(true)
+    // Only the actions stick; the name has scrolled away with the page.
+    expect(await editor.isUncovered(editor.title)).toBe(false)
+
+    // Nothing that was in the header is gone, only folded away.
+    const more = await editor.openMoreMenu()
+    await expect(more.getByRole('menuitem')).toHaveText([
+      'Tuo ja yhdistä',
+      'Kopioi LLM-kehote',
+      'Vie JSON',
+    ])
+    await more.getByRole('menuitem', { name: 'Tuo ja yhdistä' }).click()
+    await expect(editor.importDialog).toBeVisible()
+    await editor.importDialog.getByRole('button', { name: 'Peruuta' }).click()
+
+    await editor.saveButton.click()
+    await editor.expectClean()
   })
 
   test('the details sheet is modal, and a tap beside it closes it rather than editing the row behind', async ({
@@ -666,6 +721,35 @@ test('the header holds still whatever state the draft is in', async ({
   expect(await editor.headerGeometry(), 'saved').toEqual(before)
 })
 
+test('save and undo stay on screen down a long menu, and no row scrolls in under them', async ({
+  page,
+  library,
+  editor,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 800 })
+  await page.goto('/')
+  await library.import(longDoc('Pitkä'))
+  await editor.expectOpen()
+
+  await editor.step('Vaihe 40').click()
+  await page.keyboard.press('End')
+  await page.keyboard.type('!')
+  await editor.expectDirty()
+  expect(await editor.isUncovered(editor.saveButton)).toBe(true)
+  expect(await editor.isUncovered(editor.undoButton)).toBe(true)
+  // The inspector column sticks as well, and stops below the header.
+  expect(await editor.inspectorClearance()).toBeGreaterThanOrEqual(0)
+
+  // Walking back up with ↑ scrolls each row in from above: it has to stop
+  // below the sticky band, not at the top edge underneath it.
+  for (let i = 0; i < 25; i++) await page.keyboard.press('ArrowUp')
+  await expect(editor.step('Vaihe 15')).toBeFocused()
+  expect(await editor.isUncovered(editor.step('Vaihe 15'))).toBe(true)
+
+  await editor.saveButton.click()
+  await editor.expectClean()
+})
+
 test('an import with a bad dependency is explained and not stored', async ({ page, library }) => {
   await page.goto('/')
   await library.check({
@@ -702,6 +786,23 @@ test('the menu can be fixed while a kitchen is cooking, and everyone sees it', a
   // Both cooks are looking at the new menu, with no reload anywhere.
   await expect(kitchen.page.locator('.step-row').filter({ hasText: renamed })).toBeVisible()
   await expect(second.page.locator('.step-row').filter({ hasText: renamed })).toBeVisible()
+})
+
+test("in a kitchen the header sticks flush to the overlay's top, with no strip above it", async ({
+  page,
+  room,
+  editor,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 800 })
+  await page.goto(`/r/${room.id}`)
+  await page.getByRole('button', { name: 'Muokkaa menua' }).click()
+  await editor.expectOpen()
+
+  // The overlay is its own scroll container, and a sticky header sticks at its
+  // padding edge: with padding on top, rows scrolled through a 16px gap above it.
+  await editor.titles().last().scrollIntoViewIfNeeded()
+  expect(await editor.stickyBandTop()).toBe(0)
+  expect(await editor.isUncovered(editor.saveButton)).toBe(true)
 })
 
 test('removing a step that somebody has started asks before discarding it', async ({

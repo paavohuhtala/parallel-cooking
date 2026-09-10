@@ -268,6 +268,36 @@ export function MenuEditor({
     return () => window.removeEventListener('keydown', onKey)
   }, [merging, undo, redo])
 
+  /*
+   * The header sticks, so save and undo are there at step 40 too: all of it
+   * beside the outline, only its row of actions on a phone, where the menu's
+   * name is not worth a line of the screen (CSS). Two things have to clear
+   * that band — the inspector column, which sticks too, and a row focused
+   * from above, which the browser would otherwise count as on screen while it
+   * sits underneath it — so its height is measured rather than assumed: it
+   * wraps at some widths and not others.
+   *
+   * It is set on the scroll container, the page or the kitchen's overlay,
+   * because that is where `scroll-padding` has to go for focus to scroll a row
+   * clear of the band; the editor inherits it from there.
+   */
+  const root = useRef<HTMLDivElement>(null)
+  const head = useRef<HTMLElement>(null)
+  const actions = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const band = narrow ? actions.current : head.current
+    const scroller = root.current && scrollerOf(root.current)
+    if (!band || !scroller) return
+    const observer = new ResizeObserver(() =>
+      scroller.style.setProperty('--editor-sticky-h', `${band.offsetHeight}px`),
+    )
+    observer.observe(band)
+    return () => {
+      observer.disconnect()
+      scroller.style.removeProperty('--editor-sticky-h')
+    }
+  }, [narrow])
+
   // The reducer names the row that should hold the cursor; the view just obeys.
   useLayoutEffect(() => {
     if (!focus) return
@@ -358,8 +388,8 @@ export function MenuEditor({
   const behindSheet = sheet || undefined
 
   return (
-    <div className="editor">
-      <header className="editor-head" inert={behindSheet}>
+    <div className="editor" ref={root}>
+      <header className="editor-head" ref={head} inert={behindSheet}>
         <input
           className="editor-title"
           value={draft.name}
@@ -367,7 +397,7 @@ export function MenuEditor({
           placeholder="Menun nimi"
           onChange={(e) => dispatch({ type: 'rename_menu', value: e.target.value })}
         />
-        <div className="editor-actions">
+        <div className="editor-actions" ref={actions}>
           {/* Undo has to be reachable without a keyboard too: the row menu's
               Poista is a thumb's only way to delete, so it needs a thumb's way
               back. */}
@@ -392,16 +422,24 @@ export function MenuEditor({
             </button>
           </div>
           {/* One recipe at a time is how a model converts them, so assembling a
-              multi-course dinner means merging several documents into this one. */}
-          <button className="btn btn-ghost" onClick={() => setMerging(true)}>
-            Tuo ja yhdistä
-          </button>
-          <button className="btn btn-ghost" onClick={() => void copyPrompt()}>
-            Kopioi LLM-kehote
-          </button>
-          <button className="btn btn-ghost" onClick={exportJson}>
-            Vie JSON
-          </button>
+              multi-course dinner means merging several documents into this one.
+              Buttons where there is room for them, a menu where there is not. */}
+          <div className="editor-extra">
+            <button className="btn btn-ghost" onClick={() => setMerging(true)}>
+              Tuo ja yhdistä
+            </button>
+            <button className="btn btn-ghost" onClick={() => void copyPrompt()}>
+              Kopioi LLM-kehote
+            </button>
+            <button className="btn btn-ghost" onClick={exportJson}>
+              Vie JSON
+            </button>
+          </div>
+          <MoreMenu
+            onMerge={() => setMerging(true)}
+            onCopyPrompt={() => void copyPrompt()}
+            onExport={exportJson}
+          />
           {/* The button is the draft's status as well as its action, and every
               label it can wear is rendered, stacked in one grid cell with only
               the current one visible. So it is always as wide as its widest
@@ -721,34 +759,17 @@ function StationGlyph({
 }
 
 /**
- * Everything you can do to a row that is not typing in it: reorder, delete, and
- * on a phone open its details. One menu rather than a strip of icons, so that
- * delete is never the thing next to the thing you meant to click, and so that
- * reordering exists at all without a keyboard.
+ * What a popup menu needs besides its items: closing on a press outside it or
+ * on Escape, and opening towards whichever side of its button has the room.
  */
-function RowMenu({
-  row,
-  parent,
-  open,
-  onOpenChange: setOpen,
-  dispatch,
-  onOpenDetails,
-}: {
-  row: OutlineRow
-  parent: boolean
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  dispatch: (action: MenuAction) => void
-  onOpenDetails: (key: string) => void
-}) {
+function usePopupMenu(open: boolean, setOpen: (open: boolean) => void) {
   const box = useRef<HTMLDivElement>(null)
   const list = useRef<HTMLDivElement>(null)
-  const name = row.title || 'nimetön'
   /**
-   * The menu opens rightwards, over the blank row the title no longer fills,
-   * and flips to end at its button only where that would leave the screen — a
-   * phone, or a title long enough to reach the column's edge. Measured from the
-   * button rather than the list, so a stale flip cannot measure itself as fine.
+   * The menu opens rightwards — over the blank row the title no longer fills,
+   * in a row's case — and flips to end at its button only where that would
+   * leave the screen. Measured from the button rather than the list, so a stale
+   * flip cannot measure itself as fine.
    */
   const [alignEnd, setAlignEnd] = useState(false)
 
@@ -779,6 +800,83 @@ function RowMenu({
     setOpen(false)
   }
 
+  return { box, list, alignEnd, act }
+}
+
+/**
+ * The header's once-a-menu actions behind one `⋯`, where the header is too
+ * narrow to give them a row of their own (CSS decides). Tuo ja yhdistä, Kopioi
+ * LLM-kehote and Vie JSON took a whole line above the two controls that matter
+ * on every visit, undo and save.
+ */
+function MoreMenu({
+  onMerge,
+  onCopyPrompt,
+  onExport,
+}: {
+  onMerge: () => void
+  onCopyPrompt: () => void
+  onExport: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const { box, list, alignEnd, act } = usePopupMenu(open, setOpen)
+  return (
+    <div className="editor-more" ref={box}>
+      <button
+        className="btn btn-ghost icon"
+        aria-label="Lisää toimintoja"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={() => setOpen(!open)}
+      >
+        <Icon name="overflow" />
+      </button>
+      {open && (
+        <div
+          ref={list}
+          className={`menu-list${alignEnd ? ' is-end' : ''}`}
+          role="menu"
+          aria-label="Lisää toimintoja"
+        >
+          <button role="menuitem" onClick={act(onMerge)}>
+            Tuo ja yhdistä
+          </button>
+          <button role="menuitem" onClick={act(onCopyPrompt)}>
+            Kopioi LLM-kehote
+          </button>
+          <button role="menuitem" onClick={act(onExport)}>
+            Vie JSON
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Everything you can do to a row that is not typing in it: reorder, delete, and
+ * on a phone open its details. One menu rather than a strip of icons, so that
+ * delete is never the thing next to the thing you meant to click, and so that
+ * reordering exists at all without a keyboard.
+ */
+function RowMenu({
+  row,
+  parent,
+  open,
+  onOpenChange: setOpen,
+  dispatch,
+  onOpenDetails,
+}: {
+  row: OutlineRow
+  parent: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  dispatch: (action: MenuAction) => void
+  onOpenDetails: (key: string) => void
+}) {
+  const { box, list, alignEnd, act } = usePopupMenu(open, setOpen)
+  const name = row.title || 'nimetön'
+
   return (
     <div className="row-menu" ref={box}>
       <button
@@ -796,7 +894,7 @@ function RowMenu({
       {open && (
         <div
           ref={list}
-          className={`row-menu-list${alignEnd ? ' is-end' : ''}`}
+          className={`menu-list${alignEnd ? ' is-end' : ''}`}
           role="menu"
           aria-label={`Toiminnot: ${name}`}
         >
@@ -1236,6 +1334,14 @@ function useMediaQuery(query: string): boolean {
     [query],
   )
   return useSyncExternalStore(subscribe, () => window.matchMedia(query).matches)
+}
+
+/** The nearest ancestor that scrolls vertically, or the page. */
+function scrollerOf(el: HTMLElement): HTMLElement {
+  for (let at = el.parentElement; at; at = at.parentElement) {
+    if (/(auto|scroll)/.test(getComputedStyle(at).overflowY)) return at
+  }
+  return document.documentElement
 }
 
 function restore(key: string): Menu | null {

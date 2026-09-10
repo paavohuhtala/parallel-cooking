@@ -27,6 +27,8 @@ export class MenuEditorModel {
   readonly addCourseButton: Locator
   readonly undoButton: Locator
   readonly redoButton: Locator
+  /** The header's `⋯`, which holds the rarely used actions on a phone. */
+  readonly moreButton: Locator
 
   constructor(page: Page) {
     // Locators are built here, not as field initialisers: `useDefineForClassFields`
@@ -48,6 +50,68 @@ export class MenuEditorModel {
     this.addCourseButton = this.root.getByLabel('Lisää ruokalaji', { exact: true })
     this.undoButton = this.root.getByLabel('Kumoa', { exact: true })
     this.redoButton = this.root.getByLabel('Tee uudelleen', { exact: true })
+    this.moreButton = this.root.getByRole('button', { name: 'Lisää toimintoja' })
+  }
+
+  async openMoreMenu(): Promise<Locator> {
+    await this.moreButton.click()
+    return this.page.getByRole('menu', { name: 'Lisää toimintoja' })
+  }
+
+  /**
+   * Whether `target` is on screen and nothing is drawn over its centre — the
+   * sticky header, say, or the band a row scrolled under.
+   */
+  async isUncovered(target: Locator): Promise<boolean> {
+    return target.evaluate((el) => {
+      const r = el.getBoundingClientRect()
+      const x = r.left + r.width / 2
+      const y = r.top + r.height / 2
+      if (y < 0 || y > window.innerHeight || x < 0 || x > window.innerWidth) return false
+      const at = document.elementFromPoint(x, y)
+      return at !== null && el.contains(at)
+    })
+  }
+
+  /**
+   * How many lines the header's visible actions are laid out on. By centre,
+   * not top: they differ in height and are centred on their line.
+   */
+  async headerActionLines(): Promise<number> {
+    return this.root.locator('.editor-actions').evaluate((actions) => {
+      const centres = [...actions.children]
+        .filter((el) => el.checkVisibility())
+        .map((el) => {
+          const r = el.getBoundingClientRect()
+          return Math.round(r.top + r.height / 2)
+        })
+      return new Set(centres).size
+    })
+  }
+
+  /**
+   * The top of whichever part of the header is sticking — all of it beside the
+   * outline, only its actions on a phone — relative to the viewport.
+   */
+  async stickyBandTop(): Promise<number> {
+    return this.root.evaluate((root) => {
+      const band = [root.querySelector('.editor-head')!, root.querySelector('.editor-actions')!].find(
+        (el) => {
+          const style = getComputedStyle(el)
+          return style.position === 'sticky' && style.display !== 'contents'
+        },
+      )!
+      return Math.round(band.getBoundingClientRect().top)
+    })
+  }
+
+  /** Where the header's sticky band and the inspector column meet, in px: >= 0 means apart. */
+  async inspectorClearance(): Promise<number> {
+    return this.root.evaluate((root) => {
+      const band = root.querySelector('.editor-head')!.getBoundingClientRect()
+      const panel = root.querySelector('.inspector')!.getBoundingClientRect()
+      return Math.round(panel.top - band.bottom)
+    })
   }
 
   /* ---------------------------------------------------------------- undo */
@@ -489,8 +553,11 @@ export class MenuEditorModel {
       const box = (el: Element | null) => el!.getBoundingClientRect()
       const title = box(head.querySelector('.editor-title'))
       const save = box(head.querySelector('.editor-save'))
+      // From the name to the bottom of the actions, rather than the header's
+      // own box: on a phone the header is `display: contents` and has none.
+      const actions = box(head.querySelector('.editor-actions'))
       return {
-        headHeight: Math.round(box(head).height),
+        headHeight: Math.round(actions.bottom - title.top),
         titleWidth: Math.round(title.width),
         saveLeft: Math.round(save.left),
         saveTop: Math.round(save.top),
