@@ -1477,12 +1477,45 @@ p {
   font-size: 0.95rem;
   min-width: 1.9rem;
 }
-.editor-dirty {
-  font-size: 0.78rem;
-  color: var(--muted);
+/*
+ * The save button doubles as the draft's status, so its box must not change
+ * with the state. The labels share one grid cell and the widest sets the width;
+ * the weight, padding and border stay the same in every state, because any of
+ * them would change it again.
+ *
+ * Only "there is something to save" is filled. Saved and blocked are quiet —
+ * surface, border, `--muted` text at 5:1 — rather than a solid fill faded to
+ * 1.68:1 by the generic `.btn:disabled`: this is the primary action, it spends
+ * most of its life disabled, and it should be legible while it is.
+ */
+.editor-save {
+  display: inline-grid;
+  justify-items: center;
+  font-weight: 600;
 }
-.editor-dirty.is-dirty {
-  color: var(--active);
+.editor-save > span {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  visibility: hidden;
+}
+.editor-save > span.is-shown {
+  visibility: visible;
+}
+.editor-save:disabled {
+  opacity: 1;
+  color: var(--muted);
+  cursor: default;
+}
+.editor-save[data-state='blocked'] {
+  cursor: not-allowed;
+}
+.editor-save[data-state='dirty'],
+.editor-save[data-state='saving'] {
+  background: var(--ready);
+  border-color: var(--ready);
+  color: #fff;
 }
 .editor-hint {
   margin-top: 0.8rem;

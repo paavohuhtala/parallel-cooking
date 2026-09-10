@@ -14,7 +14,6 @@ export class MenuEditorModel {
   readonly root: Locator
   readonly title: Locator
   readonly saveButton: Locator
-  readonly dirtyFlag: Locator
   readonly problems: Locator
   readonly closeButton: Locator
   readonly mergeButton: Locator
@@ -31,8 +30,8 @@ export class MenuEditorModel {
     this.page = page
     this.root = page.locator('.editor')
     this.title = this.root.getByLabel('Menun nimi')
-    this.saveButton = this.root.getByRole('button', { name: 'Tallenna', exact: true })
-    this.dirtyFlag = this.root.locator('.editor-dirty')
+    // By class, not by name: the button's name *is* the draft's state.
+    this.saveButton = this.root.locator('.editor-save')
     this.problems = this.root.locator('.editor-problems')
     this.closeButton = this.root.getByRole('button', { name: 'Sulje', exact: true })
     this.mergeButton = this.root.getByRole('button', { name: 'Tuo ja yhdistä' })
@@ -322,14 +321,43 @@ export class MenuEditorModel {
 
   async save(): Promise<void> {
     await this.saveButton.click()
-    await expect(this.dirtyFlag).toHaveText('Tallennettu')
+    await this.expectClean()
   }
 
+  /*
+   * The state is read off the button's accessible name, not its text: every
+   * label is in the DOM, stacked, and only the visible one counts toward the
+   * name — which is also what a screen reader says.
+   */
   async expectClean(): Promise<void> {
-    await expect(this.dirtyFlag).toHaveText('Tallennettu')
+    await expect(this.saveButton).toHaveAccessibleName('Tallennettu')
   }
 
   async expectDirty(): Promise<void> {
-    await expect(this.dirtyFlag).toHaveText('Tallentamattomia muutoksia')
+    await expect(this.saveButton).toHaveAccessibleName('Tallenna')
+  }
+
+  async expectSaving(): Promise<void> {
+    await expect(this.saveButton).toHaveAccessibleName('Tallennetaan…')
+  }
+
+  /**
+   * Where the header's parts sit, rounded to whole pixels. Compared across
+   * states: the first keystroke used to shrink the name field being typed in
+   * by 95px, or wrap the buttons onto another row.
+   */
+  async headerGeometry(): Promise<Record<string, number>> {
+    return this.root.locator('.editor-head').evaluate((head) => {
+      const box = (el: Element | null) => el!.getBoundingClientRect()
+      const title = box(head.querySelector('.editor-title'))
+      const save = box(head.querySelector('.editor-save'))
+      return {
+        headHeight: Math.round(box(head).height),
+        titleWidth: Math.round(title.width),
+        saveLeft: Math.round(save.left),
+        saveTop: Math.round(save.top),
+        saveWidth: Math.round(save.width),
+      }
+    })
   }
 }

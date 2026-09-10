@@ -493,8 +493,58 @@ test('a menu with an error cannot be saved, and the problem says where', async (
   // Blanking a dish name is not fatal, but an empty menu name is.
   await editor.title.fill('')
   await expect(editor.saveButton).toBeDisabled()
+  // Disabled for a reason, and it says which: "nothing to save" and "this will
+  // not save" must not be one silent grey button.
+  await expect(editor.saveButton).toHaveAccessibleDescription(/Menulla pitää olla nimi/)
   await editor.title.fill('Korjattu')
   await expect(editor.saveButton).toBeEnabled()
+})
+
+test('the header holds still whatever state the draft is in', async ({
+  page,
+  library,
+  editor,
+}) => {
+  await page.goto('/')
+  await library.import(smallDoc('Paikallaan'))
+  await editor.expectOpen()
+
+  // Hold the save in flight, so "Tallennetaan…" can be measured too.
+  let release = () => {}
+  const held = new Promise<void>((resolve) => (release = resolve))
+  await page.route('**/api/menus/*', async (route) => {
+    if (route.request().method() === 'PUT') await held
+    await route.continue()
+  })
+
+  // 1440: the buttons share the row with the name field. 600: they wrap under
+  // it, where a wider status used to wrap them onto a third row.
+  for (const width of [1440, 600]) {
+    await page.setViewportSize({ width, height: 800 })
+    await editor.expectClean()
+    const clean = await editor.headerGeometry()
+
+    await editor.title.click()
+    await page.keyboard.press('End')
+    await page.keyboard.type('x')
+    await editor.expectDirty()
+    expect(await editor.headerGeometry(), `dirty at ${width}px`).toEqual(clean)
+
+    await editor.title.fill('')
+    await expect(editor.saveButton).toBeDisabled()
+    expect(await editor.headerGeometry(), `blocked at ${width}px`).toEqual(clean)
+    await editor.title.fill('Paikallaan')
+    await editor.expectClean()
+  }
+
+  await editor.title.fill('Paikallaan 2')
+  const before = await editor.headerGeometry()
+  await editor.saveButton.click()
+  await editor.expectSaving()
+  expect(await editor.headerGeometry(), 'saving').toEqual(before)
+  release()
+  await editor.expectClean()
+  expect(await editor.headerGeometry(), 'saved').toEqual(before)
 })
 
 test('an import with a bad dependency is explained and not stored', async ({ page, library }) => {

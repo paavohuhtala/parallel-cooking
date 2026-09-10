@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { STATIONS, type Menu, type Station } from '../model/types.ts'
 import type { MenuWriteResponse } from '../shared/api.ts'
 import { errorsOf, toExportDoc, validateMenu, type MenuProblem } from '../shared/menuDoc.ts'
@@ -101,6 +101,14 @@ export function MenuEditor({
   const problems = useMemo(() => validateMenu(draft), [draft])
   const blocking = useMemo(() => errorsOf(problems), [problems])
   const dirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(saved), [draft, saved])
+  const saveState: 'saved' | 'dirty' | 'blocked' | 'saving' = busy
+    ? 'saving'
+    : !dirty
+      ? 'saved'
+      : blocking.length > 0
+        ? 'blocked'
+        : 'dirty'
+  const problemsId = useId()
 
   /** Rows currently on screen — what ↑/↓ walks, so collapsed rows are skipped. */
   const visible = useMemo(
@@ -324,15 +332,28 @@ export function MenuEditor({
           <button className="btn btn-ghost" onClick={exportJson}>
             Vie JSON
           </button>
-          <span className={`editor-dirty${dirty ? ' is-dirty' : ''}`}>
-            {dirty ? 'Tallentamattomia muutoksia' : 'Tallennettu'}
-          </span>
+          {/* The button is the draft's status as well as its action, and every
+              label it can wear is rendered, stacked in one grid cell with only
+              the current one visible. So it is always as wide as its widest
+              label, and nothing in the header moves when the first keystroke
+              makes the draft dirty — least of all the name field being typed
+              in. `visibility` also keeps the hidden labels out of the name. */}
           <button
-            className="btn btn-primary"
+            className="btn editor-save"
+            data-state={saveState}
             onClick={() => void onSave()}
-            disabled={busy || !dirty || blocking.length > 0}
+            disabled={saveState !== 'dirty'}
+            aria-busy={busy}
+            aria-describedby={saveState === 'blocked' ? problemsId : undefined}
+            title={saveState === 'blocked' ? 'Korjaa virheet ennen tallentamista' : undefined}
           >
-            {busy ? 'Tallennetaan…' : 'Tallenna'}
+            <span className={saveState === 'saved' ? 'is-shown' : undefined}>
+              <Icon name="check" /> Tallennettu
+            </span>
+            <span className={saveState === 'dirty' || saveState === 'blocked' ? 'is-shown' : undefined}>
+              Tallenna
+            </span>
+            <span className={saveState === 'saving' ? 'is-shown' : undefined}>Tallennetaan…</span>
           </button>
           {onClose && (
             <button className="btn btn-ghost icon" onClick={onClose} aria-label="Sulje">
@@ -349,7 +370,7 @@ export function MenuEditor({
       )}
       {note && !error && <div className="banner banner-ok">{note}</div>}
 
-      <ProblemList problems={problems} onGo={(key) => reveal(draft, key)} />
+      <ProblemList id={problemsId} problems={problems} onGo={(key) => reveal(draft, key)} />
 
       <div className="editor-body">
         <div className="outline" role="tree" aria-label="Menun rakenne">
@@ -403,16 +424,19 @@ export function MenuEditor({
 }
 
 function ProblemList({
+  id,
   problems,
   onGo,
 }: {
+  /** What a blocked save button points at to say why it is blocked. */
+  id: string
   problems: MenuProblem[]
   onGo: (key: string) => void
 }) {
   if (problems.length === 0) return null
   const errors = problems.filter((p) => p.severity === 'error')
   return (
-    <div className={`banner ${errors.length ? 'banner-error' : 'banner-warn'} editor-problems`}>
+    <div id={id} className={`banner ${errors.length ? 'banner-error' : 'banner-warn'} editor-problems`}>
       <ul className="plain-list">
         {problems.slice(0, 6).map((problem, i) => (
           <li key={`${problem.code}-${i}`}>
