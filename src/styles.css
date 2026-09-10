@@ -437,6 +437,8 @@ p {
   color: var(--hold);
 }
 
+/* Fill and ink both come from the component (`badgeColors`): the fill is a
+   cook's stored colour, so only code that has it can pick text that reads. */
 .cook-dot {
   width: 20px;
   height: 20px;
@@ -444,7 +446,6 @@ p {
   flex: none;
   display: inline-grid;
   place-items: center;
-  color: #fff;
   font-size: 0.68rem;
   font-weight: 600;
   line-height: 1;
@@ -869,7 +870,6 @@ p {
   flex: none;
   display: grid;
   place-items: center;
-  color: #fff;
   font-size: 8px;
   font-weight: 600;
 }

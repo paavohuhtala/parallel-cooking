@@ -2,6 +2,7 @@ import type { Step, StepStatus } from '../model/types'
 import { checkTransition, recordOf } from '../state/graph'
 import { useStore } from '../state/store'
 import { Icon, StartIcon } from './icons.tsx'
+import { badgeColors } from './ink.ts'
 
 export const STATUS_LABEL: Record<StepStatus, string> = {
   blocked: 'Odottaa',
@@ -15,7 +16,7 @@ export function CookDot({ cookId }: { cookId: string | null }) {
   const cook = state.cooks.find((c) => c.id === cookId)
   if (!cook) return null
   return (
-    <span className="cook-dot" style={{ background: cook.color }} title={cook.name}>
+    <span className="cook-dot" style={badgeColors(cook.color)} title={cook.name}>
       {cook.name.trim().charAt(0).toUpperCase() || '?'}
     </span>
   )
@@ -128,7 +129,7 @@ export function StartDialog() {
               className="cook-choice"
               onClick={() => confirmStart(pendingStart, cook.id)}
             >
-              <span className="cook-dot" style={{ background: cook.color }}>
+              <span className="cook-dot" style={badgeColors(cook.color)}>
                 {cook.name.trim().charAt(0).toUpperCase() || '?'}
               </span>
               {cook.name}

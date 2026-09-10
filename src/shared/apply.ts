@@ -2,13 +2,19 @@ import type { Cook, KitchenState, StepState } from '../model/types.ts'
 import { checkTransition, recordOf, type GraphIndex } from '../state/graph.ts'
 import type { Envelope } from './protocol.ts'
 
+/**
+ * Every entry must carry a badge initial at 4.5:1 with one of the two inks the
+ * client chooses between (`components/ink.ts`, which tests this). The purple
+ * and the red were darkened a step for that — from #a45cd0 and #d0455f, which
+ * reached only 4.4:1 either way; cooks stored with those keep them.
+ */
 export const COOK_COLORS = [
   '#e8743b',
   '#3b8ee8',
   '#48a463',
-  '#a45cd0',
+  '#9755bf',
   '#d4a017',
-  '#d0455f',
+  '#c6425a',
 ]
 
 export const DEFAULT_COOKS: Cook[] = [

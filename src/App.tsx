@@ -4,6 +4,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { createRoom, saveRoomMenu } from './api/client'
 import { MenuEditor } from './components/MenuEditor'
 import { Icon, type IconName } from './components/icons.tsx'
+import { badgeColors } from './components/ink.ts'
 import { StartDialog } from './components/StepControls'
 import { StepDetail } from './components/StepDetail'
 import { progressOf, recordOf, suggestedNext } from './state/graph'
@@ -246,7 +247,7 @@ function CooksModal({ onClose }: { onClose: () => void }) {
           {state.cooks.map((cook) => (
             <div key={cook.id} className={`cook-row${me === cook.id ? ' is-me' : ''}`}>
               <PresenceDot online={presence.has(cook.id)} />
-              <span className="cook-dot" style={{ background: cook.color }}>
+              <span className="cook-dot" style={badgeColors(cook.color)}>
                 {cook.name.trim().charAt(0).toUpperCase() || '?'}
               </span>
               <input

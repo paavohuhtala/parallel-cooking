@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { STATIONS } from '../model/types'
 import { Icon, STATION_ICON } from '../components/icons.tsx'
+import { badgeColors } from '../components/ink.ts'
 import { recordOf, statusMap, statusOf } from '../state/graph'
 import { buildChains, chainStatus } from '../state/chains'
 import { layoutGraph, NODE_W, type LayoutInput } from '../state/layout'
@@ -376,7 +377,7 @@ function ChainCard({
               {step.title}
             </span>
             {cook && (
-              <span className="node-step-cook" style={{ background: cook.color }}>
+              <span className="node-step-cook" style={badgeColors(cook.color)}>
                 {cook.name.trim().charAt(0).toUpperCase() || '?'}
               </span>
             )}
