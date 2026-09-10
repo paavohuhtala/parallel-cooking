@@ -502,7 +502,18 @@ function Row({
       aria-selected={selected}
       {...(parent ? { 'aria-expanded': !collapsed } : {})}
     >
-      <div className="outline-main">
+      <div
+        className="outline-main"
+        // The title is only as wide as its text, so the rest of the row is
+        // blank; a press there still means "this row" and lands in the title.
+        onPointerDown={(e) => {
+          if (e.target !== e.currentTarget) return
+          e.preventDefault()
+          const input = e.currentTarget.querySelector<HTMLInputElement>('.outline-title')
+          input?.focus()
+          input?.setSelectionRange(input.value.length, input.value.length)
+        }}
+      >
         {parent ? (
           <button
             className="row-glyph"
@@ -537,7 +548,13 @@ function Row({
           </span>
         )}
 
-        <RowMenu row={row} parent={parent} dispatch={dispatch} onOpenDetails={onOpenDetails} />
+        <RowMenu
+          row={row}
+          parent={parent}
+          dispatch={dispatch}
+          onSelect={onSelect}
+          onOpenDetails={onOpenDetails}
+        />
       </div>
     </div>
   )
@@ -581,11 +598,13 @@ function RowMenu({
   row,
   parent,
   dispatch,
+  onSelect,
   onOpenDetails,
 }: {
   row: OutlineRow
   parent: boolean
   dispatch: (action: MenuAction) => void
+  onSelect: (key: string) => void
   onOpenDetails: (key: string) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -620,7 +639,12 @@ function RowMenu({
         aria-label={`Toiminnot: ${name}`}
         aria-expanded={open}
         aria-haspopup="menu"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          // Opening the menu is acting on this row, so the row is what the
+          // selection and the inspector show — not whatever was selected before.
+          if (!open) onSelect(row.key)
+          setOpen(!open)
+        }}
       >
         <Icon name="overflow" />
       </button>

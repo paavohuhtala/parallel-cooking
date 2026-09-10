@@ -196,6 +196,41 @@ test('a long step title never widens the inspector', async ({ page, library, edi
   await editor.expectNoHorizontalOverflow()
 })
 
+test("a row's ⋯ sits beside its title, and opening it selects that row", async ({
+  page,
+  library,
+  editor,
+}) => {
+  const long = 'Paahda sienet, ruskista voissa ja nosta neljäsosa sivuun koristeeksi hienovaraisesti'
+  await page.goto('/')
+  await library.import({
+    name: 'Rivin mitat',
+    courses: [
+      {
+        name: 'Alkupala',
+        components: [{ name: 'Keitto', steps: [{ title: 'Eka' }, { title: long, deps: ['Eka'] }] }],
+      },
+    ],
+  })
+  await editor.expectOpen()
+
+  // Right after the text, not at the far margin of a field as wide as the column.
+  expect(await editor.menuButtonDistance('Vaihe', 'Eka')).toBeLessThan(40)
+  // A field that fits its text must still fit a long one where there is room:
+  // a fixed cap would fix the short rows by cutting the long ones.
+  expect(await editor.titleClipped('Vaihe', long)).toBe(false)
+
+  // The field shrank, the row did not: its blank space still means this row.
+  await editor.clickRowBlank('Vaihe', 'Eka')
+  await expect(editor.step('Eka')).toBeFocused()
+  await expect(editor.inspectorTitle).toHaveText('Eka')
+
+  // The menu acts on its row, so the inspector must be describing that row and
+  // not whatever was selected before.
+  await editor.openRowMenu('Keitto')
+  await expect(editor.inspectorTitle).toHaveText('Keitto')
+})
+
 test('Alt+Arrow reorders a step and rebuilds the chain around it', async ({
   page,
   library,

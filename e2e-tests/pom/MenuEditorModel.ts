@@ -20,6 +20,7 @@ export class MenuEditorModel {
   readonly mergeButton: Locator
   readonly importDialog: Locator
   readonly inspector: Locator
+  readonly inspectorTitle: Locator
   readonly addCourseButton: Locator
   readonly undoButton: Locator
   readonly redoButton: Locator
@@ -37,6 +38,7 @@ export class MenuEditorModel {
     this.mergeButton = this.root.getByRole('button', { name: 'Tuo ja yhdistä' })
     this.importDialog = page.getByRole('dialog', { name: 'Tuo ja yhdistä' })
     this.inspector = this.root.locator('.inspector')
+    this.inspectorTitle = this.inspector.locator('.inspector-title')
     this.addCourseButton = this.root.getByLabel('Lisää ruokalaji', { exact: true })
     this.undoButton = this.root.getByLabel('Kumoa', { exact: true })
     this.redoButton = this.root.getByLabel('Tee uudelleen', { exact: true })
@@ -76,11 +78,49 @@ export class MenuEditorModel {
     return this.row('Vaihe', title)
   }
 
-  /** The whole row block, for its buttons rather than its title. */
-  stepRow(title: string): Locator {
-    return this.root.locator('.outline-row.kind-step').filter({
-      has: this.page.getByLabel(`Vaihe: ${title}`, { exact: true }),
+  /** The whole row block, for its buttons and its geometry rather than its title. */
+  rowBlock(kind: 'Ruokalaji' | 'Osa' | 'Vaihe', title: string): Locator {
+    return this.root.locator('.outline-row').filter({
+      has: this.page.getByLabel(`${kind}: ${title}`, { exact: true }),
     })
+  }
+
+  stepRow(title: string): Locator {
+    return this.rowBlock('Vaihe', title)
+  }
+
+  /** Press the row's blank space, past the end of its title. */
+  async clickRowBlank(kind: 'Ruokalaji' | 'Osa' | 'Vaihe', title: string): Promise<void> {
+    const block = this.rowBlock(kind, title)
+    const box = await block.boundingBox()
+    if (!box) throw new Error(`row ${kind}: ${title} is not on screen`)
+    await block.click({ position: { x: box.width - 20, y: box.height / 2 } })
+  }
+
+  /**
+   * Pixels from the end of a row's title *text* to its `⋯`. Measured from the
+   * text rather than from the field, because a field as wide as the column puts
+   * the button right after the field and ~700px from anything you can read.
+   */
+  async menuButtonDistance(kind: 'Ruokalaji' | 'Osa' | 'Vaihe', title: string): Promise<number> {
+    return this.rowBlock(kind, title).evaluate((row) => {
+      const input = row.querySelector('.outline-title') as HTMLInputElement
+      const button = row.querySelector('.row-menu-open')!
+      const style = getComputedStyle(input)
+      const ctx = document.createElement('canvas').getContext('2d')!
+      ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+      const textEnd =
+        input.getBoundingClientRect().left +
+        parseFloat(style.borderLeftWidth) +
+        parseFloat(style.paddingLeft) +
+        ctx.measureText(input.value).width
+      return Math.round(button.getBoundingClientRect().left - textEnd)
+    })
+  }
+
+  /** An `<input>` cannot ellipsize, so overflow means text cut through a glyph. */
+  async titleClipped(kind: 'Ruokalaji' | 'Osa' | 'Vaihe', title: string): Promise<boolean> {
+    return this.row(kind, title).evaluate((el) => el.scrollWidth > el.clientWidth)
   }
 
   titles(): Locator {
