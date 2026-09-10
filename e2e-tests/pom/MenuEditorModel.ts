@@ -137,8 +137,14 @@ export class MenuEditorModel {
    * substring, so a spec can name a long step by the part that identifies it.
    */
   async openRowMenu(title: string): Promise<Locator> {
-    await this.root.getByLabel(`Toiminnot: ${title}`).click()
+    // By role: the open menu carries the same label as the button that opened it.
+    await this.root.getByRole('button', { name: `Toiminnot: ${title}` }).click()
     return this.page.getByRole('menu')
+  }
+
+  async closeRowMenu(): Promise<void> {
+    await this.page.keyboard.press('Escape')
+    await expect(this.page.getByRole('menu')).toBeHidden()
   }
 
   async openDetails(title: string): Promise<void> {
@@ -160,10 +166,17 @@ export class MenuEditorModel {
   }
 
   async deleteRow(title: string): Promise<void> {
+    await (await this.deleteItem(title)).click()
+  }
+
+  /**
+   * A row's delete item, menu opened. Its label carries the counts of what it
+   * would take, so it is matched on the verb; inside an open menu there is
+   * only ever one of them.
+   */
+  async deleteItem(title: string): Promise<Locator> {
     const menu = await this.openRowMenu(title)
-    // The item is labelled with the row's name for a screen reader; inside an
-    // open menu there is only ever one of them.
-    await menu.getByRole('menuitem', { name: 'Poista' }).click()
+    return menu.getByRole('menuitem', { name: /^Poista/ })
   }
 
   async toggleCollapse(title: string, to: 'Näytä' | 'Piilota'): Promise<void> {

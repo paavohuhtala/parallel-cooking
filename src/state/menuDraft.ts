@@ -40,6 +40,11 @@ export interface OutlineRow {
    * delete the row: a keystroke never takes a subtree with it.
    */
   childCount: number
+  /**
+   * Everything under this row at any depth — what a collapsed row summarises
+   * and what deleting it takes with it. `{0, 0}` for a step.
+   */
+  contents: { components: number; steps: number }
 }
 
 export const rowKey = (kind: RowKind, id: string): string => `${kind}:${id}`
@@ -58,6 +63,7 @@ export function flattenMenu(menu: Menu): OutlineRow[] {
 
   courses.forEach((course, courseIndex) => {
     const components = menu.components.filter((c) => c.courseId === course.id)
+    const componentIds = new Set(components.map((c) => c.id))
     rows.push({
       key: rowKey('course', course.id),
       kind: 'course',
@@ -68,6 +74,10 @@ export function flattenMenu(menu: Menu): OutlineRow[] {
       index: courseIndex,
       siblingCount: courses.length,
       childCount: components.length,
+      contents: {
+        components: components.length,
+        steps: menu.steps.filter((s) => componentIds.has(s.componentId)).length,
+      },
     })
 
     components.forEach((component, componentIndex) => {
@@ -82,6 +92,7 @@ export function flattenMenu(menu: Menu): OutlineRow[] {
         index: componentIndex,
         siblingCount: components.length,
         childCount: steps.length,
+        contents: { components: 0, steps: steps.length },
       })
 
       steps.forEach((step, stepIndex) => {
@@ -95,6 +106,7 @@ export function flattenMenu(menu: Menu): OutlineRow[] {
           index: stepIndex,
           siblingCount: steps.length,
           childCount: 0,
+          contents: { components: 0, steps: 0 },
         })
       })
     })
@@ -119,10 +131,12 @@ export type OutlineItem =
       type: 'row'
       key: string
       row: OutlineRow
-      /** Course and component rows only; a step has nothing to collapse. */
+      /**
+       * Course and component rows only; a step has nothing to collapse. What a
+       * collapsed row is hiding is `row.contents`, so collapsing never loses
+       * information.
+       */
       collapsed: boolean
-      /** What a collapsed row is hiding, so collapsing never loses information. */
-      hidden: { components: number; steps: number } | null
     }
   | {
       type: 'tail'
@@ -143,20 +157,8 @@ export function outlineItems(menu: Menu, collapsed: ReadonlySet<string>): Outlin
   for (const course of courses) {
     const key = rowKey('course', course.id)
     const components = menu.components.filter((c) => c.courseId === course.id)
-    const componentIds = new Set(components.map((c) => c.id))
     const isCollapsed = collapsed.has(key)
-    items.push({
-      type: 'row',
-      key,
-      row: byKey.get(key)!,
-      collapsed: isCollapsed,
-      hidden: isCollapsed
-        ? {
-            components: components.length,
-            steps: menu.steps.filter((s) => componentIds.has(s.componentId)).length,
-          }
-        : null,
-    })
+    items.push({ type: 'row', key, row: byKey.get(key)!, collapsed: isCollapsed })
     if (isCollapsed) continue
 
     for (const component of components) {
@@ -168,13 +170,12 @@ export function outlineItems(menu: Menu, collapsed: ReadonlySet<string>): Outlin
         key: componentKey,
         row: byKey.get(componentKey)!,
         collapsed: componentCollapsed,
-        hidden: componentCollapsed ? { components: 0, steps: steps.length } : null,
       })
       if (componentCollapsed) continue
 
       for (const step of steps) {
         const stepKey = rowKey('step', step.id)
-        items.push({ type: 'row', key: stepKey, row: byKey.get(stepKey)!, collapsed: false, hidden: null })
+        items.push({ type: 'row', key: stepKey, row: byKey.get(stepKey)!, collapsed: false })
       }
       items.push({
         type: 'tail',

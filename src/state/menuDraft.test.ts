@@ -208,6 +208,28 @@ test('a row knows how many rows are directly under it', () => {
   assert.equal(flattenMenu(emptied)[1].childCount, 0)
 })
 
+test('a row counts everything under it, which is what deleting it takes', () => {
+  // A second dish in the course, so the course's count has to add across dishes
+  // rather than repeat the first one's.
+  const two: Menu = {
+    ...base(),
+    components: [...base().components, { id: 'k2', courseId: 'c1', name: 'Leipä', ingredients: [] }],
+    steps: [...base().steps, { id: 'd', componentId: 'k2', title: 'D', station: 'muu', deps: [] }],
+  }
+  assert.deepEqual(
+    flattenMenu(two).map((r) => [r.title, r.contents]),
+    [
+      ['Alkupala', { components: 2, steps: 4 }],
+      ['Keitto', { components: 0, steps: 3 }],
+      ['A', { components: 0, steps: 0 }],
+      ['B', { components: 0, steps: 0 }],
+      ['C', { components: 0, steps: 0 }],
+      ['Leipä', { components: 0, steps: 1 }],
+      ['D', { components: 0, steps: 0 }],
+    ],
+  )
+})
+
 test('a new course is appended with the next order number', () => {
   const { menu } = applyDraftAction(base(), { type: 'insert_after', kind: 'course', id: 'c1' })
   assert.deepEqual(menu.courses.map((c) => c.order), [1, 2])

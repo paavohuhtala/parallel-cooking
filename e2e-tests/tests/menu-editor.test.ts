@@ -350,6 +350,20 @@ test('a course deleted from the row menu comes back whole, chain and all', async
   await expect(toka).toHaveClass(/status-ready/)
 })
 
+test('the row menu says what a delete would take with it', async ({ page, library, editor }) => {
+  await page.goto('/')
+  await library.import(chainDoc('Laajuus'))
+  await editor.expectOpen()
+
+  // One word on a step and on a course holding a whole dish reads the same;
+  // the counts are what make them different items.
+  await expect(await editor.deleteItem('Alkupala')).toHaveText('Poista ruokalaji (1 osa, 3 vaihetta)')
+  await editor.closeRowMenu()
+  await expect(await editor.deleteItem('Keitto')).toHaveText('Poista osa (3 vaihetta)')
+  await editor.closeRowMenu()
+  await expect(await editor.deleteItem('Eka')).toHaveText('Poista vaihe')
+})
+
 test('a typed title is one undo step, and redo puts it back', async ({ page, library, editor }) => {
   await page.goto('/')
   await library.import(chainDoc('Kirjoitus'))

@@ -453,7 +453,7 @@ function Row({
   onToggleCollapse: (key: string) => void
   onMoveFocus: (from: string, delta: -1 | 1) => void
 }) {
-  const { row, collapsed, hidden } = item
+  const { row, collapsed } = item
   const name = row.title || 'nimetön'
   const parent = row.kind !== 'step'
 
@@ -530,10 +530,10 @@ function Row({
 
         {/* A collapsed row must still say what it is hiding, or collapsing is
             just losing track of a course. */}
-        {hidden && (
+        {parent && collapsed && (
           <span className="row-hidden muted small">
-            {row.kind === 'course' && `${plural(hidden.components, 'osa', 'osaa')} · `}
-            {plural(hidden.steps, 'vaihe', 'vaihetta')}
+            {row.kind === 'course' && `${plural(row.contents.components, 'osa', 'osaa')} · `}
+            {plural(row.contents.steps, 'vaihe', 'vaihetta')}
           </span>
         )}
 
@@ -625,7 +625,7 @@ function RowMenu({
         <Icon name="overflow" />
       </button>
       {open && (
-        <div className="row-menu-list" role="menu">
+        <div className="row-menu-list" role="menu" aria-label={`Toiminnot: ${name}`}>
           <button role="menuitem" onClick={act(() => onOpenDetails(row.key))}>
             Tiedot
           </button>
@@ -653,18 +653,34 @@ function RowMenu({
           >
             Siirrä alas
           </button>
+          {/* The visible text is the whole name: which row it acts on is the
+              menu's own label, and the counts are the part worth reading. */}
           <button
             role="menuitem"
             className="is-danger"
-            aria-label={`Poista ${name}`}
             onClick={act(() => dispatch({ type: 'delete_row', kind: row.kind, id: row.id }))}
           >
-            Poista
+            {deleteLabel(row)}
           </button>
         </div>
       )}
     </div>
   )
+}
+
+/**
+ * "Poista ruokalaji (3 osaa, 22 vaihetta)": the same item on a step and on a
+ * course holding a third of the dinner cannot be the same one word. Empty
+ * levels are left out, so an empty dish is just "Poista osa".
+ */
+function deleteLabel(row: OutlineRow): string {
+  const what = `Poista ${KIND_LABEL[row.kind].toLowerCase()}`
+  const { components, steps } = row.contents
+  const taken = [
+    ...(components > 0 ? [plural(components, 'osa', 'osaa')] : []),
+    ...(steps > 0 ? [plural(steps, 'vaihe', 'vaihetta')] : []),
+  ]
+  return taken.length > 0 ? `${what} (${taken.join(', ')})` : what
 }
 
 /** "+ Osa" / "+ Vaihe" / "+ Ruokalaji": the end of every list, always there. */
