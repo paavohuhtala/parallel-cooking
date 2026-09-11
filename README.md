@@ -1,4 +1,4 @@
-# Keittiömestari
+# Mössömestari
 
 Suunnittelutyökalu monen ruokalajin illallisen kokkaamiseen usean parin käsien voimin.
 Jokainen ruokalaji on pilkottu atomisiin vaiheisiin riippuvuuksineen, joten yhdellä

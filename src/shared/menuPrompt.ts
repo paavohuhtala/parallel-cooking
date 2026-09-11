@@ -13,7 +13,7 @@
  * what stops a model emitting a flat list of thirty sequential steps that no
  * second cook can help with.
  */
-export const MENU_PROMPT = `Convert the recipe below into a Keittiömestari menu (JSON).
+export const MENU_PROMPT = `Convert the recipe below into a Mössömestari menu (JSON).
 
 A menu has three levels: course → component (one dish or side) → step. Steps form
 a directed acyclic graph: each step lists, in \`deps\`, the steps that must be

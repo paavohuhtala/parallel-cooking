@@ -15,7 +15,7 @@ export class LandingPageModel {
 
   constructor(page: Page) {
     this.page = page
-    this.heading = page.getByRole('heading', { name: 'Keittiömestari' })
+    this.heading = page.getByRole('heading', { name: 'Mössömestari' })
     this.nameInput = page.getByRole('textbox', { name: 'Nimi' })
     this.menuOptions = page.getByRole('radio')
     this.createButton = page.getByRole('button', { name: 'Luo keittiö' })

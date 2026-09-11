@@ -21,7 +21,7 @@ export default function LandingRoute() {
   return (
     <div className="landing">
       <header className="landing-head">
-        <h1>Keittiömestari</h1>
+        <h1>Mössömestari</h1>
         <p>Suunnittele monen kokin illallinen ja seuraa etenemistä yhdessä.</p>
       </header>
 
