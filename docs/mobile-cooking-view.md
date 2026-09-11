@@ -1,0 +1,254 @@
+# Oma vuoro — a cooking view for one cook on one phone
+
+A design for the missing fourth view. The board, the recipe and the graph all answer *what is
+the state of the kitchen*; none of them answers *what do I do next, and how*. On a laptop
+propped against the wall that distinction does not matter, because the whole board fits. On a
+390 px phone held in one flour-covered hand it is the only thing that matters.
+
+## The problem, specifically
+
+[`KanbanView`](../src/views/KanbanView.tsx) is four columns wide by construction, and
+`.board` is laid out to be scrolled sideways. At 390 px that means:
+
+- **Four columns, one screen.** Two of them — `blocked` and `done` — are history and
+  homework, and they take half the horizontal budget. The column a cook actually acts in
+  (`ready`) is off-screen more often than not.
+- **Drag and drop is the only way to move a card between columns**, and the thing you are
+  dragging across is a horizontally scrolling container. `StepControls` is on the card too,
+  so the moves exist — but the toolbar hint still says *"Raahaa kortti sarakkeesta toiseen"*,
+  which on a phone is a lie.
+- **The chrome eats the screen before the content starts.** `.topbar` wraps to three rows at
+  that width (brand, tabs, four action buttons), then the progress bar, then `.upnext`. Against
+  `height: 100dvh` and `overflow: hidden` on `.app`, roughly 40 % of the viewport is gone before
+  the first card.
+- **Nothing is about *you*.** Grouping by cook exists, but it is a board-wide regrouping, not a
+  personal lane — and it still renders every other cook's lanes underneath.
+
+The board is not broken. It is a *situation display*, and a situation display wants a big
+screen. The fix is not to squeeze it; it is to add the view that a phone actually wants.
+
+## The shape of the answer
+
+A fourth view, **`Oma vuoro`**, beside Resepti / Graafi / Keittiötaulu. One scrolling column,
+three zones, in the order a cook needs them:
+
+```
+┌──────────────────────────────┐
+│  Illallinen          ●  ⋯    │  compact bar: room, connection, overflow
+│  ▓▓▓▓▓▓▓░░░░░░░  12/23       │
+├──────────────────────────────┤
+│  TYÖN ALLA                   │  ① what I am doing, and how
+│  ┌────────────────────────┐  │
+│  │ Kantarellikeitto       │  │
+│  │ Kuullota sipulit    🍲 │  │
+│  │ 6 min · aloitit 18:42  │  │
+│  │ ────────────────────── │  │
+│  │ Kuullota hienonnettu   │  │
+│  │ sipuli voissa, kunnes  │  │
+│  │ pehmeää muttei ruskeaa │  │
+│  │ • 2 salottisipulia     │  │
+│  │ • 30 g voita           │  │
+│  │ ┌────────────────────┐ │  │
+│  │ │      ✓ Valmis      │ │  │  48 px, thumb-height
+│  │ └────────────────────┘ │  │
+│  └────────────────────────┘  │
+├──────────────────────────────┤
+│  OTA SEURAAVA                │  ② the picker
+│  ┌────────────────────────┐  │
+│  │ Jatkoa: Kantarellikeitto│ │  ← why this one
+│  │ Lisää kantarellit    🍲 │  │
+│  │ ┌────────────────────┐ │  │
+│  │ │      Aloita        │ │  │
+│  │ └────────────────────┘ │  │
+│  └────────────────────────┘  │
+│  [Liesi][Uuni][Grilli][Muu]  │  filters
+│  Kaikki vapaat (7)      ⌄    │
+├──────────────────────────────┤
+│  ODOTTAA MUITA (3)      ⌄    │  ③ nudge material, collapsed
+├──────────────────────────────┤
+│   📖      ⚙      ▦      👤   │  fixed bottom tabs
+└──────────────────────────────┘
+```
+
+**It is a view, not a route.** `/r/<id>` stays the one link that means "this kitchen" — that
+property is in the first paragraph of [CLAUDE.md](../CLAUDE.md) and is worth more than a
+tidier URL. The view tab is already local-only state in `App.tsx`; this adds a fourth value
+to it and nothing else.
+
+**It is not phone-only.** A cook with a laptop on the counter wants the same focused list. The
+only thing the viewport decides is the *default*: `useState` initialises to `shift` when
+`matchMedia('(max-width: 640px)')` matches at mount, and never again — narrowing a desktop
+window must not yank the view out from under someone mid-task.
+
+## ① Työn alla — what I have going
+
+The steps where `recordOf(state, id).cookId === me && state === 'active'`. Usually one; often
+two (rice simmering, sauce reducing); never many.
+
+- The **first card is expanded**: `step.detail` and `step.uses` inline, because that is the
+  whole reason a cook is holding the phone. The rest are collapsed to a title row and expand on
+  tap. No navigation for the common case.
+- **Elapsed time**, from `record.startedAt`, ticking. The field is already written by
+  `applyCommand`; nothing renders it today. `6 min` is the single most useful number on the
+  screen and it costs one local `setInterval`.
+- **One primary action, `✓ Valmis`**, full-width. `Palauta` and `Vaihda tekijä` live behind the
+  card's `⋯`, because a mis-tap that hands your work back is worse than one extra tap.
+- Steps active under *another* cook's name never appear here. They are in zone ③.
+
+## ② Ota seuraava — the picker
+
+This is the part the board cannot do at all, and it is the heart of the design. A 23-step menu
+routinely has eight steps in `ready` at once; a 66-step menu has fifteen. A flat list of fifteen
+is not a decision, it is homework.
+
+So: **one hero card, plus the list behind it.**
+
+The hero is the highest-ranked ready step, shown large, with its dish name, its station glyph,
+a one-line **reason**, and a full-width `Aloita`. Because `me` is known (see *The gate*, below),
+`Aloita` goes straight through `requestStart` → `confirmStart(stepId, me)` with no dialog: the
+existing short-circuit in [`store.tsx`](../src/state/store.tsx) already does exactly this. One
+tap, from question to answer.
+
+Under it, filter chips (`Liesi` `Uuni` `Grilli` `Muu`, plus `Vain tämä ruokalaji`) and a
+collapsed `Kaikki vapaat (n)`. Each row carries its own `Aloita`, so a cook who has already
+decided never pays for the hero. Tapping the row body opens the existing `StepDetail`, which is
+already a bottom sheet under 900 px — no new component.
+
+### The ranking
+
+A pure function, `rankReady(menu, index, state, cookId)`, in a new `src/state/shift.ts` — React-
+free and DOM-free, so it is a `node:test` file rather than something to click at. Same posture
+as [`chains.ts`](../src/state/chains.ts) and [`menuDraft.ts`](../src/state/menuDraft.ts).
+
+It starts from `suggestedNext` (ready steps, longest remaining chain first) and adds what
+`suggestedNext` cannot know: who is asking.
+
+| Signal | Δ | Why |
+| --- | ---: | --- |
+| `chainLength` | `+4 ×` | The existing measure of urgency: how many rounds of strictly sequential work still hang off this step. |
+| Same `componentId` as a step I am active on or just finished | `+100` | Dominant on purpose. Staying in one dish means one board, one set of ingredients out, one head-space. Jumping dishes is how things get missed. |
+| Already assigned to me | `+25` | Somebody meant for me to have it. |
+| Same station as a step I am active on | `+20` | I am already standing there. |
+| `holdPoint` | `−15` | It says in the type that this can be done well ahead. |
+| Assigned to another cook | *excluded* | Not offered at all; it shows under `Kaikki vapaat` greyed with their dot, so it is visible but not proposed. |
+
+Ties break on `index.topoOrder`, so the function is deterministic and the test can assert an
+order rather than a set.
+
+**`criticalPath` is deliberately not a signal.** `buildIndex` says so itself: ties between
+equally long chains are broken arbitrarily, *"so it is never used to label an individual step."*
+Ranking by it would be labelling by it, one step removed — and the first time two cooks compared
+phones and saw different "critical" steps, the feature would have lied. `chainLength` carries
+the same information with none of the arbitrariness.
+
+The reason line is read back off whichever bonus decided it: `Jatkoa: Kantarellikeitto` ·
+`Sama piste: Liesi` · `Avaa 4 vaihetta` · `Voi tehdä etukäteen`. A ranking a cook cannot
+interrogate is a ranking a cook will not trust — and the moment they distrust it they are back
+to reading fifteen rows.
+
+## ③ Odottaa muita — the nudge list
+
+Collapsed by default. Blocked steps **one step away**: every unmet dependency is `active`. For
+each, who is holding it — `Odotat: Anna · Kastikkeen siivilöinti`, with the presence dot the
+roster already draws. This is the piece a phone is uniquely good at, because the person you need
+to nudge is standing two metres away and you are the one who knows you are stuck.
+
+`oneStepAway(index, state)` joins `shift.ts`; it is four lines and a test.
+
+## The loop that closes it
+
+The reason this is a *flow* and not three lists: completing a step is also the moment you need
+the next one.
+
+Tapping `✓ Valmis` collapses the card and raises a brief bar above the tab strip:
+
+```
+  Valmis: Kuullota sipulit.  Vapautui: Lisää kantarellit.
+  [ Kumoa ]                            [ Aloita se ]
+```
+
+`Vapautui` is `index.dependents.get(id)` filtered to steps that are now `ready` — the work this
+cook just unlocked, offered back to them in the same gesture that finished the last one.
+`Kumoa` is `setStepState(id, 'todo')` behind the existing `checkTransition`, and it matters: a
+`Valmis` button sized for a thumb will occasionally be hit by a thumb that meant something else.
+
+This bar is the only genuinely new interaction pattern in the design, and it is the one that
+turns "a mobile layout" into "a mobile flow".
+
+## The gate: who is holding this phone
+
+Every one-tap affordance above depends on `me` being set, and today `me` is set in a modal
+behind a button in a topbar that is three rows tall. So on a phone the shift view opens on the
+question instead of the content:
+
+```
+  Kuka sinä olet?
+  [ A  Anna ]  [ P  Pekka ]  [ + Lisää kokki ]
+```
+
+It writes through the existing `setMe`, which persists per room and per browser and re-announces
+presence on every reconnect. After that the cook's own dot sits in the compact bar and taps
+through to the roster — handing the phone to someone else has to be possible, it just does not
+have to be on the critical path.
+
+Without the gate the design collapses: every `Aloita` becomes a two-step `StartDialog`, which is
+precisely the friction the board already has.
+
+## The chrome, at 390 px
+
+Three CSS-only changes, no DOM restructuring:
+
+- **The tab strip fixes to the bottom.** `.tabs` is already a single flex row inside `.topbar`;
+  under 640 px it becomes `position: fixed; inset: auto 0 0 0` with
+  `padding-bottom: env(safe-area-inset-bottom)` and icon-only labels. `position: fixed` takes it
+  out of flow without taking it out of the DOM, so both the topbar's layout *and* every
+  `topbar.getByRole('tab')` locator in [`KitchenPageModel`](../e2e-tests/pom/KitchenPageModel.ts)
+  survive untouched. `.workspace` gets the matching bottom padding.
+- **`Kokit` / `Jaa` / `Muokkaa menua` / `Uusi keittiö` collapse into one `⋯`** that opens a
+  `.modal-sheet` — a class the stylesheet already bottom-sheets under 900 px. The room name
+  truncates, the connection indicator becomes a dot with its label as `aria-label`.
+- **`.upnext` is hidden under 640 px.** Zone ② is a strictly better version of it; two ranked
+  lists of the same steps on one small screen is worse than either alone.
+
+The existing `@media (pointer: coarse)` block in [`styles.css`](../src/styles.css) already
+establishes 2.75 rem as this project's touch target and explains why. Zone ① and ② inherit it;
+the two primary buttons go to 3 rem because they are the only buttons that matter.
+
+## What this does not touch
+
+Worth stating plainly, because it is why the change is small:
+
+- **No protocol change.** No new `Command`, no `applyCommand` branch, no server work. Every
+  action in the view is `set_step_state` or `assign`, which exist. `startedAt` exists.
+  Presence exists. `me` exists.
+- **No new derived state on the wire.** Ranking is a pure function of `(menu, index, state,
+  cookId)`, all four of which every client already has.
+- **The board is left alone.** It stays a four-column situation display for a big screen, and
+  its toolbar hint stays true, because the phone no longer has to pretend to be one.
+- **`StepDetail` is reused as-is.** It is already a sheet under 900 px.
+
+## Files
+
+| File | |
+| --- | --- |
+| `src/state/shift.ts` | **new** — `rankReady`, `activeFor`, `oneStepAway`, `justUnblocked`. Pure, React-free. |
+| `src/state/shift.test.ts` | **new** — the ranking's order, the continuity bonus, the tie-break, `oneStepAway`. |
+| `src/views/ShiftView.tsx` | **new** — the three zones, the gate, the completion bar. |
+| `src/App.tsx` | fourth entry in `VIEWS`; viewport-chosen initial view; actions behind `⋯` under 640 px. |
+| `src/components/icons.tsx` | one vendored Phosphor glyph for the tab, or reuse `cooks` to start. |
+| `src/styles.css` | the shift view; the 640 px chrome block. |
+| `e2e-tests/pom/ShiftViewModel.ts` | **new** — page object, per the repo's rule that new UI means extending a model. |
+| `e2e-tests/tests/shift.test.ts` | **new** — gate → pick → work → finish → pick again. |
+| `playwright.config.ts` | a second project, `devices['Pixel 7']`, `testMatch: /shift\.test\.ts/` — one phone-sized project rather than doubling the suite. |
+
+## Declined, on purpose
+
+- **A swipeable one-card-at-a-time deck.** It reads well in a demo and fails in a kitchen: a cook
+  needs to see that the fish is not yet startable, not just be told what to do next. The hero
+  card gets the one-tap decision without hiding the other fourteen steps.
+- **A separate `/r/<id>/m` route.** One link per kitchen is the product.
+- **Making the kanban responsive.** Four columns at 390 px is two columns of history you cannot
+  read and two you cannot act in. Adding the view is less code than squeezing the board, and the
+  result is better on both screens.
+- **Per-step durations, so the ranking could be minutes rather than steps.** A real improvement,
+  and entirely separable — it is a `Step` field and a menu-format change, not a mobile question.
