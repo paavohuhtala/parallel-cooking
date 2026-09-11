@@ -10,10 +10,10 @@ export class ActiveCardModel {
   readonly moreButton: Locator
 
   constructor(shift: Locator, title: string) {
-    this.root = shift.locator('.shift-card.is-active').filter({ hasText: title })
-    this.title = this.root.locator('.shift-title')
-    this.detail = this.root.locator('.shift-detail')
-    this.elapsed = this.root.locator('.shift-elapsed')
+    this.root = shift.getByTestId('shift-active-card').filter({ hasText: title })
+    this.title = this.root.getByTestId('shift-card-title')
+    this.detail = this.root.getByTestId('shift-card-detail')
+    this.elapsed = this.root.getByTestId('shift-elapsed')
     this.finishButton = this.root.getByRole('button', { name: 'Valmis' })
     this.moreButton = this.root.getByRole('button', { name: /^Muut toiminnot/ })
   }
@@ -24,7 +24,7 @@ export class ActiveCardModel {
 
   /** Collapses or expands the card by its head. */
   async toggle(): Promise<void> {
-    await this.root.locator('.shift-card-head').click()
+    await this.root.getByTestId('shift-card-head').click()
   }
 
   async expectOpen(): Promise<void> {
@@ -44,6 +44,10 @@ export class ActiveCardModel {
 export class ShiftViewModel {
   readonly locator: Locator
   readonly gate: Locator
+  /** The one line above the queue that says who this phone is. */
+  readonly who: Locator
+  /** "Kuka sinä olet?" again, opened from that line. */
+  readonly switcher: Locator
   readonly activeZone: Locator
   readonly hero: Locator
   readonly heroTitle: Locator
@@ -53,15 +57,17 @@ export class ShiftViewModel {
   readonly rows: Locator
 
   constructor(page: Page) {
-    this.locator = page.locator('.shift')
-    this.gate = page.locator('.shift-gate')
-    this.activeZone = this.locator.locator('.shift-card.is-active')
-    this.hero = this.locator.locator('.shift-card.is-hero')
-    this.heroTitle = this.hero.locator('.shift-title')
-    this.heroReason = this.hero.locator('.shift-why')
+    this.locator = page.getByTestId('shift')
+    this.gate = page.getByTestId('shift-gate')
+    this.who = this.locator.getByTestId('shift-who')
+    this.switcher = page.getByRole('dialog', { name: 'Kuka sinä olet?' })
+    this.activeZone = this.locator.getByTestId('shift-active-card')
+    this.hero = this.locator.getByTestId('shift-hero')
+    this.heroTitle = this.hero.getByTestId('shift-card-title')
+    this.heroReason = this.hero.getByTestId('shift-why')
     this.heroStart = this.hero.getByRole('button', { name: 'Aloita' })
-    this.toast = page.locator('.shift-toast')
-    this.rows = this.locator.locator('.shift-row')
+    this.toast = page.getByTestId('shift-toast')
+    this.rows = this.locator.getByTestId('shift-row')
   }
 
   card(title: string): ActiveCardModel {
@@ -80,6 +86,27 @@ export class ShiftViewModel {
 
   async expectGate(): Promise<void> {
     await expect(this.gate.getByRole('heading', { name: 'Kuka sinä olet?' })).toBeVisible()
+  }
+
+  /** Who the view thinks you are, as the line above the queue states it. */
+  async expectWho(cookName: string): Promise<void> {
+    await expect(this.who).toContainText(cookName)
+  }
+
+  async openSwitcher(): Promise<Locator> {
+    await this.who.click()
+    await expect(this.switcher).toBeVisible()
+    return this.switcher
+  }
+
+  /**
+   * Become somebody else from that line. The gate is the same question, but it
+   * is only ever asked once — this is the way back to it.
+   */
+  async switchTo(cookName: string): Promise<void> {
+    await (await this.openSwitcher()).getByRole('button', { name: cookName }).click()
+    await expect(this.switcher).toBeHidden()
+    await this.expectWho(cookName)
   }
 
   /** Take the suggested step. No dialog: the view already knows who you are. */
@@ -103,7 +130,7 @@ export class ShiftViewModel {
 
   /** Opens one of the collapsed lists — "Kaikki vapaat", "Odottaa muita"… */
   async unfold(label: string): Promise<Locator> {
-    const fold = this.locator.locator('.shift-fold').filter({ hasText: label })
+    const fold = this.locator.getByTestId('shift-fold').filter({ hasText: label })
     await fold.click()
     return fold
   }
@@ -130,6 +157,6 @@ export class ShiftViewModel {
 
   /** Filters the zone — hero included — down to one station. */
   async filterByStation(label: string): Promise<void> {
-    await this.locator.locator('.shift-filters').getByRole('button', { name: label }).click()
+    await this.locator.getByTestId('shift-filters').getByRole('button', { name: label }).click()
   }
 }

@@ -13,6 +13,10 @@ import type { MenuSummary, TemplateSummary } from '../shared/api.ts'
 import { toExportDoc } from '../shared/menuDoc.ts'
 import { MenuImportDialog } from './MenuImportDialog.tsx'
 import { Icon } from './icons.tsx'
+import { cx } from './cx.ts'
+import ui from './ui.module.css'
+import shell from './landing.module.css'
+import styles from './NewKitchenCard.module.css'
 
 /**
  * "Uusi keittiö": name the dinner, pick the menu, start.
@@ -115,12 +119,13 @@ export function NewKitchenCard() {
     })
 
   return (
-    <section className="landing-card">
+    <section className={shell.card} data-testid="landing-card">
       <h2>Uusi keittiö</h2>
 
-      <label className="field">
+      <label className={ui.field}>
         <span>Nimi</span>
         <input
+          className={ui.textInput}
           value={name}
           placeholder="Esim. Lauantain illallinen"
           onChange={(e) => setName(e.target.value)}
@@ -130,16 +135,16 @@ export function NewKitchenCard() {
         />
       </label>
 
-      <fieldset className="field">
+      <fieldset className={ui.field}>
         <legend>Menu</legend>
 
-        {choices.length === 0 && <p className="muted">Ladataan…</p>}
+        {choices.length === 0 && <p className={ui.muted}>Ladataan…</p>}
 
         {choices.length > 0 && (
-          <ul className="menu-list">
+          <ul className={styles.menuList}>
             {choices.map((choice) => (
-              <li key={keyOf(choice)} className="menu-row">
-                <label className="menu-choice">
+              <li key={keyOf(choice)} className={styles.menuRow} data-testid="menu-row">
+                <label className={styles.menuChoice}>
                   <input
                     type="radio"
                     name="menu"
@@ -147,11 +152,13 @@ export function NewKitchenCard() {
                     onChange={() => setPicked(keyOf(choice))}
                   />
                   <span>
-                    <span className="menu-choice-title">
+                    <span className={styles.menuChoiceTitle}>
                       {/* The name is a text node of its own: a test matches a
                           menu by its exact name, badge or no badge. */}
                       <strong>{choice.name}</strong>
-                      {choice.kind === 'template' && <em className="menu-badge">Valmis pohja</em>}
+                      {choice.kind === 'template' && (
+                        <em className={styles.menuBadge}>Valmis pohja</em>
+                      )}
                     </span>
                     {choice.description && <em>{choice.description}</em>}
                     <small>
@@ -161,10 +168,10 @@ export function NewKitchenCard() {
                   </span>
                 </label>
 
-                <div className="menu-row-actions">
+                <div className={styles.menuRowActions}>
                   {choice.kind === 'menu' && (
                     <button
-                      className="btn btn-ghost"
+                      className={cx(ui.btn, ui.btnGhost)}
                       disabled={busy}
                       aria-label={`Muokkaa ${choice.name}`}
                       onClick={() => void open(choice.id)}
@@ -174,7 +181,7 @@ export function NewKitchenCard() {
                   )}
                   {choice.kind === 'menu' && (
                     <button
-                      className="btn btn-ghost"
+                      className={cx(ui.btn, ui.btnGhost)}
                       disabled={busy}
                       aria-label={`Vie ${choice.name}`}
                       onClick={() =>
@@ -188,7 +195,7 @@ export function NewKitchenCard() {
                     </button>
                   )}
                   <button
-                    className="btn btn-ghost"
+                    className={cx(ui.btn, ui.btnGhost)}
                     disabled={busy}
                     aria-label={`Kopioi ${choice.name}`}
                     onClick={() => void copy(choice)}
@@ -197,7 +204,7 @@ export function NewKitchenCard() {
                   </button>
                   {choice.kind === 'menu' && (
                     <button
-                      className="btn btn-ghost icon"
+                      className={cx(ui.btn, ui.btnGhost, ui.icon)}
                       disabled={busy}
                       aria-label={`Poista ${choice.name}`}
                       onClick={() =>
@@ -217,9 +224,9 @@ export function NewKitchenCard() {
           </ul>
         )}
 
-        <div className="library-actions">
+        <div className={styles.libraryActions}>
           <button
-            className="btn"
+            className={ui.btn}
             disabled={busy}
             onClick={() =>
               void guard(async () => {
@@ -230,18 +237,26 @@ export function NewKitchenCard() {
           >
             Uusi menu
           </button>
-          <button className="btn" disabled={busy} onClick={() => setImporting(true)}>
+          <button className={ui.btn} disabled={busy} onClick={() => setImporting(true)}>
             Tuo JSON
           </button>
         </div>
       </fieldset>
 
-      {error && <p className="error">{error}</p>}
+      {error && (
+        <p className={ui.error} data-testid="error">
+          {error}
+        </p>
+      )}
 
-      <button className="btn btn-primary" disabled={!selected || busy} onClick={() => void create()}>
+      <button
+        className={cx(ui.btn, ui.btnPrimary)}
+        disabled={!selected || busy}
+        onClick={() => void create()}
+      >
         {busy ? 'Luodaan…' : 'Luo keittiö'}
       </button>
-      <p className="muted">Jaa linkki muille kokeille — kaikki näkevät saman tilanteen.</p>
+      <p className={ui.muted}>Jaa linkki muille kokeille — kaikki näkevät saman tilanteen.</p>
 
       {importing && (
         <MenuImportDialog

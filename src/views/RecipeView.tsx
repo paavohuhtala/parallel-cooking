@@ -1,8 +1,26 @@
-import { STATIONS } from '../model/types'
+import { STATIONS, type StepStatus } from '../model/types'
 import { Icon, STATION_ICON } from '../components/icons.tsx'
 import { recordOf, statusOf } from '../state/graph'
 import { useStore } from '../state/store'
 import { CookDot, STATUS_LABEL, StepControls } from '../components/StepControls'
+import { cx } from '../components/cx.ts'
+import ui from '../components/ui.module.css'
+import styles from './RecipeView.module.css'
+
+const DOT_CLASS: Record<StepStatus, string> = {
+  blocked: ui.statusBlocked,
+  ready: ui.statusReady,
+  active: ui.statusActive,
+  done: ui.statusDone,
+}
+
+/* `ready` has no rule of its own: a row a cook can start is the plain row. */
+const ROW_CLASS: Record<StepStatus, string | undefined> = {
+  blocked: styles.statusBlocked,
+  ready: styles.statusReady,
+  active: styles.statusActive,
+  done: styles.statusDone,
+}
 
 export function RecipeView({
   selected,
@@ -15,18 +33,18 @@ export function RecipeView({
   const order = new Map(index.topoOrder.map((id, i) => [id, i]))
 
   return (
-    <div className="recipe">
+    <div className={styles.recipe} data-testid="recipe">
       {menu.courses.map((course) => (
-        <article key={course.id} className="course">
-          <header className="course-head">
-            <span className="course-number">{course.order}</span>
+        <article key={course.id} data-testid="course">
+          <header className={styles.courseHead}>
+            <span className={styles.courseNumber}>{course.order}</span>
             <div>
               <h2>{course.name}</h2>
-              {course.note && <p className="muted">{course.note}</p>}
+              {course.note && <p className={ui.muted}>{course.note}</p>}
             </div>
           </header>
 
-          <div className="components">
+          <div className={styles.components}>
             {menu.components
               .filter((c) => c.courseId === course.id)
               .map((component) => {
@@ -36,14 +54,14 @@ export function RecipeView({
                 const done = steps.filter((s) => statusOf(s, state) === 'done').length
 
                 return (
-                  <section key={component.id} className="component">
-                    <header className="component-head">
+                  <section key={component.id} className={styles.component} data-testid="component">
+                    <header className={styles.componentHead}>
                       <h3>{component.name}</h3>
-                      <span className="muted small">
+                      <span className={cx(ui.muted, ui.small)} data-testid="component-progress">
                         {done}/{steps.length} valmiina
                       </span>
                       <div
-                        className="minibar"
+                        className={styles.minibar}
                         role="progressbar"
                         aria-valuenow={done}
                         aria-valuemax={steps.length}
@@ -52,18 +70,18 @@ export function RecipeView({
                       </div>
                     </header>
 
-                    {component.note && <p className="muted small">{component.note}</p>}
+                    {component.note && <p className={cx(ui.muted, ui.small)}>{component.note}</p>}
 
-                    <details className="ingredients">
+                    <details className={styles.ingredients}>
                       <summary>Ainekset ({component.ingredients.length})</summary>
-                      <ul className="plain-list">
+                      <ul className={ui.plainList}>
                         {component.ingredients.map((i) => (
                           <li key={i}>{i}</li>
                         ))}
                       </ul>
                     </details>
 
-                    <ol className="steps">
+                    <ol className={styles.steps}>
                       {steps.map((step) => {
                         const status = statusOf(step, state)
                         const record = recordOf(state, step.id)
@@ -71,25 +89,33 @@ export function RecipeView({
                         return (
                           <li
                             key={step.id}
-                            className={`step-row status-${status} ${
-                              selected === step.id ? 'is-selected' : ''
-                            }`}
+                            className={cx(
+                              styles.stepRow,
+                              ROW_CLASS[status],
+                              selected === step.id && styles.isSelected,
+                            )}
+                            data-testid="step-row"
+                            data-status={status}
                           >
                             <button
-                              className="step-main"
+                              className={styles.stepMain}
+                              data-testid="step-main"
                               onClick={() => onSelect(step.id)}
                               aria-expanded={selected === step.id}
                             >
-                              <span className={`dot status-${status}`} />
-                              <span className="step-title">
+                              <span className={cx(ui.dot, DOT_CLASS[status])} />
+                              <span className={styles.stepTitle}>
                                 {step.title}
                                 {step.holdPoint && (
-                                  <span className="tag tag-hold" title="Voi tehdä hyvissä ajoin">
+                                  <span className={cx(ui.tag, ui.tagHold)} title="Voi tehdä hyvissä ajoin">
                                     etukäteen
                                   </span>
                                 )}
                               </span>
-                              <span className="step-facts muted small">
+                              <span
+                                className={cx(styles.stepFacts, ui.muted, ui.small)}
+                                data-testid="step-facts"
+                              >
                                 {step.station !== 'muu' && (
                                   <>
                                     <Icon name={STATION_ICON[step.station]} /> {station?.label} ·{' '}

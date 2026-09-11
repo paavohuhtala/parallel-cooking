@@ -135,12 +135,12 @@ test('removing a step from a kitchen menu prunes the progress recorded against i
 
   // Record progress against the step that is about to disappear.
   await page.goto(`/r/${room.id}`)
-  const row = page.locator('.step-row').filter({ hasText: doomed.title })
+  const row = page.getByTestId('step-row').filter({ hasText: doomed.title })
   await row.getByRole('button', { name: 'Aloita' }).click()
   // A fresh kitchen has two cooks and nobody has said who they are, so starting
   // a step asks first.
   await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
-  await expect(row).toHaveClass(/status-active/)
+  await expect(row).toHaveAttribute('data-status', 'active')
 
   const trimmed = structuredClone(before.menu)
   trimmed.steps = trimmed.steps
@@ -152,7 +152,7 @@ test('removing a step from a kitchen menu prunes the progress recorded against i
   expect(write.body.prunedRooms).toContain(room.id)
 
   // The open page is told, without a reload.
-  await expect(page.locator('.step-row').filter({ hasText: doomed.title })).toHaveCount(0)
+  await expect(page.getByTestId('step-row').filter({ hasText: doomed.title })).toHaveCount(0)
 })
 
 test('a library menu can be deleted, a kitchen’s own copy cannot', async ({ api }) => {

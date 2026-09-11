@@ -34,19 +34,19 @@ export class MenuEditorModel {
     // Locators are built here, not as field initialisers: `useDefineForClassFields`
     // would run those before the constructor could store `page`.
     this.page = page
-    this.root = page.locator('.editor')
+    this.root = page.getByTestId('menu-editor')
     this.title = this.root.getByLabel('Menun nimi')
-    // By class, not by name: the button's name *is* the draft's state.
-    this.saveButton = this.root.locator('.editor-save')
-    this.problems = this.root.locator('.editor-problems')
+    // By test id, not by name: the button's name *is* the draft's state.
+    this.saveButton = this.root.getByTestId('editor-save')
+    this.problems = this.root.getByTestId('editor-problems')
     this.closeButton = this.root.getByRole('button', { name: 'Sulje', exact: true })
     this.mergeButton = this.root.getByRole('button', { name: 'Tuo ja yhdistä' })
     this.importDialog = page.getByRole('dialog', { name: 'Tuo ja yhdistä' })
-    this.inspector = this.root.locator('.inspector')
-    this.inspectorTitle = this.inspector.locator('.inspector-title')
+    this.inspector = this.root.getByTestId('inspector')
+    this.inspectorTitle = this.inspector.getByTestId('inspector-title')
     this.sheet = this.root.getByRole('dialog', { name: 'Rivin tiedot' })
-    this.sheetBackdrop = this.root.locator('.detail-backdrop')
-    this.sheetHead = this.inspector.locator('.inspector-grab')
+    this.sheetBackdrop = this.root.getByTestId('detail-backdrop')
+    this.sheetHead = this.inspector.getByTestId('inspector-grab')
     this.addCourseButton = this.root.getByLabel('Lisää ruokalaji', { exact: true })
     this.undoButton = this.root.getByLabel('Kumoa', { exact: true })
     this.redoButton = this.root.getByLabel('Tee uudelleen', { exact: true })
@@ -78,7 +78,7 @@ export class MenuEditorModel {
    * not top: they differ in height and are centred on their line.
    */
   async headerActionLines(): Promise<number> {
-    return this.root.locator('.editor-actions').evaluate((actions) => {
+    return this.root.getByTestId('editor-actions').evaluate((actions) => {
       const centres = [...actions.children]
         .filter((el) => el.checkVisibility())
         .map((el) => {
@@ -95,7 +95,10 @@ export class MenuEditorModel {
    */
   async stickyBandTop(): Promise<number> {
     return this.root.evaluate((root) => {
-      const band = [root.querySelector('.editor-head')!, root.querySelector('.editor-actions')!].find(
+      const band = [
+        root.querySelector('[data-testid="editor-head"]')!,
+        root.querySelector('[data-testid="editor-actions"]')!,
+      ].find(
         (el) => {
           const style = getComputedStyle(el)
           return style.position === 'sticky' && style.display !== 'contents'
@@ -108,8 +111,8 @@ export class MenuEditorModel {
   /** Where the header's sticky band and the inspector column meet, in px: >= 0 means apart. */
   async inspectorClearance(): Promise<number> {
     return this.root.evaluate((root) => {
-      const band = root.querySelector('.editor-head')!.getBoundingClientRect()
-      const panel = root.querySelector('.inspector')!.getBoundingClientRect()
+      const band = root.querySelector('[data-testid="editor-head"]')!.getBoundingClientRect()
+      const panel = root.querySelector('[data-testid="inspector"]')!.getBoundingClientRect()
       return Math.round(panel.top - band.bottom)
     })
   }
@@ -150,7 +153,7 @@ export class MenuEditorModel {
 
   /** The whole row block, for its buttons and its geometry rather than its title. */
   rowBlock(kind: 'Ruokalaji' | 'Osa' | 'Vaihe', title: string): Locator {
-    return this.root.locator('.outline-row').filter({
+    return this.root.getByTestId('outline-row').filter({
       has: this.page.getByLabel(`${kind}: ${title}`, { exact: true }),
     })
   }
@@ -174,8 +177,8 @@ export class MenuEditorModel {
    */
   async menuButtonDistance(kind: 'Ruokalaji' | 'Osa' | 'Vaihe', title: string): Promise<number> {
     return this.rowBlock(kind, title).evaluate((row) => {
-      const input = row.querySelector('.outline-title') as HTMLTextAreaElement
-      const button = row.querySelector('.row-menu-open')!
+      const input = row.querySelector('[data-testid="outline-title"]') as HTMLTextAreaElement
+      const button = row.querySelector('[data-testid="row-menu-open"]')!
       const style = getComputedStyle(input)
       const ctx = document.createElement('canvas').getContext('2d')!
       ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
@@ -219,7 +222,7 @@ export class MenuEditorModel {
     title: string,
   ): Promise<{ glyph: number; menu: number }> {
     return this.rowBlock(kind, title).evaluate((row) => {
-      const input = row.querySelector('.outline-title')!
+      const input = row.querySelector('[data-testid="outline-title"]')!
       const style = getComputedStyle(input)
       const top = input.getBoundingClientRect().top
       const firstLine =
@@ -233,8 +236,8 @@ export class MenuEditorModel {
         return Math.round(r.top + r.height / 2 - firstLine) + 0
       }
       return {
-        glyph: offset(row.querySelector('.row-glyph')!),
-        menu: offset(row.querySelector('.row-menu-open')!),
+        glyph: offset(row.querySelector('[data-testid="row-glyph"]')!),
+        menu: offset(row.querySelector('[data-testid="row-menu-open"]')!),
       }
     })
   }
@@ -275,7 +278,7 @@ export class MenuEditorModel {
 
   /** The row's left glyph: a disclosure on a course or a dish, the station on a step. */
   glyph(kind: 'Ruokalaji' | 'Osa' | 'Vaihe', title: string): Locator {
-    return this.rowBlock(kind, title).locator('.outline-main > .row-glyph')
+    return this.rowBlock(kind, title).getByTestId('row-glyph')
   }
 
   rowMenuButton(title: string): Locator {
@@ -297,7 +300,7 @@ export class MenuEditorModel {
   }
 
   titles(): Locator {
-    return this.root.locator('.outline-title')
+    return this.root.getByTestId('outline-title')
   }
 
   /**
@@ -469,7 +472,7 @@ export class MenuEditorModel {
     await expect
       .poll(() =>
         this.inspector.evaluate((el) => {
-          const picker = el.querySelector('.dep-picker') as HTMLSelectElement | null
+          const picker = el.querySelector('[data-testid="dep-picker"]') as HTMLSelectElement | null
           return {
             panelOverflow: el.scrollWidth - el.clientWidth,
             pageOverflow:
@@ -491,10 +494,10 @@ export class MenuEditorModel {
    */
   async labelSpacing(label: string): Promise<number | null> {
     return this.inspector.evaluate((panel, label) => {
-      const el = [...panel.querySelectorAll('legend, .field > span')].find(
+      const el = [...panel.querySelectorAll('legend, [data-testid="field-label"]')].find(
         (x) => x.textContent?.trim() === label,
       )
-      const next = el?.parentElement?.querySelector('.chips, textarea, input')
+      const next = el?.parentElement?.querySelector('[data-testid="chips"], textarea, input')
       if (!el || !next) return null
       return Math.round(next.getBoundingClientRect().top - el.getBoundingClientRect().bottom)
     }, label)
@@ -503,7 +506,7 @@ export class MenuEditorModel {
   /** Guards the test above against going vacuous: an empty picker proves nothing. */
   async expectDependencyOptions(atLeast: number): Promise<void> {
     await expect
-      .poll(() => this.inspector.locator('.dep-picker option').count())
+      .poll(() => this.inspector.getByTestId('dep-picker').locator('option').count())
       .toBeGreaterThanOrEqual(atLeast)
   }
 
@@ -549,13 +552,13 @@ export class MenuEditorModel {
    * by 95px, or wrap the buttons onto another row.
    */
   async headerGeometry(): Promise<Record<string, number>> {
-    return this.root.locator('.editor-head').evaluate((head) => {
+    return this.root.getByTestId('editor-head').evaluate((head) => {
       const box = (el: Element | null) => el!.getBoundingClientRect()
-      const title = box(head.querySelector('.editor-title'))
-      const save = box(head.querySelector('.editor-save'))
+      const title = box(head.querySelector('[data-testid="editor-title"]'))
+      const save = box(head.querySelector('[data-testid="editor-save"]'))
       // From the name to the bottom of the actions, rather than the header's
       // own box: on a phone the header is `display: contents` and has none.
-      const actions = box(head.querySelector('.editor-actions'))
+      const actions = box(head.querySelector('[data-testid="editor-actions"]'))
       return {
         headHeight: Math.round(actions.bottom - title.top),
         titleWidth: Math.round(title.width),

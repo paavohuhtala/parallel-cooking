@@ -47,10 +47,10 @@ export class KitchenPageModel {
     this.cooks = new CooksModalModel(page)
     this.startDialog = new StartDialogModel(page)
 
-    this.topbar = page.locator('.topbar')
+    this.topbar = page.getByTestId('topbar')
     this.title = this.topbar.getByRole('heading', { level: 1 })
-    this.progress = this.topbar.locator('.brand p')
-    this.connection = this.topbar.locator('.conn')
+    this.progress = this.topbar.getByTestId('room-progress')
+    this.connection = this.topbar.getByTestId('connection')
     this.cooksButton = this.topbar.getByRole('button', { name: 'Kokit' })
     this.shareButton = this.topbar.getByRole('button', { name: 'Jaa' })
     this.newKitchenButton = this.topbar.getByRole('button', { name: 'Uusi keittiö' })
@@ -58,9 +58,9 @@ export class KitchenPageModel {
     this.graphTab = this.topbar.getByRole('tab', { name: 'Graafi' })
     this.boardTab = this.topbar.getByRole('tab', { name: 'Keittiötaulu' })
     this.shiftTab = this.topbar.getByRole('tab', { name: 'Oma vuoro' })
-    this.graph = page.locator('.graph')
-    this.upNext = page.locator('.upnext-items .chip')
-    this.rejection = page.locator('.banner-warn')
+    this.graph = page.getByTestId('graph')
+    this.upNext = page.getByTestId('upnext-chip')
+    this.rejection = page.getByTestId('rejection')
     this.notFoundHeading = page.getByRole('heading', { name: 'Keittiötä ei löytynyt' })
   }
 

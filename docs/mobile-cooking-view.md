@@ -85,13 +85,13 @@ only thing the viewport decides is the *default*: `useState` initialises to `shi
 window must not yank the view out from under someone mid-task.
 
 **At desktop width it is a capped column** — `max-width: 620px`, the treatment `.landing`
-already gets in [`styles.css`](../src/styles.css) — **with `StepDetail` as its second
-column.** That pairing is the desktop layout, and it costs nothing: above 900 px the panel is
-already a real column rather than a sheet, so opening a step puts the queue on the left and
-its instructions on the right. The tempting alternative — two columns *of the view itself*,
-*Työn alla* beside *Ota seuraava* — is declined: it is a second layout to maintain for a view
-whose entire argument is that it does one thing in one column, and it would break the reading
-order that makes the column work.
+already gets in [`landing.module.css`](../src/components/landing.module.css) — **with
+`StepDetail` as its second column.** That pairing is the desktop layout, and it costs
+nothing: above 900 px the panel is already a real column rather than a sheet, so opening a
+step puts the queue on the left and its instructions on the right. The tempting alternative
+— two columns *of the view itself*, *Työn alla* beside *Ota seuraava* — is declined: it is a
+second layout to maintain for a view whose entire argument is that it does one thing in one
+column, and it would break the reading order that makes the column work.
 
 *In the event:* the first version centred the column in the scroller, so opening a step slid
 the whole queue 170 px sideways as the panel took its width (measured: `left` 410 → 240 at
@@ -233,6 +233,22 @@ have to be on the critical path.
 Without the gate the design collapses: every `Aloita` becomes a two-step `StartDialog`, which is
 precisely the friction the board already has.
 
+*In the event*, the second half of that shipped without the first: the gate was built, the line
+that says who it decided was not. Asked once is not the same as answered once — every card below
+is ranked *for* a cook, the view never said which, and changing it meant the roster three taps
+into the header's `⋯`, under a label that promises actions rather than an identity. So zone ①
+now opens on one compact line — dot, name, `Vaihda` — and tapping it asks the gate's own question
+again in a dialog:
+
+```
+  [ K  Kokki 1                                    Vaihda ]
+  TYÖN ALLA                                             1
+```
+
+The same list of choices serves both, since it is the same question at two moments; only the
+frame differs. The gate stays a whole screen, because there is nothing behind it worth keeping;
+the switcher is a dialog, because by now there is.
+
 ## The chrome, at 390 px
 
 Three CSS-only changes, no DOM restructuring:
@@ -249,7 +265,8 @@ Three CSS-only changes, no DOM restructuring:
 - **`.upnext` is hidden under 640 px.** Zone ② is a strictly better version of it; two ranked
   lists of the same steps on one small screen is worse than either alone.
 
-The existing `@media (pointer: coarse)` block in [`styles.css`](../src/styles.css) already
+The existing `@media (pointer: coarse)` block in
+[`MenuEditor.module.css`](../src/components/MenuEditor.module.css) already
 establishes 2.75 rem as this project's touch target and explains why. Zone ① and ② inherit it;
 the two primary buttons go to 3 rem because they are the only buttons that matter.
 
@@ -275,9 +292,10 @@ Worth stating plainly, because it is why the change is small:
 | `src/views/ShiftView.tsx` | **done** — the three zones, the gate, the completion bar. |
 | `src/App.tsx` | fourth entry in `VIEWS`; viewport-chosen initial view; actions behind `⋯` under 640 px. |
 | `src/components/icons.tsx` | `shift`, vendored from Lucide's `user` — `cooks` is the whole roster, this is one of them. |
-| `src/styles.css` | the shift view; the 640 px chrome block. |
+| `src/views/ShiftView.module.css` | the shift view. |
+| `src/App.module.css` | the 640 px chrome block. |
 | `e2e-tests/pom/ShiftViewModel.ts` | **done** — page object, per the repo's rule that new UI means extending a model. |
-| `e2e-tests/tests/shift.test.ts` | **done**, 9 tests — gate → pick → work → finish → pick again. |
+| `e2e-tests/tests/shift.test.ts` | **done**, 10 tests — gate → pick → work → finish → pick again, plus switching cook mid-shift. |
 | `e2e-tests/tests/shift-desktop.test.ts` | **done**, 3 tests — the queue holding still, the panel as its second column, and `Seuraavaksi` giving way. Runs in the desktop project. |
 | `playwright.config.ts` | a second project, `devices['Pixel 7']`, matching only this spec — one phone-sized project rather than doubling the suite. The desktop project ignores it, since it would open the room on the recipe and never reach the view. |
 

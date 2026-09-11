@@ -1,0 +1,134 @@
+/* The menu as a document: course, dish, steps in order. */
+
+.recipe {
+  display: grid;
+  gap: 1.25rem;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 1rem;
+  width: 100%;
+}
+
+.courseHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.courseNumber {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.components {
+  display: grid;
+  gap: 1rem;
+}
+
+.component {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.9rem;
+  box-shadow: var(--shadow);
+}
+.componentHead {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.3rem;
+}
+.minibar {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-2);
+  overflow: hidden;
+  max-width: 160px;
+}
+.minibar span {
+  display: block;
+  height: 100%;
+  background: var(--done);
+  transition: width 0.25s ease;
+}
+
+.ingredients summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0.5rem 0 0;
+}
+
+.steps {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.stepRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  border-left: 3px solid transparent;
+}
+.stepRow:hover {
+  background: var(--surface-2);
+}
+.stepRow.isSelected {
+  background: var(--surface-2);
+  border-left-color: var(--text);
+}
+.stepRow.statusBlocked {
+  opacity: 0.6;
+}
+.stepRow.statusActive {
+  border-left-color: var(--active);
+}
+.stepRow.statusDone .stepTitle {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.stepMain {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.stepTitle {
+  flex: 1;
+  min-width: 0;
+}
+.stepFacts {
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .stepRow {
+    flex-wrap: wrap;
+  }
+  .stepFacts {
+    display: none;
+  }
+}

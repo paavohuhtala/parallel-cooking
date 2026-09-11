@@ -1,8 +1,18 @@
-import { STATIONS } from '../model/types'
+import { STATIONS, type StepStatus } from '../model/types'
 import { Icon, STATION_ICON } from './icons.tsx'
 import { recordOf, statusOf } from '../state/graph'
 import { useStore } from '../state/store'
 import { CookPicker, STATUS_LABEL, StepControls } from './StepControls'
+import { cx } from './cx.ts'
+import ui from './ui.module.css'
+import styles from './StepDetail.module.css'
+
+const STATUS_CLASS: Record<StepStatus, string> = {
+  blocked: ui.statusBlocked,
+  ready: ui.statusReady,
+  active: ui.statusActive,
+  done: ui.statusDone,
+}
 
 export function StepDetail({
   stepId,
@@ -24,33 +34,45 @@ export function StepDetail({
   const dependents = index.dependents.get(step.id) ?? []
 
   return (
-    <aside className="detail">
-      <div className="detail-head">
+    <aside className={styles.detail} data-testid="step-detail">
+      <div className={styles.detailHead}>
         <div>
-          <div className="detail-kicker">{component?.name}</div>
-          <h2>{step.title}</h2>
+          <div className={styles.detailKicker} data-testid="detail-kicker">
+            {component?.name}
+          </div>
+          <h2 data-testid="detail-title">{step.title}</h2>
         </div>
-        <button className="btn btn-ghost icon" onClick={onClose} aria-label="Sulje tiedot">
+        <button
+          className={cx(ui.btn, ui.btnGhost, ui.icon)}
+          onClick={onClose}
+          aria-label="Sulje tiedot"
+        >
           <Icon name="close" />
         </button>
       </div>
 
-      <div className="detail-meta">
-        <span className={`pill status-${status}`}>{STATUS_LABEL[status]}</span>
+      <div className={styles.detailMeta}>
+        <span className={cx(ui.pill, STATUS_CLASS[status])} data-testid="detail-status">
+          {STATUS_LABEL[status]}
+        </span>
         {step.station !== 'muu' && (
-          <span className="pill">
+          <span className={ui.pill}>
             <Icon name={STATION_ICON[step.station]} /> {station?.label}
           </span>
         )}
-        {step.holdPoint && <span className="pill pill-hold">Voi tehdä etukäteen</span>}
+        {step.holdPoint && <span className={cx(ui.pill, ui.pillHold)}>Voi tehdä etukäteen</span>}
       </div>
 
-      {step.detail && <p className="detail-text">{step.detail}</p>}
+      {step.detail && (
+        <p className={styles.detailText} data-testid="detail-text">
+          {step.detail}
+        </p>
+      )}
 
       {step.uses?.length ? (
         <section>
           <h3>Tarvitaan</h3>
-          <ul className="plain-list">
+          <ul className={ui.plainList}>
             {step.uses.map((u) => (
               <li key={u}>{u}</li>
             ))}
@@ -62,7 +84,7 @@ export function StepDetail({
         <h3>Tekijä</h3>
         <CookPicker step={step} />
         {record.startedAt && (
-          <p className="muted small">
+          <p className={cx(ui.muted, ui.small)} data-testid="detail-started">
             Aloitettu {new Date(record.startedAt).toLocaleTimeString('fi-FI')}
             {record.completedAt
               ? ` · valmistui ${new Date(record.completedAt).toLocaleTimeString('fi-FI')}`
@@ -74,13 +96,17 @@ export function StepDetail({
       <section>
         <h3>Edellyttää</h3>
         {step.deps.length ? (
-          <ul className="link-list">
+          <ul className={ui.linkList}>
             {step.deps.map((d) => {
               const dep = index.steps.get(d)!
               return (
                 <li key={d}>
-                  <button className="linky" onClick={() => onSelect(d)}>
-                    <span className={`dot status-${statusOf(dep, state)}`} />
+                  <button
+                    className={ui.linky}
+                    data-testid="detail-link"
+                    onClick={() => onSelect(d)}
+                  >
+                    <span className={cx(ui.dot, STATUS_CLASS[statusOf(dep, state)])} />
                     {dep.title}
                   </button>
                 </li>
@@ -88,20 +114,24 @@ export function StepDetail({
             })}
           </ul>
         ) : (
-          <p className="muted small">Ei mitään — tämän voi aloittaa milloin vain.</p>
+          <p className={cx(ui.muted, ui.small)}>Ei mitään — tämän voi aloittaa milloin vain.</p>
         )}
       </section>
 
       <section>
         <h3>Avaa seuraavat</h3>
         {dependents.length ? (
-          <ul className="link-list">
+          <ul className={ui.linkList}>
             {dependents.map((d) => {
               const dep = index.steps.get(d)!
               return (
                 <li key={d}>
-                  <button className="linky" onClick={() => onSelect(d)}>
-                    <span className={`dot status-${statusOf(dep, state)}`} />
+                  <button
+                    className={ui.linky}
+                    data-testid="detail-link"
+                    onClick={() => onSelect(d)}
+                  >
+                    <span className={cx(ui.dot, STATUS_CLASS[statusOf(dep, state)])} />
                     {dep.title}
                   </button>
                 </li>
@@ -109,11 +139,11 @@ export function StepDetail({
             })}
           </ul>
         ) : (
-          <p className="muted small">Ei mitään — tämä on ketjun pää.</p>
+          <p className={cx(ui.muted, ui.small)}>Ei mitään — tämä on ketjun pää.</p>
         )}
       </section>
 
-      <div className="detail-actions">
+      <div className={styles.detailActions}>
         <StepControls step={step} status={status} />
       </div>
     </aside>

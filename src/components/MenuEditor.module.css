@@ -1,0 +1,656 @@
+/*
+ * The menu outliner and the inspector beside it. Three rules shape it, and the
+ * first two exist because "expand" would otherwise mean two things at once:
+ * the left glyph is the only disclosure, details are never inline, and every
+ * list ends in a tail row.
+ */
+
+.editor {
+  max-width: 72rem;
+  margin: 0 auto;
+}
+/* Sticky, so save and undo are still there at step 40 rather than a scroll
+   back up the page away — the whole header here, only its actions on a phone
+   (below). Its own padding and background, not a margin, so the rows scrolling
+   under it pass beneath a solid band; the hairline says where that band ends. */
+.head {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.4rem 0 0.5rem;
+  margin-bottom: 0.7rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+.title {
+  flex: 1 1 14rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+}
+.title:hover,
+.title:focus {
+  border-color: var(--border);
+  background: var(--surface);
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+/* Undo and redo read as one control, so they sit closer to each other than to
+   anything else in the row and carry a single border around the pair. */
+.history {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.history button {
+  font-size: 0.95rem;
+  min-width: 1.9rem;
+}
+.extra {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.more {
+  position: relative;
+  display: none;
+}
+/*
+ * The save button doubles as the draft's status, so its box must not change
+ * with the state. The labels share one grid cell and the widest sets the width;
+ * the weight, padding and border stay the same in every state, because any of
+ * them would change it again.
+ *
+ * Only "there is something to save" is filled. Saved and blocked are quiet —
+ * surface, border, `--muted` text at 5:1 — rather than a solid fill faded to
+ * 1.68:1 by the shared `.btn:disabled`: this is the primary action, it spends
+ * most of its life disabled, and it should be legible while it is. The
+ * ancestor in the selector is what wins that argument across stylesheets.
+ */
+.save {
+  display: inline-grid;
+  justify-items: center;
+  font-weight: 600;
+}
+.save > span {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  visibility: hidden;
+}
+.save > span.isShown {
+  visibility: visible;
+}
+.head .save:disabled {
+  opacity: 1;
+  color: var(--muted);
+  cursor: default;
+}
+.save[data-state='blocked'] {
+  cursor: not-allowed;
+}
+.save[data-state='dirty'],
+.save[data-state='saving'] {
+  background: var(--ready);
+  border-color: var(--ready);
+  color: var(--on-ready);
+}
+.editor .hint {
+  margin-top: 0.8rem;
+}
+/* The app shell's banners are full-bleed inside a flex column; the editor's sit
+   in the document flow, so they line up with the outline and own the gap down
+   to it rather than butting straight against the first row. */
+.editor > .banner {
+  margin: 0.1rem 0 0.9rem;
+}
+.problems .problemList {
+  margin: 0;
+}
+
+.body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 21rem;
+  gap: 1rem;
+  align-items: start;
+}
+
+.outline {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  /* A one-line title, border box. A long title wraps, and everything beside it
+     lines up with its first line rather than its middle, so each of those is
+     placed against this — one number, rather than a margin per control that
+     has to be kept in step with the title's padding by hand. rem throughout,
+     so it means the same length on every element that reads it. */
+  --title-pad-y: 0.34rem;
+  --title-lh: 1.4rem;
+  --title-line: calc(var(--title-lh) + 2 * var(--title-pad-y) + 2px);
+}
+/* Rows and tail rows are both direct children, and both are indented by the
+   level they sit at — a tail row is a row of the kind it creates. */
+.outline > .depth1 {
+  margin-left: 1.1rem;
+}
+.outline > .depth2 {
+  margin-left: 2.2rem;
+}
+.row {
+  border-radius: 8px;
+}
+.row.isSelected {
+  background: color-mix(in srgb, var(--ready) 9%, transparent);
+}
+/* The row whose `⋯` is open. A ring rather than a fill, because opening the
+   menu does not select the row and must not look as if it had. */
+.row.isMenuOpen {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 28%, transparent);
+}
+.rowMain {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  padding: 1px 0;
+}
+.rowMain > .glyph {
+  margin-top: calc((var(--title-line) - 1.5rem) / 2);
+}
+
+/* The left slot: one glyph, one meaning. On a course or a dish it is the
+   disclosure triangle and nothing else; on a step it is the station, which is
+   the only thing a step's slot could usefully say. */
+.glyph {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.row:hover .glyph,
+.row.isSelected .glyph {
+  color: var(--text);
+}
+.glyph:hover {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+/* The disclosure is one glyph pointing right; open rotates it, so the two
+   states are the same shape and cannot drift apart. */
+.glyph .glyphIcon {
+  transition: transform 0.12s ease;
+}
+.row[aria-expanded='true'] > .rowMain > .glyph .glyphIcon {
+  transform: rotate(90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .glyph .glyphIcon {
+    transition: none;
+  }
+}
+
+/* `muu` is the unremarkable default, so it stays the quietest of the four —
+   but quiet is `--muted` at 5:1, not the near-invisible `--border` the bullet
+   used to be. It is the only way into a step's details by touch, and a control
+   nobody can see is not a quiet control. */
+.stationGlyph {
+  font-size: 0.95rem;
+}
+.stationGlyph.isQuiet {
+  color: var(--muted);
+  opacity: 0.75;
+}
+.row:hover .stationGlyph.isQuiet,
+.row.isSelected .stationGlyph.isQuiet {
+  color: var(--text);
+  opacity: 1;
+}
+.rowHidden {
+  flex: none;
+  line-height: var(--title-line);
+}
+
+/* The field is as wide as its text, not as wide as the column, so the collapsed
+   summary and the row's `⋯` sit right after the title rather than ~700px away
+   at the far margin, detached from the row they act on. The row's blank space
+   still puts the caret in the title (`Row`), so the click target does not
+   shrink with the field. `ch` is the fallback where `field-sizing` is missing:
+   a cap that short titles fit, which beats a column-wide field. */
+.rowTitle {
+  flex: 0 1 auto;
+  width: 48ch;
+  min-width: 6rem;
+  padding: var(--title-pad-y) 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  line-height: var(--title-lh);
+  resize: none;
+  overflow: hidden;
+  /* One line that scrolls, like the `<input>` this was, wherever the field
+     cannot be sized to its text — a wrapping textarea of fixed height would
+     hide a long title's second line entirely, which is worse than clipping. */
+  white-space: pre;
+}
+.rowTitle:hover {
+  border-color: var(--border);
+}
+.rowTitle:focus {
+  border-color: var(--ready);
+  background: var(--surface);
+  outline: none;
+}
+/* The floor is what lets a long title shrink to the row on a phone at all — a
+   flex item's `auto` minimum would be its text — and it is kept low so a short
+   title's `⋯` is not pushed away by a floor wider than "Eka". Once it has
+   shrunk to the row, the text wraps and the field grows a line, instead of
+   cutting "…ja valkosipulibruschetta" off through a letter. */
+@supports (field-sizing: content) {
+  .rowTitle {
+    field-sizing: content;
+    width: auto;
+    min-width: 3rem;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+  }
+}
+.kindCourse .rowTitle {
+  font-weight: 700;
+}
+.kindComponent .rowTitle {
+  font-weight: 600;
+}
+
+/* Everything you can do to a row that is not typing in it lives behind one
+   button, so that delete is never adjacent to the thing you meant to press,
+   and so reordering exists for a thumb as well as for Alt+arrows. */
+.rowMenu {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: var(--title-line);
+}
+.rowMenuOpen {
+  opacity: 0;
+}
+.row:hover .rowMenuOpen,
+.row:focus-within .rowMenuOpen,
+.rowMenuOpen[aria-expanded='true'] {
+  opacity: 1;
+}
+/* The popup list, shared by a row's `⋯` and the header's. */
+.popup {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 10rem;
+  padding: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 8px 30px rgb(0 0 0 / 0.25);
+}
+.popup.isEnd {
+  left: auto;
+  right: 0;
+}
+.popup button {
+  padding: 0.4rem 0.55rem;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  /* "Poista ruokalaji (3 osaa, 22 vaihetta)" is one statement; the menu opens
+     toward whichever side of its button has the room. */
+  white-space: nowrap;
+  cursor: pointer;
+}
+.popup button:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+.popup button:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+.popup button.isDanger {
+  color: var(--critical);
+}
+/* Beside the outline, the inspector follows the selection and has nothing to
+   open; the item comes back with the sheet, below. */
+.popup .rowMenuDetails {
+  display: none;
+}
+
+/* The tail rows. Present at the end of every list rather than only when the
+   parent is empty: one mechanic at all three levels, nothing to discover, and
+   the only route into a course or dish that has no children yet. */
+.tail {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.5rem 0.28rem 0;
+  border: 1px dashed transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+.tail:hover,
+.tail:focus-visible {
+  border-color: var(--border);
+  color: var(--text);
+}
+.tail.kindCourse {
+  font-weight: 600;
+}
+
+/* The inspector: a column beside the outline on a desktop, a sheet over it on
+   a phone. Details never open inline, so the outline holds still while you
+   edit and the disclosure triangle keeps its single meaning. */
+/* Sticks below the sticky header, whose height the editor measures. */
+.inspector {
+  position: sticky;
+  top: calc(var(--editor-sticky-h, 0px) + 1rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+  min-width: 0;
+  padding: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  max-height: calc(100dvh - var(--editor-sticky-h, 0px) - 2rem);
+  overflow-y: auto;
+}
+.inspectorHead {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid var(--border);
+}
+.inspectorTitle {
+  font-size: 1rem;
+  margin: 0;
+}
+/* The panel says what it is looking at, and then each field says what it is,
+   in one voice: the same micro-label the kitchen's detail panel already uses,
+   so a heading is never two things at once. */
+.inspector .inspectorKind,
+.inspector .field > span,
+.inspector .field > legend {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/*
+ * The air under a label is the label's own margin, not the field's flex `gap`.
+ * A `<legend>` is not a flex item in any engine — a fieldset renders it outside
+ * its anonymous inner box — so a gap on the fieldset applies to nothing at all
+ * and Asema, Edellyttää and Tarvitaan sit flush against their controls, while
+ * the `<label>` fields above them look right because a `<span>` *is* a flex
+ * item. Verified in Chromium and Firefox; both measured 0px before this.
+ * A margin works for both kinds of label, so both use one.
+ *
+ * Fixed pixels rather than rem: this is spacing that should not grow with the
+ * font, and an uppercase micro-label needs more air than a sentence-case one,
+ * since the cap height runs the full line and 6px reads as touching.
+ */
+.inspector .field {
+  gap: 0;
+}
+.inspector .field > span,
+.inspector .field > legend {
+  margin-bottom: 10px;
+}
+.inspector .chips {
+  gap: 6px;
+}
+
+/* The panel is a fixed column, so nothing inside it may take its width from its
+   content — one long step title would otherwise push it wide and hand it a
+   horizontal scrollbar. Three separate things have to be said to get that:
+   a chip is `nowrap`; a `<fieldset>` carries a UA `min-inline-size: min-content`
+   that refuses to shrink and passes a wide child's demand up to the panel; and
+   a `select` is sized by its *widest option*, which a percentage `max-width`
+   cannot cap, because percentages count as indefinite while a browser is
+   measuring intrinsic width. Only a length clamps that one. */
+.inspector .field {
+  min-inline-size: 0;
+}
+.inspector .chips > * {
+  min-width: 0;
+  max-width: 100%;
+}
+.inspector .chips > .depPicker {
+  max-width: 11rem;
+}
+.inspector .inspectorChip {
+  white-space: normal;
+  text-align: left;
+}
+
+.inspector textarea {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+/* On a desktop the panel simply follows the selection, so it has nothing to
+   close; the button and the handle are for the sheet. */
+.inspectorClose,
+.sheetHandle {
+  display: none;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+/* Both adders are chips with a dashed edge — the shape says "another one of
+   these", so they have to carry the chip's own metrics exactly. */
+.depPicker,
+.ingredientAdd {
+  padding: 0.25rem 0.7rem;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+.ingredientAdd {
+  min-width: 7rem;
+  max-width: 100%;
+}
+.ingredientAdd:focus,
+.depPicker:focus {
+  outline: none;
+  border-style: solid;
+  border-color: var(--ready);
+  color: var(--text);
+}
+
+@media (max-width: 900px) {
+  .body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .extra {
+    display: none;
+  }
+  .more {
+    display: block;
+  }
+  /* Two lines of header is a seventh of a phone's screen. The name scrolls away
+     with the page, and only the actions under it stick — the same band as the
+     header's above, moved one level down: `contents` lets the header's
+     children lay out as if it were not there. */
+  .head {
+    display: contents;
+  }
+  .title {
+    display: block;
+    width: 100%;
+    margin-bottom: 0.3rem;
+  }
+  .actions {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding: 0.4rem 0 0.5rem;
+    margin-bottom: 0.7rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+  /* Nothing hovers on a phone, so the row's actions are simply always there. */
+  .rowMenuOpen {
+    opacity: 1;
+  }
+  .popup .rowMenuDetails {
+    display: block;
+  }
+  /* Over the kitchen's detail backdrop (z-index 40), which the editor borrows
+     as it is: a sheet is modal, and a tap beside it closes it. */
+  .inspector {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 41;
+    max-height: 70dvh;
+    padding-top: 0;
+    border-radius: var(--radius) var(--radius) 0 0;
+    box-shadow: 0 -8px 40px rgb(0 0 0 / 0.35);
+    overscroll-behavior: contain;
+  }
+  /* Focus lands on the panel itself when it opens; the ring would outline the
+     whole sheet for no reason. */
+  .inspector:focus {
+    outline: none;
+  }
+  .inspector:not(.isOpen) {
+    display: none;
+  }
+  .inspectorClose {
+    display: inline-flex;
+  }
+  /* The head is what a finger pulls the sheet down by, handle and title alike,
+     so it cannot also scroll the sheet or select the title's text. */
+  .inspectorGrab {
+    touch-action: none;
+    user-select: none;
+    cursor: grab;
+  }
+  .sheetHandle {
+    display: flex;
+    justify-content: center;
+    padding: 0.5rem 0 0.55rem;
+  }
+  .sheetHandle::before {
+    content: '';
+    width: 2.25rem;
+    height: 4px;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--muted) 55%, transparent);
+  }
+}
+
+/*
+ * A finger is not a cursor. Under a coarse pointer every control in a row
+ * reaches 44px — the platform guidelines' number — where it measured 28×22 for
+ * the `⋯`, which is a thumb's only way to reorder or delete.
+ *
+ * The row gets there through the title's own padding, so a one-line title is
+ * 44px and everything aligned to `--title-line` follows it without a second
+ * number. The glyph and the `⋯` do not grow: a centred pseudo-element carries
+ * the target, so the icons stay the size the row was drawn at. Their 44px
+ * reaches a few px into the title's padding on either side, never its text.
+ * The sheet's ✕ gets the same, being the one way to close it you can see. The
+ * header's buttons simply grow: nothing sits close enough to them to mind.
+ */
+@media (pointer: coarse) {
+  .outline {
+    --title-pad-y: calc((2.75rem - var(--title-lh) - 2px) / 2);
+  }
+  .rowMain > .glyph,
+  .rowMenuOpen,
+  .inspectorClose {
+    position: relative;
+  }
+  .rowMain > .glyph::before,
+  .rowMenuOpen::before,
+  .inspectorClose::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 2.75rem;
+    height: 2.75rem;
+    transform: translate(-50%, -50%);
+  }
+  .tail,
+  .popup button,
+  .head button {
+    min-height: 2.75rem;
+  }
+  .head .headIcon {
+    min-width: 2.75rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .outline > .depth1 {
+    margin-left: 0.6rem;
+  }
+  .outline > .depth2 {
+    margin-left: 1.2rem;
+  }
+}

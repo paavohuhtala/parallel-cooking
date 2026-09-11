@@ -9,13 +9,13 @@ export class StartDialogModel {
 
   constructor(page: Page) {
     this.locator = page.getByRole('dialog', { name: 'Kuka ottaa tämän vaiheen?' })
-    this.stepTitle = this.locator.locator('.muted.small')
+    this.stepTitle = this.locator.getByTestId('start-dialog-step')
     this.withoutCookButton = this.locator.getByRole('button', { name: 'Aloita ilman tekijää' })
     this.cancelButton = this.locator.getByRole('button', { name: 'Peruuta' })
   }
 
   cookChoice(name: string): Locator {
-    return this.locator.locator('.cook-choice').filter({ hasText: name })
+    return this.locator.getByTestId('cook-choice').filter({ hasText: name })
   }
 
   async expectOpen(stepTitle?: string): Promise<void> {

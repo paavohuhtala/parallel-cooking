@@ -13,6 +13,9 @@ import {
   type ShiftReason,
 } from '../state/shift'
 import { useStore } from '../state/store'
+import { cx } from '../components/cx.ts'
+import ui from '../components/ui.module.css'
+import styles from './ShiftView.module.css'
 
 /**
  * One cook, one phone. The board, the recipe and the graph all answer *what is
@@ -26,6 +29,7 @@ import { useStore } from '../state/store'
 export function ShiftView({ onSelect }: { selected: string | null; onSelect: (id: string) => void }) {
   const { menu, index, state, me } = useStore()
   const [finished, setFinished] = useState<string | null>(null)
+  const [switching, setSwitching] = useState(false)
 
   // Every one-tap affordance below depends on knowing who is holding the
   // phone, so the view opens on that question rather than on the content.
@@ -41,17 +45,19 @@ export function ShiftView({ onSelect }: { selected: string | null; onSelect: (id
   })
 
   return (
-    <div className="shift">
+    <div className={styles.shift} data-testid="shift">
+      <CookBar open={switching} onOpen={() => setSwitching(true)} />
       <ActiveZone steps={active} onSelect={onSelect} onFinished={setFinished} />
       <NextZone picks={picks} onSelect={onSelect} />
       {waiting.length > 0 && <WaitingZone waiting={waiting} onSelect={onSelect} />}
       {mine.length > 0 && <DoneZone steps={mine} />}
       {finished && <CompletionBar stepId={finished} onDismiss={() => setFinished(null)} />}
+      {switching && <CookSwitcher onClose={() => setSwitching(false)} />}
     </div>
   )
 }
 
-/* --------------------------------------------------------------- the gate */
+/* -------------------------------------------------------- who this phone is */
 
 /**
  * Without this, every `Aloita` below becomes a two-step `StartDialog` — which
@@ -60,35 +66,119 @@ export function ShiftView({ onSelect }: { selected: string | null; onSelect: (id
  * reconnect, so this is asked once.
  */
 function CookGate() {
-  const { state, presence, me, setMe, addCook } = useStore()
+  const { setMe } = useStore()
   return (
-    <div className="shift-gate">
+    <div className={styles.gate} data-testid="shift-gate">
       <h2>Kuka sinä olet?</h2>
-      <p className="muted small">
+      <p className={cx(ui.muted, ui.small)}>
         Nimi jää tälle puhelimelle. Sen jälkeen vaiheen aloitus on yksi napautus.
       </p>
-      <div className="gate-cooks">
-        {state.cooks.map((cook) => (
-          <button key={cook.id} className="cook-choice" onClick={() => setMe(cook.id)}>
-            <span className="cook-dot" style={badgeColors(cook.color)}>
-              {cook.name.trim().charAt(0).toUpperCase() || '?'}
-            </span>
-            {cook.name}
-            {presence.has(cook.id) && cook.id !== me && (
-              <span className="muted small gate-taken">jo paikalla</span>
-            )}
+      <CookChoices onPick={setMe} />
+    </div>
+  )
+}
+
+/**
+ * The answer, on one line above the queue.
+ *
+ * Asked once is not the same as answered once: every suggestion below is
+ * ranked *for* a particular cook, and until this line existed the view never
+ * said which. Changing it meant the roster behind the header's `⋯` — three
+ * taps, under a label that promises actions rather than an identity.
+ */
+function CookBar({ open, onOpen }: { open: boolean; onOpen: () => void }) {
+  const { state, me } = useStore()
+  const cook = state.cooks.find((c) => c.id === me)
+  if (!cook) return null
+
+  return (
+    <button
+      className={styles.who}
+      data-testid="shift-who"
+      onClick={onOpen}
+      aria-haspopup="dialog"
+      aria-expanded={open}
+    >
+      <span className={ui.cookDot} style={badgeColors(cook.color)} aria-hidden>
+        {initial(cook.name)}
+      </span>
+      <span className={styles.whoName}>{cook.name}</span>
+      <span className={cx(styles.whoSwap, ui.muted, ui.small)}>Vaihda</span>
+    </button>
+  )
+}
+
+/**
+ * The same question the gate asks, asked again later. A dialog rather than a
+ * second full-screen gate, because by now there is a kitchen behind it worth
+ * not throwing away — and picking somebody is the only thing in it, so it
+ * closes on the tap that answers.
+ */
+function CookSwitcher({ onClose }: { onClose: () => void }) {
+  const { setMe } = useStore()
+  return (
+    <div className={ui.modalBackdrop} onClick={onClose}>
+      <div
+        className={cx(ui.modal, ui.modalSheet)}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Kuka sinä olet?"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className={ui.modalHead}>
+          <h2>Kuka sinä olet?</h2>
+          <button className={cx(ui.btn, ui.btnGhost, ui.icon)} onClick={onClose} aria-label="Sulje">
+            <Icon name="close" />
           </button>
-        ))}
-        <button className="cook-choice is-add" onClick={() => setMe(addCook())}>
-          <span className="cook-dot cook-dot-empty">
-            <Icon name="add" />
-          </span>
-          Lisää kokki
-        </button>
+        </div>
+        <CookChoices
+          onPick={(cookId) => {
+            setMe(cookId)
+            onClose()
+          }}
+        />
       </div>
     </div>
   )
 }
+
+/**
+ * The roster as one-tap choices. Shared, because the gate and the switcher are
+ * the same question at two different moments; only the frame around it differs.
+ */
+function CookChoices({ onPick }: { onPick: (cookId: string) => void }) {
+  const { state, presence, me, addCook } = useStore()
+  return (
+    <div className={styles.gateCooks}>
+      {state.cooks.map((cook) => (
+        <button
+          key={cook.id}
+          className={ui.cookChoice}
+          // Marks whoever you already are, which is the whole point of the list
+          // the second time it is opened. Nothing carries it at the gate.
+          aria-current={cook.id === me || undefined}
+          onClick={() => onPick(cook.id)}
+        >
+          <span className={ui.cookDot} style={badgeColors(cook.color)}>
+            {initial(cook.name)}
+          </span>
+          {cook.name}
+          {presence.has(cook.id) && cook.id !== me && (
+            <span className={cx(styles.gateTaken, ui.muted, ui.small)}>jo paikalla</span>
+          )}
+        </button>
+      ))}
+      <button className={ui.cookChoice} onClick={() => onPick(addCook())}>
+        <span className={cx(ui.cookDot, styles.emptyDot)}>
+          <Icon name="add" />
+        </span>
+        Lisää kokki
+      </button>
+    </div>
+  )
+}
+
+const initial = (name: string) => name.trim().charAt(0).toUpperCase() || '?'
 
 /* ---------------------------------------------------------------- zone one */
 
@@ -106,12 +196,12 @@ function ActiveZone({
   const [open, setOpen] = useState<Record<string, boolean>>({})
 
   return (
-    <section className="shift-zone">
-      <h2 className="shift-zone-head">
-        Työn alla <span className="muted small">{steps.length}</span>
+    <section className={styles.zone}>
+      <h2 className={styles.zoneHead}>
+        Työn alla <span className={cx(styles.zoneCount, ui.muted, ui.small)}>{steps.length}</span>
       </h2>
       {steps.length === 0 ? (
-        <p className="shift-empty muted small">Ei mitään kesken. Ota seuraava alta.</p>
+        <p className={cx(styles.empty, ui.muted, ui.small)}>Ei mitään kesken. Ota seuraava alta.</p>
       ) : (
         steps.map((step, i) => (
           <ActiveCard
@@ -148,35 +238,46 @@ function ActiveCard({
   const toTodo = checkTransition(index, state, step.id, 'todo')
 
   return (
-    <article className="shift-card is-active">
-      <button className="shift-card-head" onClick={onToggle} aria-expanded={open}>
-        <span className="shift-kicker muted small">
+    <article className={cx(styles.card, styles.isActive)} data-testid="shift-active-card">
+      <button
+        className={styles.cardHead}
+        data-testid="shift-card-head"
+        onClick={onToggle}
+        aria-expanded={open}
+      >
+        <span className={cx(styles.kicker, ui.muted, ui.small)}>
           {component?.name}
           <StationTag station={step.station} />
         </span>
-        <span className="shift-title">{step.title}</span>
+        <span className={styles.cardTitle} data-testid="shift-card-title">
+          {step.title}
+        </span>
         <Elapsed since={record.startedAt} />
       </button>
 
       {open && (
-        <div className="shift-card-body">
-          {step.detail && <p className="shift-detail">{step.detail}</p>}
+        <div className={styles.cardBody}>
+          {step.detail && (
+            <p className={styles.cardDetail} data-testid="shift-card-detail">
+              {step.detail}
+            </p>
+          )}
           {step.uses?.length ? (
-            <ul className="plain-list shift-uses">
+            <ul className={cx(ui.plainList, styles.uses)}>
               {step.uses.map((u) => (
                 <li key={u}>{u}</li>
               ))}
             </ul>
           ) : null}
-          <button className="linky shift-more" onClick={() => onSelect(step.id)}>
+          <button className={cx(ui.linky, styles.more)} onClick={() => onSelect(step.id)}>
             Näytä kaikki tiedot
           </button>
         </div>
       )}
 
-      <div className="shift-card-actions">
+      <div className={styles.cardActions}>
         <button
-          className="btn btn-done shift-primary"
+          className={cx(ui.btn, ui.btnDone, styles.primary, styles.finish)}
           onClick={() => setStepState(step.id, 'done') && onFinished(step.id)}
         >
           <Icon name="check" /> Valmis
@@ -188,7 +289,7 @@ function ActiveCard({
           second tap.
         */}
         <button
-          className="btn btn-ghost icon"
+          className={cx(ui.btn, ui.btnGhost, ui.icon)}
           onClick={() => setMenuOpen((o) => !o)}
           aria-label={`Muut toiminnot: ${step.title}`}
           aria-expanded={menuOpen}
@@ -198,9 +299,9 @@ function ActiveCard({
       </div>
 
       {menuOpen && (
-        <div className="shift-card-menu">
+        <div className={styles.cardMenu}>
           <button
-            className="btn btn-ghost"
+            className={cx(ui.btn, ui.btnGhost)}
             disabled={!toTodo.allowed}
             title={toTodo.reason}
             onClick={() => {
@@ -211,7 +312,7 @@ function ActiveCard({
             Palauta jonoon
           </button>
           <button
-            className="btn btn-ghost"
+            className={cx(ui.btn, ui.btnGhost)}
             onClick={() => {
               setMenuOpen(false)
               assign(step.id, null)
@@ -240,7 +341,7 @@ function Elapsed({ since }: { since?: number }) {
   if (!since) return null
   const minutes = Math.max(0, Math.floor((Date.now() - since) / 60_000))
   return (
-    <span className="shift-elapsed muted small">
+    <span className={cx(styles.elapsed, ui.muted, ui.small)} data-testid="shift-elapsed">
       {minutes < 1 ? 'juuri nyt' : `${minutes} min`} · aloitettu{' '}
       {new Date(since).toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })}
     </span>
@@ -263,24 +364,38 @@ function NextZone({ picks, onSelect }: { picks: ShiftPick[]; onSelect: (id: stri
   const available = STATIONS.filter((s) => picks.some((p) => p.step.station === s.id))
 
   return (
-    <section className="shift-zone">
-      <h2 className="shift-zone-head">
-        Ota seuraava <span className="muted small">{picks.filter((p) => p.offered).length} vapaana</span>
+    <section className={styles.zone}>
+      <h2 className={styles.zoneHead}>
+        Ota seuraava{' '}
+        <span className={cx(styles.zoneCount, ui.muted, ui.small)}>
+          {picks.filter((p) => p.offered).length} vapaana
+        </span>
       </h2>
 
       {hero ? (
-        <article className="shift-card is-hero">
-          <span className={`shift-why why-${hero.reason.kind}`}>{reasonLabel(hero.reason, menu)}</span>
-          <button className="shift-card-head" onClick={() => onSelect(hero.step.id)}>
-            <span className="shift-kicker muted small">
+        <article className={cx(styles.card, styles.isHero)} data-testid="shift-hero">
+          <span
+            className={cx(styles.why, hero.reason.kind === 'hold' && styles.whyHold)}
+            data-testid="shift-why"
+          >
+            {reasonLabel(hero.reason, menu)}
+          </span>
+          <button
+            className={styles.cardHead}
+            data-testid="shift-card-head"
+            onClick={() => onSelect(hero.step.id)}
+          >
+            <span className={cx(styles.kicker, ui.muted, ui.small)}>
               {menu.components.find((c) => c.id === hero.step.componentId)?.name}
               <StationTag station={hero.step.station} />
             </span>
-            <span className="shift-title">{hero.step.title}</span>
+            <span className={styles.cardTitle} data-testid="shift-card-title">
+              {hero.step.title}
+            </span>
           </button>
-          <div className="shift-card-actions">
+          <div className={styles.cardActions}>
             <button
-              className="btn btn-start btn-primary shift-primary"
+              className={cx(ui.btn, ui.btnStart, ui.btnPrimary, styles.primary)}
               onClick={() => requestStart(hero.step.id)}
             >
               <StartIcon /> Aloita
@@ -288,7 +403,7 @@ function NextZone({ picks, onSelect }: { picks: ShiftPick[]; onSelect: (id: stri
           </div>
         </article>
       ) : (
-        <p className="shift-empty muted small">
+        <p className={cx(styles.empty, ui.muted, ui.small)}>
           {picks.length === 0
             ? 'Kaikki vapaa työ on otettu. Katso alta, ketä odotat.'
             : 'Tällä pisteellä ei ole vapaata työtä juuri nyt.'}
@@ -296,9 +411,9 @@ function NextZone({ picks, onSelect }: { picks: ShiftPick[]; onSelect: (id: stri
       )}
 
       {available.length > 1 && (
-        <div className="shift-filters">
+        <div className={styles.filters} data-testid="shift-filters">
           <button
-            className={`chip ${station === null ? 'is-active' : ''}`}
+            className={cx(ui.chip, station === null && ui.isActive)}
             onClick={() => setStation(null)}
           >
             Kaikki
@@ -306,7 +421,7 @@ function NextZone({ picks, onSelect }: { picks: ShiftPick[]; onSelect: (id: stri
           {available.map((s) => (
             <button
               key={s.id}
-              className={`chip ${station === s.id ? 'is-active' : ''}`}
+              className={cx(ui.chip, station === s.id && ui.isActive)}
               onClick={() => setStation(s.id)}
             >
               <Icon name={STATION_ICON[s.id]} /> {s.label}
@@ -318,16 +433,19 @@ function NextZone({ picks, onSelect }: { picks: ShiftPick[]; onSelect: (id: stri
       {rest.length + taken.length > 0 && (
         <>
           <button
-            className="shift-fold"
+            className={styles.fold}
+            data-testid="shift-fold"
             onClick={() => setListOpen((o) => !o)}
             aria-expanded={listOpen}
           >
             Kaikki vapaat
-            <span className="muted small">{rest.length + taken.length}</span>
-            <Icon name="disclosure" className={listOpen ? 'is-open' : ''} />
+            <span className={cx(styles.foldCount, ui.muted, ui.small)}>
+              {rest.length + taken.length}
+            </span>
+            <Icon name="disclosure" className={cx(styles.foldIcon, listOpen && styles.isOpen)} />
           </button>
           {listOpen && (
-            <ul className="shift-rows">
+            <ul className={styles.rows}>
               {rest.map((pick) => (
                 <li key={pick.step.id}>
                   <ReadyRow pick={pick} onSelect={onSelect} />
@@ -357,15 +475,15 @@ function ReadyRow({ pick, onSelect }: { pick: ShiftPick; onSelect: (id: string) 
   const cookId = recordOf(state, pick.step.id).cookId
 
   return (
-    <div className={`shift-row ${pick.offered ? '' : 'is-taken'}`}>
-      <button className="shift-row-main" onClick={() => onSelect(pick.step.id)}>
-        <span className="shift-row-title">{pick.step.title}</span>
-        <span className="muted small">
+    <div className={cx(styles.row, !pick.offered && styles.isTaken)} data-testid="shift-row">
+      <button className={styles.rowMain} onClick={() => onSelect(pick.step.id)}>
+        <span className={styles.rowTitle}>{pick.step.title}</span>
+        <span className={cx(ui.muted, ui.small)}>
           {component?.name} · {reasonLabel(pick.reason, menu)}
         </span>
       </button>
       {pick.offered ? (
-        <button className="btn btn-start" onClick={() => requestStart(pick.step.id)}>
+        <button className={cx(ui.btn, ui.btnStart)} onClick={() => requestStart(pick.step.id)}>
           Aloita
         </button>
       ) : (
@@ -388,14 +506,19 @@ function WaitingZone({
   const [open, setOpen] = useState(false)
 
   return (
-    <section className="shift-zone">
-      <button className="shift-fold" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+    <section className={styles.zone}>
+      <button
+        className={styles.fold}
+        data-testid="shift-fold"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
         Odottaa muita
-        <span className="muted small">{waiting.length}</span>
-        <Icon name="disclosure" className={open ? 'is-open' : ''} />
+        <span className={cx(styles.foldCount, ui.muted, ui.small)}>{waiting.length}</span>
+        <Icon name="disclosure" className={cx(styles.foldIcon, open && styles.isOpen)} />
       </button>
       {open && (
-        <ul className="shift-rows">
+        <ul className={styles.rows}>
           {waiting.map(({ step, blockers }) => {
             // Who to nudge: the cooks holding everything in the way.
             const holders = [
@@ -403,10 +526,10 @@ function WaitingZone({
             ] as string[]
             return (
               <li key={step.id}>
-                <div className="shift-row">
-                  <button className="shift-row-main" onClick={() => onSelect(step.id)}>
-                    <span className="shift-row-title">{step.title}</span>
-                    <span className="muted small">
+                <div className={styles.row} data-testid="shift-row">
+                  <button className={styles.rowMain} onClick={() => onSelect(step.id)}>
+                    <span className={styles.rowTitle}>{step.title}</span>
+                    <span className={cx(ui.muted, ui.small)}>
                       Odotat:{' '}
                       {blockers
                         .map((b) => {
@@ -421,7 +544,7 @@ function WaitingZone({
                   {holders.map((id) => (
                     <span
                       key={id}
-                      className={`shift-holder${presence.has(id) ? ' is-online' : ''}`}
+                      className={cx(styles.holder, presence.has(id) && styles.isOnline)}
                       title={presence.has(id) ? 'Paikalla' : undefined}
                     >
                       <CookDot cookId={id} />
@@ -443,24 +566,29 @@ function DoneZone({ steps }: { steps: Step[] }) {
   const [open, setOpen] = useState(false)
 
   return (
-    <section className="shift-zone">
-      <button className="shift-fold" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+    <section className={styles.zone}>
+      <button
+        className={styles.fold}
+        data-testid="shift-fold"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
         Tekemäsi vaiheet
-        <span className="muted small">{steps.length}</span>
-        <Icon name="disclosure" className={open ? 'is-open' : ''} />
+        <span className={cx(styles.foldCount, ui.muted, ui.small)}>{steps.length}</span>
+        <Icon name="disclosure" className={cx(styles.foldIcon, open && styles.isOpen)} />
       </button>
       {open && (
-        <ul className="shift-rows">
+        <ul className={styles.rows}>
           {steps.map((step) => {
             const back = checkTransition(index, state, step.id, 'todo')
             return (
               <li key={step.id}>
-                <div className="shift-row is-done">
-                  <span className="shift-row-main">
-                    <span className="shift-row-title">{step.title}</span>
+                <div className={cx(styles.row, styles.isDone)} data-testid="shift-row">
+                  <span className={styles.rowMain}>
+                    <span className={styles.rowTitle}>{step.title}</span>
                   </span>
                   <button
-                    className="btn btn-ghost"
+                    className={cx(ui.btn, ui.btnGhost)}
                     disabled={!back.allowed}
                     title={back.reason}
                     onClick={() => setStepState(step.id, 'todo')}
@@ -507,8 +635,8 @@ function CompletionBar({
   const next = opened[0]
 
   return (
-    <div className="shift-toast" role="status">
-      <div className="shift-toast-text">
+    <div className={styles.toast} role="status" data-testid="shift-toast">
+      <div className={styles.toastText}>
         <strong>Valmis:</strong> {step.title}
         {next && (
           <>
@@ -517,9 +645,9 @@ function CompletionBar({
           </>
         )}
       </div>
-      <div className="shift-toast-actions">
+      <div className={styles.toastActions}>
         <button
-          className="btn btn-ghost"
+          className={cx(ui.btn, ui.btnGhost)}
           disabled={!back.allowed}
           title={back.reason}
           onClick={() => {
@@ -531,7 +659,7 @@ function CompletionBar({
         </button>
         {next && (
           <button
-            className="btn btn-start"
+            className={cx(ui.btn, ui.btnStart, styles.toastStart)}
             onClick={() => {
               requestStart(next.id)
               onDismiss()
@@ -540,7 +668,7 @@ function CompletionBar({
             <StartIcon /> Aloita se
           </button>
         )}
-        <button className="btn btn-ghost icon" onClick={onDismiss} aria-label="Sulje">
+        <button className={cx(ui.btn, ui.btnGhost, ui.icon)} onClick={onDismiss} aria-label="Sulje">
           <Icon name="close" />
         </button>
       </div>
@@ -553,7 +681,7 @@ function CompletionBar({
 function StationTag({ station }: { station: Station }) {
   if (station === 'muu') return null
   return (
-    <span className="shift-station">
+    <span className={styles.station}>
       <Icon name={STATION_ICON[station]} /> {STATIONS.find((s) => s.id === station)?.label}
     </span>
   )

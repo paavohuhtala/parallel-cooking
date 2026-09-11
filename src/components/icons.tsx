@@ -1,4 +1,6 @@
 import type { Station } from '../model/types.ts'
+import { cx } from './cx.ts'
+import ui from './ui.module.css'
 
 /*
  * The icon table.
@@ -191,7 +193,7 @@ export function Icon({
   const glyph = GLYPHS[name]
   return (
     <svg
-      className={className ? `icon ${className}` : 'icon'}
+      className={cx(ui.icon, className)}
       viewBox={`0 0 ${glyph.box} ${glyph.box}`}
       width="1em"
       height="1em"
@@ -238,7 +240,7 @@ const PLAY = 'M240 128a15.74 15.74 0 0 1-7.6 13.51L88.32 229.65a16 16 0 0 1-16.2
 export function StartIcon({ className }: { className?: string }) {
   return (
     <svg
-      className={className ? `icon ${className}` : 'icon'}
+      className={cx(ui.icon, className)}
       viewBox="0 0 256 256"
       width="1em"
       height="1em"

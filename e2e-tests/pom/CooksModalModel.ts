@@ -17,10 +17,10 @@ export class CooksModalModel {
   constructor(page: Page) {
     this.page = page
     this.locator = page.getByRole('dialog', { name: 'Kokit' })
-    this.rows = this.locator.locator('.cook-row')
+    this.rows = this.locator.getByTestId('cook-row')
     this.nameInputs = this.locator.getByRole('textbox', { name: 'Kokin nimi' })
     this.addButton = this.locator.getByRole('button', { name: 'Lisää kokki' })
-    this.closeButton = this.locator.locator('.modal-actions').getByRole('button', { name: 'Sulje' })
+    this.closeButton = this.locator.getByTestId('modal-actions').getByRole('button', { name: 'Sulje' })
   }
 
   row(name: string): Locator {

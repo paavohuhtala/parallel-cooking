@@ -31,6 +31,9 @@ import {
   initialHistory,
   type DraftHistory,
 } from '../state/draftHistory.ts'
+import { cx } from './cx.ts'
+import ui from './ui.module.css'
+import styles from './MenuEditor.module.css'
 
 /*
  * The menu editor: course → dish → step as an outline, with an inspector
@@ -73,6 +76,14 @@ export interface MenuEditorProps {
 }
 
 const KIND_LABEL = { course: 'Ruokalaji', component: 'Osa', step: 'Vaihe' } as const
+
+/** Indent and weight are per level, so both are looked up rather than built. */
+const DEPTH_CLASS = [undefined, styles.depth1, styles.depth2] as const
+const KIND_CLASS: Record<'course' | 'component' | 'step', string | undefined> = {
+  course: styles.kindCourse,
+  component: styles.kindComponent,
+  step: undefined,
+}
 
 /** "1 osa" but "2 osaa": the partitive the counts need. */
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
@@ -388,22 +399,23 @@ export function MenuEditor({
   const behindSheet = sheet || undefined
 
   return (
-    <div className="editor" ref={root}>
-      <header className="editor-head" ref={head} inert={behindSheet}>
+    <div className={styles.editor} data-testid="menu-editor" ref={root}>
+      <header className={styles.head} data-testid="editor-head" ref={head} inert={behindSheet}>
         <input
-          className="editor-title"
+          className={styles.title}
+          data-testid="editor-title"
           value={draft.name}
           aria-label="Menun nimi"
           placeholder="Menun nimi"
           onChange={(e) => dispatch({ type: 'rename_menu', value: e.target.value })}
         />
-        <div className="editor-actions" ref={actions}>
+        <div className={styles.actions} data-testid="editor-actions" ref={actions}>
           {/* Undo has to be reachable without a keyboard too: the row menu's
               Poista is a thumb's only way to delete, so it needs a thumb's way
               back. */}
-          <div className="editor-history">
+          <div className={styles.history}>
             <button
-              className="btn btn-ghost icon"
+              className={cx(ui.btn, ui.btnGhost, ui.icon, styles.headIcon)}
               onClick={undo}
               disabled={!canUndo(history)}
               aria-label="Kumoa"
@@ -412,7 +424,7 @@ export function MenuEditor({
               <Icon name="undo" />
             </button>
             <button
-              className="btn btn-ghost icon"
+              className={cx(ui.btn, ui.btnGhost, ui.icon, styles.headIcon)}
               onClick={redo}
               disabled={!canRedo(history)}
               aria-label="Tee uudelleen"
@@ -424,14 +436,14 @@ export function MenuEditor({
           {/* One recipe at a time is how a model converts them, so assembling a
               multi-course dinner means merging several documents into this one.
               Buttons where there is room for them, a menu where there is not. */}
-          <div className="editor-extra">
-            <button className="btn btn-ghost" onClick={() => setMerging(true)}>
+          <div className={styles.extra}>
+            <button className={cx(ui.btn, ui.btnGhost)} onClick={() => setMerging(true)}>
               Tuo ja yhdistä
             </button>
-            <button className="btn btn-ghost" onClick={() => void copyPrompt()}>
+            <button className={cx(ui.btn, ui.btnGhost)} onClick={() => void copyPrompt()}>
               Kopioi LLM-kehote
             </button>
-            <button className="btn btn-ghost" onClick={exportJson}>
+            <button className={cx(ui.btn, ui.btnGhost)} onClick={exportJson}>
               Vie JSON
             </button>
           </div>
@@ -447,7 +459,8 @@ export function MenuEditor({
               makes the draft dirty — least of all the name field being typed
               in. `visibility` also keeps the hidden labels out of the name. */}
           <button
-            className="btn editor-save"
+            className={cx(ui.btn, styles.save)}
+            data-testid="editor-save"
             data-state={saveState}
             onClick={() => void onSave()}
             disabled={saveState !== 'dirty'}
@@ -455,16 +468,26 @@ export function MenuEditor({
             aria-describedby={saveState === 'blocked' ? problemsId : undefined}
             title={saveState === 'blocked' ? 'Korjaa virheet ennen tallentamista' : undefined}
           >
-            <span className={saveState === 'saved' ? 'is-shown' : undefined}>
+            <span className={saveState === 'saved' ? styles.isShown : undefined}>
               <Icon name="check" /> Tallennettu
             </span>
-            <span className={saveState === 'dirty' || saveState === 'blocked' ? 'is-shown' : undefined}>
+            <span
+              className={
+                saveState === 'dirty' || saveState === 'blocked' ? styles.isShown : undefined
+              }
+            >
               Tallenna
             </span>
-            <span className={saveState === 'saving' ? 'is-shown' : undefined}>Tallennetaan…</span>
+            <span className={saveState === 'saving' ? styles.isShown : undefined}>
+              Tallennetaan…
+            </span>
           </button>
           {onClose && (
-            <button className="btn btn-ghost icon" onClick={onClose} aria-label="Sulje">
+            <button
+              className={cx(ui.btn, ui.btnGhost, ui.icon, styles.headIcon)}
+              onClick={onClose}
+              aria-label="Sulje"
+            >
               <Icon name="close" />
             </button>
           )}
@@ -472,12 +495,12 @@ export function MenuEditor({
       </header>
 
       {error && (
-        <div className="banner banner-error" role="alert" inert={behindSheet}>
+        <div className={cx(ui.banner, ui.bannerError, styles.banner)} role="alert" inert={behindSheet}>
           {error}
         </div>
       )}
       {note && !error && (
-        <div className="banner banner-ok" inert={behindSheet}>
+        <div className={cx(ui.banner, ui.bannerOk, styles.banner)} inert={behindSheet}>
           {note}
         </div>
       )}
@@ -489,8 +512,8 @@ export function MenuEditor({
         inert={behindSheet}
       />
 
-      <div className="editor-body">
-        <div className="outline" role="tree" aria-label="Menun rakenne" inert={behindSheet}>
+      <div className={styles.body}>
+        <div className={styles.outline} role="tree" aria-label="Menun rakenne" inert={behindSheet}>
           {items.map((item) =>
             item.type === 'row' ? (
               <Row
@@ -512,7 +535,9 @@ export function MenuEditor({
         {/* The kitchen's own sheet backdrop, with the same rule: a tap that
             misses the sheet closes it, instead of landing on a row behind it
             and changing what the sheet is editing. */}
-        {sheet && <div className="detail-backdrop" onClick={closeSheet} />}
+        {sheet && (
+          <div className={ui.detailBackdrop} data-testid="detail-backdrop" onClick={closeSheet} />
+        )}
         <Inspector
           draft={draft}
           row={selectedRow}
@@ -536,7 +561,7 @@ export function MenuEditor({
         />
       )}
 
-      <p className="muted small editor-hint" inert={behindSheet}>
+      <p className={cx(styles.hint, ui.muted, ui.small)} inert={behindSheet}>
         Enter lisää rivin · Vaihto+Enter lisää sisällön · ↑/↓ siirtyy rivien välillä ·
         Alt+↑/↓ siirtää riviä · Askelpalautin tyhjällä rivillä poistaa sen, jos sillä ei ole
         sisältöä · Ctrl+Z kumoaa · rivin valikko tekee saman hiirellä
@@ -562,15 +587,21 @@ function ProblemList({
   return (
     <div
       id={id}
-      className={`banner ${errors.length ? 'banner-error' : 'banner-warn'} editor-problems`}
+      className={cx(
+        ui.banner,
+        errors.length ? ui.bannerError : ui.bannerWarn,
+        styles.banner,
+        styles.problems,
+      )}
+      data-testid="editor-problems"
       inert={inert}
     >
-      <ul className="plain-list">
+      <ul className={cx(ui.plainList, styles.problemList)}>
         {problems.slice(0, 6).map((problem, i) => (
           <li key={`${problem.code}-${i}`}>
             {problem.target ? (
               <button
-                className="linky"
+                className={ui.linky}
                 onClick={() => onGo(rowKey(problem.target!.kind, problem.target!.id))}
               >
                 {problem.message}
@@ -580,7 +611,7 @@ function ProblemList({
             )}
           </li>
         ))}
-        {problems.length > 6 && <li className="muted">… ja {problems.length - 6} muuta</li>}
+        {problems.length > 6 && <li className={ui.muted}>… ja {problems.length - 6} muuta</li>}
       </ul>
     </div>
   )
@@ -655,31 +686,40 @@ function Row({
 
   return (
     <div
-      className={`outline-row depth-${row.depth} kind-${row.kind}${selected ? ' is-selected' : ''}${menuOpen ? ' is-menu-open' : ''}`}
+      className={cx(
+        styles.row,
+        DEPTH_CLASS[row.depth],
+        KIND_CLASS[row.kind],
+        selected && styles.isSelected,
+        menuOpen && styles.isMenuOpen,
+      )}
+      data-testid="outline-row"
+      data-menu-open={menuOpen || undefined}
       role="treeitem"
       aria-level={row.depth + 1}
       aria-selected={selected}
       {...(parent ? { 'aria-expanded': !collapsed } : {})}
     >
       <div
-        className="outline-main"
+        className={styles.rowMain}
         // The title is only as wide as its text, so the rest of the row is
         // blank; a press there still means "this row" and lands in the title.
         onPointerDown={(e) => {
           if (e.target !== e.currentTarget) return
           e.preventDefault()
-          const input = e.currentTarget.querySelector<HTMLTextAreaElement>('.outline-title')
+          const input = e.currentTarget.querySelector<HTMLTextAreaElement>('textarea')
           input?.focus()
           input?.setSelectionRange(input.value.length, input.value.length)
         }}
       >
         {parent ? (
           <button
-            className="row-glyph"
+            className={styles.glyph}
+            data-testid="row-glyph"
             aria-label={`${collapsed ? 'Näytä' : 'Piilota'} sisältö: ${name}`}
             onClick={() => onToggleCollapse(row.key)}
           >
-            <Icon name="disclosure" />
+            <Icon name="disclosure" className={styles.glyphIcon} />
           </button>
         ) : (
           <StationGlyph item={item} onOpenDetails={onOpenDetails} />
@@ -691,7 +731,8 @@ function Row({
             above, and a pasted line break becomes a space. */}
         <textarea
           data-rowkey={row.key}
-          className="outline-title"
+          className={styles.rowTitle}
+          data-testid="outline-title"
           rows={1}
           value={row.title}
           aria-label={`${KIND_LABEL[row.kind]}: ${row.title || 'nimetön'}`}
@@ -711,7 +752,7 @@ function Row({
         {/* A collapsed row must still say what it is hiding, or collapsing is
             just losing track of a course. */}
         {parent && collapsed && (
-          <span className="row-hidden muted small">
+          <span className={cx(styles.rowHidden, ui.muted, ui.small)}>
             {row.kind === 'course' && `${plural(row.contents.components, 'osa', 'osaa')} · `}
             {plural(row.contents.steps, 'vaihe', 'vaihetta')}
           </span>
@@ -748,7 +789,8 @@ function StationGlyph({
   const label = stationOf(station).label
   return (
     <button
-      className={`row-glyph station-glyph${station === 'muu' ? ' is-quiet' : ''}`}
+      className={cx(styles.glyph, styles.stationGlyph, station === 'muu' && styles.isQuiet)}
+      data-testid="row-glyph"
       aria-label={`Tiedot: ${item.row.title || 'nimetön'}`}
       title={`${label} — avaa tiedot`}
       onClick={() => onOpenDetails(item.key)}
@@ -821,9 +863,9 @@ function MoreMenu({
   const [open, setOpen] = useState(false)
   const { box, list, alignEnd, act } = usePopupMenu(open, setOpen)
   return (
-    <div className="editor-more" ref={box}>
+    <div className={styles.more} ref={box}>
       <button
-        className="btn btn-ghost icon"
+        className={cx(ui.btn, ui.btnGhost, ui.icon, styles.headIcon)}
         aria-label="Lisää toimintoja"
         aria-expanded={open}
         aria-haspopup="menu"
@@ -834,7 +876,7 @@ function MoreMenu({
       {open && (
         <div
           ref={list}
-          className={`menu-list${alignEnd ? ' is-end' : ''}`}
+          className={cx(styles.popup, alignEnd && styles.isEnd)}
           role="menu"
           aria-label="Lisää toimintoja"
         >
@@ -878,9 +920,10 @@ function RowMenu({
   const name = row.title || 'nimetön'
 
   return (
-    <div className="row-menu" ref={box}>
+    <div className={styles.rowMenu} ref={box}>
       <button
-        className="btn btn-ghost icon row-menu-open"
+        className={cx(ui.btn, ui.btnGhost, ui.icon, styles.rowMenuOpen)}
+        data-testid="row-menu-open"
         aria-label={`Toiminnot: ${name}`}
         aria-expanded={open}
         aria-haspopup="menu"
@@ -894,7 +937,7 @@ function RowMenu({
       {open && (
         <div
           ref={list}
-          className={`menu-list${alignEnd ? ' is-end' : ''}`}
+          className={cx(styles.popup, alignEnd && styles.isEnd)}
           role="menu"
           aria-label={`Toiminnot: ${name}`}
         >
@@ -903,7 +946,7 @@ function RowMenu({
               course or a dish has no station glyph to open it with. */}
           <button
             role="menuitem"
-            className="row-menu-details"
+            className={styles.rowMenuDetails}
             onClick={act(() => onOpenDetails(row.key))}
           >
             Tiedot
@@ -936,7 +979,7 @@ function RowMenu({
               menu's own label, and the counts are the part worth reading. */}
           <button
             role="menuitem"
-            className="is-danger"
+            className={styles.isDanger}
             onClick={act(() => dispatch({ type: 'delete_row', kind: row.kind, id: row.id }))}
           >
             {deleteLabel(row)}
@@ -974,7 +1017,7 @@ function TailRow({
   const where = item.parentName || 'nimetön'
   return (
     <button
-      className={`outline-tail depth-${item.depth} kind-${item.childKind}`}
+      className={cx(styles.tail, DEPTH_CLASS[item.depth], KIND_CLASS[item.childKind])}
       aria-label={
         item.parentId === null
           ? 'Lisää ruokalaji'
@@ -990,7 +1033,7 @@ function TailRow({
             })
       }
     >
-      <span className="row-glyph" aria-hidden>
+      <span className={styles.glyph} aria-hidden>
         <Icon name="add" />
       </span>
       {label}
@@ -1088,7 +1131,8 @@ function Inspector({
   return (
     <div
       ref={panel}
-      className={`inspector${open ? ' is-open' : ''}`}
+      className={cx(styles.inspector, open && styles.isOpen)}
+      data-testid="inspector"
       role={modal ? 'dialog' : 'complementary'}
       aria-modal={modal || undefined}
       aria-label="Rivin tiedot"
@@ -1096,17 +1140,25 @@ function Inspector({
       onKeyDown={modal ? trapTab : undefined}
     >
       {row === null ? (
-        <p className="muted small">Valitse rivi nähdäksesi sen tiedot.</p>
+        <p className={cx(ui.muted, ui.small)}>Valitse rivi nähdäksesi sen tiedot.</p>
       ) : (
         <>
-          <div className="inspector-grab" {...grab}>
-            <div className="sheet-handle" aria-hidden />
-            <div className="inspector-head">
+          <div className={styles.inspectorGrab} data-testid="inspector-grab" {...grab}>
+            <div className={styles.sheetHandle} aria-hidden />
+            <div className={styles.inspectorHead}>
               <div>
-                <span className="inspector-kind muted small">{KIND_LABEL[row.kind]}</span>
-                <h3 className="inspector-title">{row.title || 'nimetön'}</h3>
+                <span className={cx(styles.inspectorKind, ui.muted, ui.small)}>
+                  {KIND_LABEL[row.kind]}
+                </span>
+                <h3 className={styles.inspectorTitle} data-testid="inspector-title">
+                  {row.title || 'nimetön'}
+                </h3>
               </div>
-              <button className="btn btn-ghost icon inspector-close" onClick={onClose} aria-label="Sulje tiedot">
+              <button
+                className={cx(ui.btn, ui.btnGhost, ui.icon, styles.inspectorClose)}
+                onClick={onClose}
+                aria-label="Sulje tiedot"
+              >
                 <Icon name="close" />
               </button>
             </div>
@@ -1116,9 +1168,10 @@ function Inspector({
             <ComponentFields draft={draft} componentId={row.id} dispatch={dispatch} />
           )}
           {row.kind === 'course' && (
-            <label className="field">
-              <span>Huomio</span>
+            <label className={cx(ui.field, styles.field)}>
+              <span data-testid="field-label">Huomio</span>
               <input
+                className={ui.textInput}
                 value={draft.courses.find((c) => c.id === row.id)?.note ?? ''}
                 onChange={(e) =>
                   dispatch({ type: 'set_note', kind: 'course', id: row.id, value: e.target.value })
@@ -1150,8 +1203,8 @@ function StepFields({
 
   return (
     <>
-      <label className="field">
-        <span>Ohje</span>
+      <label className={cx(ui.field, styles.field)}>
+        <span data-testid="field-label">Ohje</span>
         <textarea
           rows={3}
           value={step.detail ?? ''}
@@ -1159,13 +1212,13 @@ function StepFields({
         />
       </label>
 
-      <fieldset className="field">
+      <fieldset className={cx(ui.field, styles.field)}>
         <legend>Asema</legend>
-        <div className="chips">
+        <div className={styles.chips} data-testid="chips">
           {STATIONS.map((s) => (
             <button
               key={s.id}
-              className={`chip station${step.station === s.id ? ' is-active' : ''}`}
+              className={cx(ui.chip, styles.inspectorChip, step.station === s.id && ui.isActive)}
               aria-pressed={step.station === s.id}
               aria-label={s.label}
               onClick={() => dispatch({ type: 'set_station', id: stepId, station: s.id })}
@@ -1176,13 +1229,13 @@ function StepFields({
         </div>
       </fieldset>
 
-      <fieldset className="field">
+      <fieldset className={cx(ui.field, styles.field)}>
         <legend>Edellyttää</legend>
-        <div className="chips">
+        <div className={styles.chips} data-testid="chips">
           {step.deps.map((dep) => (
             <button
               key={dep}
-              className="chip is-active"
+              className={cx(ui.chip, ui.isActive, styles.inspectorChip)}
               onClick={() => dispatch({ type: 'toggle_dep', id: stepId, depId: dep })}
               aria-label={`Poista riippuvuus ${titleOf(dep)}`}
             >
@@ -1191,7 +1244,8 @@ function StepFields({
           ))}
           {/* Only steps that cannot close a cycle are offered at all. */}
           <select
-            className="dep-picker"
+            className={styles.depPicker}
+            data-testid="dep-picker"
             value=""
             aria-label="Lisää riippuvuus"
             onChange={(e) => {
@@ -1211,13 +1265,17 @@ function StepFields({
       </fieldset>
 
       {component && (
-        <fieldset className="field">
+        <fieldset className={cx(ui.field, styles.field)}>
           <legend>Tarvitaan</legend>
-          <div className="chips">
+          <div className={styles.chips} data-testid="chips">
             {component.ingredients.map((ingredient) => (
               <button
                 key={ingredient}
-                className={`chip${step.uses?.includes(ingredient) ? ' is-active' : ''}`}
+                className={cx(
+                  ui.chip,
+                  styles.inspectorChip,
+                  step.uses?.includes(ingredient) && ui.isActive,
+                )}
                 aria-pressed={step.uses?.includes(ingredient) ?? false}
                 onClick={() => dispatch({ type: 'toggle_use', id: stepId, ingredient })}
               >
@@ -1225,7 +1283,7 @@ function StepFields({
               </button>
             ))}
             <input
-              className="ingredient-add"
+              className={styles.ingredientAdd}
               placeholder="+ Uusi aines"
               aria-label="Lisää aines ja käytä tässä vaiheessa"
               value={adding}
@@ -1246,7 +1304,7 @@ function StepFields({
         </fieldset>
       )}
 
-      <label className="toggle">
+      <label className={ui.toggle}>
         <input
           type="checkbox"
           checked={step.holdPoint ?? false}
@@ -1273,22 +1331,23 @@ function ComponentFields({
 
   return (
     <>
-      <label className="field">
-        <span>Huomio</span>
+      <label className={cx(ui.field, styles.field)}>
+        <span data-testid="field-label">Huomio</span>
         <input
+          className={ui.textInput}
           value={component.note ?? ''}
           onChange={(e) =>
             dispatch({ type: 'set_note', kind: 'component', id: component.id, value: e.target.value })
           }
         />
       </label>
-      <fieldset className="field">
+      <fieldset className={cx(ui.field, styles.field)}>
         <legend>Ainekset</legend>
-        <div className="chips">
+        <div className={styles.chips} data-testid="chips">
           {component.ingredients.map((ingredient) => (
             <button
               key={ingredient}
-              className="chip"
+              className={cx(ui.chip, styles.inspectorChip)}
               aria-label={`Poista aines ${ingredient}`}
               onClick={() =>
                 dispatch({ type: 'remove_ingredient', componentId: component.id, value: ingredient })
@@ -1298,7 +1357,7 @@ function ComponentFields({
             </button>
           ))}
           <input
-            className="ingredient-add"
+            className={styles.ingredientAdd}
             placeholder="+ Uusi aines"
             aria-label="Lisää aines"
             value={adding}

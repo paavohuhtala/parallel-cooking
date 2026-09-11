@@ -1,0 +1,12 @@
+/* The library editor's page: the editor, with a way back above it. */
+
+.page {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+.nav {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+}

@@ -22,6 +22,27 @@ pcTest('a phone opens on the view, and the view opens on who you are', async ({
   await kitchen.shift.expectActive()
 })
 
+pcTest('who the phone is stays on screen, and is one tap from changing', async ({
+  kitchen,
+  room,
+}) => {
+  await kitchen.goto(room.id)
+  await kitchen.shift.claim(COOK.first)
+
+  // The gate asks once and never again, so the answer has to be visible: every
+  // suggestion below it is ranked for this cook and no other.
+  await kitchen.shift.expectWho(COOK.first)
+
+  await kitchen.shift.switchTo(COOK.second)
+
+  // Not just the label: the whole view is somebody else's now, and work taken
+  // from here goes in their name without the board's "Kuka ottaa tämän?".
+  await kitchen.shift.startSuggested()
+  await expect(kitchen.startDialog.locator).toHaveCount(0)
+  await kitchen.showRecipe()
+  await kitchen.recipe.step(STEP.mushrooms).expectCook(COOK.second)
+})
+
 pcTest('the suggestion explains itself, and taking it asks nobody', async ({ kitchen, room }) => {
   await kitchen.goto(room.id)
   await kitchen.shift.claim(COOK.first)
@@ -146,8 +167,8 @@ pcTest('the header collapses to one row, with the actions behind it', async ({
 }) => {
   await kitchen.goto(room.id)
 
-  await expect(kitchen.topbar.locator('.topbar-actions')).toBeHidden()
-  await expect(kitchen.page.locator('.upnext')).toBeHidden()
+  await expect(kitchen.topbar.getByTestId('topbar-actions')).toBeHidden()
+  await expect(kitchen.page.getByTestId('upnext')).toBeHidden()
 
   await kitchen.topbar.getByRole('button', { name: 'Toiminnot' }).click()
   const sheet = kitchen.page.getByRole('dialog', { name: 'Toiminnot' })
