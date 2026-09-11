@@ -126,6 +126,13 @@ export class KitchenPageModel {
     return this.cooks
   }
 
+  /** Opens the detail panel from a card in "Oma vuoro". */
+  async openStepFromShift(title: string): Promise<StepDetailModel> {
+    await this.shift.card(title).root.getByRole('button', { name: 'Näytä kaikki tiedot' }).click()
+    await this.detail.expectOpen(title)
+    return this.detail
+  }
+
   /** Opens the detail panel by clicking the step in the recipe view. */
   async openStep(title: string): Promise<StepDetailModel> {
     await this.recipe.step(title).open()

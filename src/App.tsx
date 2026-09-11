@@ -75,7 +75,7 @@ export default function App() {
   const select = (id: string) => setSelected((current) => (current === id ? null : id))
 
   return (
-    <div className={`app ${selected ? 'has-detail' : ''}`}>
+    <div className={`app view-${view} ${selected ? 'has-detail' : ''}`}>
       <header className="topbar">
         <div className="brand">
           <h1>{room.name}</h1>

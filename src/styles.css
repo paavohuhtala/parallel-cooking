@@ -24,6 +24,9 @@
   --critical: #c2454f;
   --hold: #7a5cc0;
 
+  /* The detail panel's column, named because the shift view reserves it. */
+  --detail-width: 340px;
+
   --radius: 10px;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 4px 12px rgb(0 0 0 / 0.04);
 }
@@ -195,7 +198,7 @@ p {
 
 /* Wide enough for a side panel: a real column that never scrolls away. */
 .detail {
-  flex: 0 0 340px;
+  flex: 0 0 var(--detail-width);
   overflow-y: auto;
   padding: 1rem;
   background: var(--surface);
@@ -2426,6 +2429,28 @@ p {
 
 /* Only ever the phone's way in: above 640 px the four buttons are right there. */
 .topbar-more {
+  display: none;
+}
+
+/*
+ * Where the panel is a column rather than a sheet, the queue reserves its width
+ * whether or not it is open, so opening a step does not slide the whole column
+ * 170 px sideways to re-centre in a narrower scroller. It is the rule the
+ * editor's outline already follows — details are never inline, and the thing
+ * you are reading holds still while you open them.
+ */
+@media (min-width: 901px) {
+  .app.view-shift:not(.has-detail) .content {
+    padding-right: var(--detail-width);
+  }
+}
+
+/*
+ * And "Seuraavaksi" goes wherever this view is: zone two is the same steps in a
+ * better order, and two rankings of one list on one screen is worse than either
+ * alone. On a phone the whole strip is gone; here it is gone in this view only.
+ */
+.app.view-shift .upnext {
   display: none;
 }
 

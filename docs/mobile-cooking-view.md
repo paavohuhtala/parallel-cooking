@@ -84,12 +84,25 @@ only thing the viewport decides is the *default*: `useState` initialises to `shi
 `matchMedia('(max-width: 640px)')` matches at mount, and never again — narrowing a desktop
 window must not yank the view out from under someone mid-task.
 
-**At desktop width it is a capped, centred column** — `max-width: 620px; margin: 0 auto`,
-exactly the treatment `.landing` already gets in [`styles.css`](../src/styles.css). One
-implementation, one layout, nothing that exists only at one screen size. The tempting
-alternative — two columns at wide widths, *Työn alla* beside *Ota seuraava* — is declined:
-it is a second layout to maintain for a view whose entire argument is that it does one thing
-in one column.
+**At desktop width it is a capped column** — `max-width: 620px`, the treatment `.landing`
+already gets in [`styles.css`](../src/styles.css) — **with `StepDetail` as its second
+column.** That pairing is the desktop layout, and it costs nothing: above 900 px the panel is
+already a real column rather than a sheet, so opening a step puts the queue on the left and
+its instructions on the right. The tempting alternative — two columns *of the view itself*,
+*Työn alla* beside *Ota seuraava* — is declined: it is a second layout to maintain for a view
+whose entire argument is that it does one thing in one column, and it would break the reading
+order that makes the column work.
+
+*In the event:* the first version centred the column in the scroller, so opening a step slid
+the whole queue 170 px sideways as the panel took its width (measured: `left` 410 → 240 at
+1440 px). The queue reserves `--detail-width` instead, whether or not the panel is open, and
+an e2e test asserts `left` and `width` are unchanged across the transition. This is the rule
+the editor already follows for its outline, one section up in [CLAUDE.md](../CLAUDE.md);
+a queue is no more allowed to jump than an outline is.
+
+*Also in the event:* `Seuraavaksi` is hidden in this view at every width, not only on a phone.
+It is the recipe view's quick jump list and stays that; beside zone ② it is a second, worse
+ranking of the same steps.
 
 Everything else this adds to a desktop is a fourth entry in the tab strip. The chrome changes
 below are all inside `@media (max-width: 640px)`; `RecipeView`, `GraphView`, `KanbanView` and
@@ -265,6 +278,7 @@ Worth stating plainly, because it is why the change is small:
 | `src/styles.css` | the shift view; the 640 px chrome block. |
 | `e2e-tests/pom/ShiftViewModel.ts` | **done** — page object, per the repo's rule that new UI means extending a model. |
 | `e2e-tests/tests/shift.test.ts` | **done**, 9 tests — gate → pick → work → finish → pick again. |
+| `e2e-tests/tests/shift-desktop.test.ts` | **done**, 3 tests — the queue holding still, the panel as its second column, and `Seuraavaksi` giving way. Runs in the desktop project. |
 | `playwright.config.ts` | a second project, `devices['Pixel 7']`, matching only this spec — one phone-sized project rather than doubling the suite. The desktop project ignores it, since it would open the room on the recipe and never reach the view. |
 
 ## Declined, on purpose
