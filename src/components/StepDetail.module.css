@@ -1,0 +1,79 @@
+/* The selected step: a column beside the workspace, a modal sheet under it. */
+
+.detail {
+  flex: 0 0 var(--detail-width);
+  overflow-y: auto;
+  padding: 1rem;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+}
+
+.detailHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+.detailHead h2 {
+  margin-top: 0.15rem;
+}
+.detailHead button {
+  margin-left: auto;
+}
+.detailKicker {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.detailMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.7rem;
+}
+.detailText {
+  background: var(--surface-2);
+  border-radius: 8px;
+  padding: 0.6rem;
+  font-size: 0.9rem;
+}
+.detail section {
+  margin-top: 0.9rem;
+}
+.detail section h3 {
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.3rem;
+}
+.detailActions {
+  margin-top: 1rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--border);
+}
+
+/*
+ * Too narrow to give up a column, so the panel becomes a modal sheet over the
+ * page — which is also the only thing that works on the board, where the
+ * content underneath scrolls sideways.
+ */
+@media (max-width: 900px) {
+  .detail {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 41;
+    max-height: 85dvh;
+    border: 1px solid var(--border);
+    border-radius: var(--radius) var(--radius) 0 0;
+    box-shadow: 0 -8px 40px rgb(0 0 0 / 0.25);
+    padding-bottom: 1.5rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .detail {
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  }
+}

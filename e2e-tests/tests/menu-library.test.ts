@@ -114,7 +114,7 @@ test('a cook is told when a menu edit takes away work they had started', async (
   const row = page.getByTestId('step-row').filter({ hasText: doomed })
   await row.getByRole('button', { name: 'Aloita' }).click()
   await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
-  await expect(row).toHaveClass(/status-active/)
+  await expect(row).toHaveAttribute('data-status', 'active')
 
   // Somebody else edits the menu out from under them.
   const before = await api.getRoomMenu(room.id)

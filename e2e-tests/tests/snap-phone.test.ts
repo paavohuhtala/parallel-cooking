@@ -1,9 +1,15 @@
 /*
  * TEMPORARY — the phone-sized half of the visual baselines. See
  * snap-desktop.test.ts; delete both together.
+ *
+ * Run them on their own — `npx playwright test --config playwright.local.config.ts snap-`
+ * — not as part of the whole suite: a worker's server and database are shared
+ * by the tests that land on it, so the landing page's menu list depends on
+ * which other specs have run there, and its height with it.
  */
 import { pcTest, expect } from '../pcTest.ts'
 import { COMPONENT, COOK, STEP } from '../defaultMenu.ts'
+import type { TestApiClient } from '../testApiClient.ts'
 import type { Page } from '@playwright/test'
 
 const timeMasks = (page: Page) => [
@@ -15,7 +21,17 @@ const timeMasks = (page: Page) => [
 const shot = (page: Page, name: string, opts: { fullPage?: boolean } = {}) =>
   expect(page).toHaveScreenshot(name, { mask: timeMasks(page), ...opts })
 
-pcTest('snap: the landing page on a phone', async ({ landingPage, page }) => {
+/**
+ * The worker's database is shared by every test that lands on it, and the
+ * landing page lists every library menu in it. A worker runs one test at a
+ * time, so clearing the shelf here is safe and makes the page deterministic.
+ */
+async function clearMenuShelf(api: TestApiClient): Promise<void> {
+  for (const menu of await api.listMenus()) await api.deleteMenu(menu.id)
+}
+
+pcTest('snap: the landing page on a phone', async ({ api, landingPage, page }) => {
+  await clearMenuShelf(api)
   await landingPage.goto()
   await shot(page, 'phone-landing.png', { fullPage: true })
 })

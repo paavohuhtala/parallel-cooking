@@ -115,6 +115,31 @@ until `hello`, which keeps `menu` non-nullable — **the three views and step co
 untouched by the server work; keep it that way.** Local-only: the start dialog, rejections,
 view tab, recent rooms, and the `me` cook id.
 
+### Styles
+
+**CSS modules.** [styles.css](src/styles.css) is the only global stylesheet and holds only
+what no component could own: the design tokens, the reset, bare-element rules, `@keyframes`.
+Everything else is a `*.module.css` beside the file that renders it, so a class name is local
+and renaming one cannot reach across the app. The handful of classes several components
+render — a button, a chip, a status dot, a modal, `muted`/`small` — live in
+[ui.module.css](src/components/ui.module.css) and are imported like any other module;
+[cx.ts](src/components/cx.ts) joins the two or three that land on one element.
+
+Two rules keep the cascade from depending on the bundler's import order, which is the one
+thing scoping does *not* fix:
+
+- **Order inside a file is load-bearing and is preserved.** `.btnPrimary` after `.btnStart`,
+  `.muted` after `.small` — `muted small` together reads at 0.85rem, `small` alone at 0.8rem.
+  These were adjacent in the single stylesheet this was split out of and have to stay so.
+- **A component overriding a shared class does it from a more specific selector of its own**
+  — `.cardActions .primary`, `.head .save:disabled`, `.inspector .field` — never a bare class
+  racing `ui.module.css`. Where the shared element is a plain `<button>`, a descendant
+  selector (`.toast button`) says the same thing.
+
+Scoping the names is not free of consequence: two unrelated `.menu-list` classes — the
+landing page's list of menus and the editor's popup — were one global class, and the landing
+page's list was silently taking the popup's `position: absolute`. Splitting them fixed it.
+
 ### E2E tests
 
 [playwright.config.ts](playwright.config.ts) has **no `webServer`** on purpose. Each
@@ -127,7 +152,10 @@ servers, which is why there is no proxy in the picture.
 
 Tests drive the UI through page objects in [e2e-tests/pom/](e2e-tests/pom/) — locators as
 `readonly` fields, moves as methods, `expect*` to assert and `ensure*` to make true. New
-UI means extending a model, not reaching for a selector in a spec. Build locators in the
+UI means extending a model, not reaching for a selector in a spec. A model reaches the DOM by
+role, by accessible name, or by `data-testid` — never by class, which is scoped and hashed
+and is the stylesheet's business; a state a test needs to see is a `data-` attribute
+(`data-status`, `data-menu-open`), not a class it reads. Build locators in the
 constructor body: `useDefineForClassFields` means a field initialiser runs before the
 constructor can store `page`. The REST API is for arranging a test only.
 

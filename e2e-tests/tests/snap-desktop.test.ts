@@ -3,9 +3,15 @@
  * was split into modules and replayed after, so the refactor can be shown to
  * have changed nothing. Delete once the refactor has landed — the rest of the
  * suite is about behaviour, and behaviour is what belongs in it.
+ *
+ * Run them on their own — `npx playwright test --config playwright.local.config.ts snap-`
+ * — not as part of the whole suite: a worker's server and database are shared
+ * by the tests that land on it, so the landing page's menu list depends on
+ * which other specs have run there, and its height with it.
  */
 import { pcTest, expect } from '../pcTest.ts'
 import { COMPONENT, COOK, STEP } from '../defaultMenu.ts'
+import type { TestApiClient } from '../testApiClient.ts'
 import type { Page } from '@playwright/test'
 
 /** Everything whose text is a clock reading, which no two runs agree on. */
@@ -18,20 +24,38 @@ const timeMasks = (page: Page) => [
 const shot = (page: Page, name: string, opts: { fullPage?: boolean } = {}) =>
   expect(page).toHaveScreenshot(name, { mask: timeMasks(page), ...opts })
 
+/**
+ * The worker's database is shared by every test that lands on it, and the
+ * landing page lists every library menu in it. A worker runs one test at a
+ * time, so clearing the shelf here is safe and makes the page deterministic.
+ */
+async function clearMenuShelf(api: TestApiClient): Promise<void> {
+  for (const menu of await api.listMenus()) await api.deleteMenu(menu.id)
+}
+
 /* ------------------------------------------------------------------ landing */
 
-pcTest('snap: landing', async ({ landingPage, page }) => {
+pcTest('snap: landing', async ({ api, landingPage, page }) => {
+  await clearMenuShelf(api)
   await landingPage.goto()
   await shot(page, 'landing.png', { fullPage: true })
 })
 
-pcTest('snap: landing, dark', async ({ landingPage, page }) => {
+pcTest('snap: landing, dark', async ({ api, landingPage, page }) => {
+  await clearMenuShelf(api)
   await page.emulateMedia({ colorScheme: 'dark' })
   await landingPage.goto()
   await shot(page, 'landing-dark.png', { fullPage: true })
 })
 
-pcTest('snap: landing with a recent kitchen', async ({ landingPage, kitchen, room, page }) => {
+pcTest('snap: landing with a recent kitchen', async ({
+  api,
+  landingPage,
+  kitchen,
+  room,
+  page,
+}) => {
+  await clearMenuShelf(api)
   await kitchen.goto(room.id)
   await landingPage.goto()
   await expect(landingPage.recentRooms).toHaveCount(1)
@@ -206,14 +230,16 @@ pcTest('snap: the editor complaining', async ({ api, editor, page }) => {
   await shot(page, 'editor-problems.png', { fullPage: true })
 })
 
-pcTest('snap: the import dialog', async ({ library, landingPage, page }) => {
+pcTest('snap: the import dialog', async ({ api, library, landingPage, page }) => {
+  await clearMenuShelf(api)
   await landingPage.goto()
   await library.importButton.click()
   await expect(library.dialog).toBeVisible()
   await shot(page, 'import-dialog.png')
 })
 
-pcTest('snap: the import dialog with a verdict', async ({ library, landingPage, page }) => {
+pcTest('snap: the import dialog with a verdict', async ({ api, library, landingPage, page }) => {
+  await clearMenuShelf(api)
   await landingPage.goto()
   await library.check({ name: 'Ei kelpaa', courses: [{ name: 'Alku', components: [] }] })
   await expect(library.dialog.getByRole('button', { name: 'Tarkista' })).toBeEnabled()

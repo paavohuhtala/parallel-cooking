@@ -1,0 +1,458 @@
+/*
+ * The shared vocabulary: the handful of classes that belong to no single
+ * component because several render one. A button, a chip, a status dot, a
+ * modal — plus the two text utilities every file reaches for.
+ *
+ * The order of rules in this file is load-bearing where two classes land on
+ * the same element and set the same property: `.btnPrimary` after `.btnStart`,
+ * `.muted` after `.small`. It is the order they had in the single stylesheet
+ * this was split out of, and it is kept.
+ *
+ * A component that needs to override something here does it from a selector of
+ * its own that is *more specific* — `.cardActions .primary`, never a bare
+ * class racing this file. Across files the cascade would otherwise depend on
+ * the bundler's import order, which is not a thing to build a layout on.
+ */
+
+.small {
+  font-size: 0.8rem;
+}
+/* Deliberately after `.small`, and deliberately carrying a font size of its
+   own: `muted small` together reads at 0.85rem, `small` alone at 0.8rem. */
+.muted {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+/* ----------------------------------------------------------------- banners */
+
+.banner {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.75rem 1rem 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius);
+  font-size: 0.88rem;
+}
+.bannerWarn {
+  background: color-mix(in srgb, var(--active) 16%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--active) 45%, transparent);
+}
+.bannerError {
+  background: color-mix(in srgb, var(--critical) 16%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--critical) 45%, transparent);
+}
+.bannerOk {
+  background: color-mix(in srgb, var(--done) 14%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--done) 40%, transparent);
+}
+/* The dismiss button, pushed to the trailing edge. Direct child only: the
+   problem list nests buttons in an <li>, and an auto margin on a shrink-to-fit
+   block right-aligns each one, indenting every message by its own length. */
+.banner > button {
+  margin-left: auto;
+}
+
+/* ----------------------------------------------------------------- widgets */
+
+.btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 0.3rem 0.65rem;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+.btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+.btnGhost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+.btnGhost:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.btn.icon {
+  padding: 0.2rem 0.4rem;
+  line-height: 1;
+}
+.btnStart {
+  border-color: color-mix(in srgb, var(--ready) 55%, transparent);
+  color: var(--ready);
+}
+/*
+ * The one composed mark in the app, and the one that carries colour of its own:
+ * a white chef's hat with a green play badge. It needs two things the flat
+ * glyphs do not. It runs a size bigger than the button's own text, because the
+ * badge is a detail inside a detail and 13px turns it to mush; and its outline
+ * takes `--text` rather than the button's blue, so the hat reads as a hat
+ * instead of as a third tint of the button.
+ */
+.btnStart .icon {
+  font-size: 1.25em;
+  color: var(--text);
+}
+.btnDone {
+  border-color: color-mix(in srgb, var(--done) 55%, transparent);
+  color: var(--done);
+}
+/* Both moves put a glyph before their label, so both need the same gap. */
+.btnStart,
+.btnDone {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/*
+ * Icons are sized in `em`, so a call site sets their size with `font-size`
+ * exactly as it did when they were emoji, and one glyph works in a 15px row and
+ * a 1.05rem heading without a size prop. The negative baseline shift is what
+ * puts an em-tall box on the text baseline instead of hanging it below.
+ *
+ * The same class doubles as the button modifier above (`.btn.icon`): a button
+ * whose whole content is one glyph wants exactly these metrics.
+ */
+.icon {
+  display: inline-block;
+  vertical-align: -0.14em;
+  flex: none;
+}
+
+.chip {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.chip.isActive {
+  background: var(--text);
+  color: var(--surface);
+  border-color: var(--text);
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+  display: inline-block;
+  background: var(--blocked);
+}
+.dot.statusReady {
+  background: var(--ready);
+}
+.dot.statusActive {
+  background: var(--active);
+}
+.dot.statusDone {
+  background: var(--done);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+.pill.statusBlocked {
+  background: color-mix(in srgb, var(--blocked) 22%, transparent);
+  color: var(--text);
+}
+.pill.statusReady {
+  background: color-mix(in srgb, var(--ready) 20%, transparent);
+  color: var(--ready);
+}
+.pill.statusActive {
+  background: color-mix(in srgb, var(--active) 22%, transparent);
+  color: var(--active);
+}
+.pill.statusDone {
+  background: color-mix(in srgb, var(--done) 20%, transparent);
+  color: var(--done);
+}
+.pillHold {
+  background: color-mix(in srgb, var(--hold) 18%, transparent);
+  color: var(--hold);
+}
+
+.tag {
+  margin-left: 0.4rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+.tagHold {
+  background: color-mix(in srgb, var(--hold) 18%, transparent);
+  color: var(--hold);
+}
+
+/* Fill and ink both come from the component (`badgeColors`): the fill is a
+   cook's stored colour, so only code that has it can pick text that reads. */
+.cookDot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* A small text control — the cook picker, a name being typed in the roster. */
+.control {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 7px;
+  padding: 0.3rem 0.4rem;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.plainList {
+  margin: 0.3rem 0;
+  padding-left: 1.1rem;
+}
+.plainList li {
+  margin: 0.1rem 0;
+}
+.linkList {
+  list-style: none;
+  margin: 0.25rem 0;
+  padding: 0;
+}
+.linky {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.15rem 0;
+  cursor: pointer;
+  text-align: left;
+}
+.linky:hover {
+  text-decoration: underline;
+}
+
+/* ------------------------------------------------- sheets, modals, dialogs */
+
+/*
+ * Only visible where a side panel collapses into a modal sheet. The kitchen's
+ * detail panel and the menu editor's inspector share it, and the rule is the
+ * same for both: a tap that misses the sheet closes it.
+ */
+.detailBackdrop {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .detailBackdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgb(0 0 0 / 0.35);
+  }
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 0.35);
+}
+
+.modal {
+  width: min(360px, 100%);
+  padding: 1.1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 40px rgb(0 0 0 / 0.25);
+}
+.modal h2 {
+  margin-bottom: 0.15rem;
+}
+.modalHead {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.modalSheet {
+  width: min(460px, 100%);
+}
+
+@media (max-width: 900px) {
+  .modalSheet {
+    position: fixed;
+    inset: auto 0 0 0;
+    width: auto;
+    max-height: 85dvh;
+    overflow-y: auto;
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding-bottom: 1.5rem;
+  }
+}
+
+/* Clear of the phone's home indicator, as the detail sheet is. */
+@media (max-width: 640px) {
+  .modalSheet {
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  }
+}
+
+.modalCooks {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.9rem 0;
+}
+.cookChoice {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.cookChoice:hover {
+  background: var(--surface-2);
+  border-color: var(--muted);
+}
+
+.modalActions {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.modalWide {
+  width: min(760px, 100%);
+}
+
+/* ------------------------------------------------------ whole-page states */
+
+.splash {
+  min-height: 100dvh;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+  padding: 24px;
+  color: var(--muted);
+}
+
+.splash h1 {
+  color: var(--text);
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.spinner {
+  width: 26px;
+  height: 26px;
+  border: 3px solid var(--border);
+  border-top-color: var(--ready);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
+  }
+}
+
+/* ------------------------------------------------------------------ forms */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.field > span,
+.field > legend {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 0;
+}
+
+/* Named rather than matched by `input:not([type])`: the inspector puts a tag
+   you type into inside a `.field` too, and that one is a chip, not a box. */
+.textInput {
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+}
+
+.btnPrimary {
+  background: var(--ready);
+  border-color: var(--ready);
+  color: var(--on-ready);
+  font-weight: 600;
+}
+
+.error {
+  color: var(--critical);
+  margin: 0;
+  font-size: 0.9rem;
+}

@@ -4,6 +4,24 @@ import { Icon, STATION_ICON } from '../components/icons.tsx'
 import { recordOf, statusOf } from '../state/graph'
 import { useStore } from '../state/store'
 import { CookDot, STATUS_LABEL, StepControls } from '../components/StepControls'
+import { cx } from '../components/cx.ts'
+import ui from '../components/ui.module.css'
+import styles from './KanbanView.module.css'
+
+const DOT_CLASS: Record<StepStatus, string> = {
+  blocked: ui.statusBlocked,
+  ready: ui.statusReady,
+  active: ui.statusActive,
+  done: ui.statusDone,
+}
+
+/* `blocked` has no rule of its own: the card's own left border is that colour. */
+const CARD_CLASS: Record<StepStatus, string | undefined> = {
+  blocked: styles.statusBlocked,
+  ready: styles.statusReady,
+  active: styles.statusActive,
+  done: styles.statusDone,
+}
 
 const COLUMNS: { status: StepStatus; drop: StepState | null; hint: string }[] = [
   { status: 'blocked', drop: null, hint: 'Odottaa jotain aiempaa vaihetta' },
@@ -92,38 +110,38 @@ export function KanbanView({
   }
 
   return (
-    <div className="kanban" data-testid="board">
-      <div className="kanban-toolbar" data-testid="board-toolbar">
-        <span className="muted small">Ryhmittely:</span>
+    <div className={styles.kanban} data-testid="board">
+      <div className={styles.kanbanToolbar} data-testid="board-toolbar">
+        <span className={cx(ui.muted, ui.small)}>Ryhmittely:</span>
         {(Object.keys(GROUPING_LABEL) as Grouping[]).map((g) => (
           <button
             key={g}
-            className={`chip ${grouping === g ? 'is-active' : ''}`}
+            className={cx(ui.chip, grouping === g && ui.isActive)}
             onClick={() => setGrouping(g)}
           >
             {GROUPING_LABEL[g]}
           </button>
         ))}
-        <span className="muted small">Raahaa kortti sarakkeesta toiseen.</span>
+        <span className={cx(ui.muted, ui.small)}>Raahaa kortti sarakkeesta toiseen.</span>
       </div>
 
-      <div className="lanes">
+      <div className={styles.lanes}>
         {lanes.map((lane) => {
           const laneSteps = menu.steps.filter(lane.match)
           if (grouping !== 'none' && laneSteps.length === 0) return null
           return (
-            <section key={lane.id} className="lane" data-testid="lane">
+            <section key={lane.id} data-testid="lane">
               {lane.label && (
-                <h3 className="lane-title">
-                  {lane.color && <span className="cook-dot" style={{ background: lane.color }} />}
+                <h3 className={styles.laneTitle}>
+                  {lane.color && <span className={ui.cookDot} style={{ background: lane.color }} />}
                   {lane.label}
-                  <span className="muted small">
+                  <span className={cx(ui.muted, ui.small)}>
                     {laneSteps.filter((s) => statuses.get(s.id) === 'done').length}/
                     {laneSteps.length}
                   </span>
                 </h3>
               )}
-              <div className="board">
+              <div className={styles.board}>
                 {COLUMNS.map((column) => {
                   const cards = laneSteps
                     .filter((s) => statuses.get(s.id) === column.status)
@@ -132,9 +150,11 @@ export function KanbanView({
                   return (
                     <div
                       key={column.status}
-                      className={`column status-${column.status} ${
-                        hover === key ? 'is-hover' : ''
-                      } ${dragging && !column.drop ? 'is-nodrop' : ''}`}
+                      className={cx(
+                        styles.column,
+                        hover === key && styles.isHover,
+                        dragging && !column.drop && styles.isNodrop,
+                      )}
                       data-testid={`column-${column.status}`}
                       onDragOver={(e) => {
                         if (!column.drop) return
@@ -144,13 +164,15 @@ export function KanbanView({
                       onDragLeave={() => setHover((h) => (h === key ? null : h))}
                       onDrop={(e) => drop(e, column.drop)}
                     >
-                      <header className="column-head">
-                        <span className={`dot status-${column.status}`} />
+                      <header className={styles.columnHead}>
+                        <span className={cx(ui.dot, DOT_CLASS[column.status])} />
                         <strong>{STATUS_LABEL[column.status]}</strong>
-                        <span className="muted small">{cards.length}</span>
+                        <span className={cx(styles.columnCount, ui.muted, ui.small)}>
+                          {cards.length}
+                        </span>
                       </header>
-                      {!lane.label && <p className="column-hint muted small">{column.hint}</p>}
-                      <div className="column-body">
+                      {!lane.label && <p className={cx(ui.muted, ui.small)}>{column.hint}</p>}
+                      <div className={styles.columnBody}>
                         {cards.map((step) => (
                           <Card
                             key={step.id}
@@ -200,7 +222,7 @@ function Card({
 
   return (
     <article
-      className={`card status-${status} ${selected ? 'is-selected' : ''}`}
+      className={cx(styles.card, CARD_CLASS[status], selected && styles.isSelected)}
       data-testid="card"
       draggable
       onDragStart={(e) => {
@@ -211,19 +233,19 @@ function Card({
       onDragEnd={onDragEnd}
       onClick={() => onSelect(step.id)}
     >
-      <div className="card-top">
-        <span className="card-component muted small">{component?.name}</span>
-        <CookDot cookId={record.cookId} />
+      <div className={styles.cardTop}>
+        <span className={cx(ui.muted, ui.small)}>{component?.name}</span>
+        <CookDot cookId={record.cookId} className={styles.cardCook} />
       </div>
-      <div className="card-title" data-testid="card-title">
+      <div className={styles.cardTitle} data-testid="card-title">
         {step.title}
       </div>
       {step.station !== 'muu' && (
-        <div className="card-facts muted small">
+        <div className={cx(ui.muted, ui.small)}>
           <Icon name={STATION_ICON[step.station]} /> {station?.label}
         </div>
       )}
-      <StepControls step={step} status={status} />
+      <StepControls step={step} status={status} className={styles.cardControls} />
     </article>
   )
 }

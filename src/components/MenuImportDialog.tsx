@@ -4,6 +4,9 @@ import type { MenuImportResponse } from '../shared/api.ts'
 import { MENU_PROMPT } from '../shared/menuPrompt.ts'
 import { ApiError, importMenu } from '../api/client.ts'
 import { Icon } from './icons.tsx'
+import { cx } from './cx.ts'
+import ui from './ui.module.css'
+import styles from './MenuImportDialog.module.css'
 
 /**
  * Paste or open a JSON document, check it, and hand the caller the canonical
@@ -79,26 +82,26 @@ export function MenuImportDialog({
   const blocking = preview?.problems.filter((p) => p.severity === 'error') ?? []
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className={ui.modalBackdrop} onClick={onClose}>
       <div
-        className="modal modal-wide"
+        className={cx(ui.modal, ui.modalWide)}
         role="dialog"
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="modal-head">
+        <div className={ui.modalHead}>
           <h2>{title}</h2>
-          <button className="btn btn-ghost icon" onClick={onClose} aria-label="Sulje">
+          <button className={cx(ui.btn, ui.btnGhost, ui.icon)} onClick={onClose} aria-label="Sulje">
             <Icon name="close" />
           </button>
         </div>
 
-        <p className="muted small">
+        <p className={cx(ui.muted, ui.small)}>
           Liitä JSON tai valitse tiedosto. Muoto on kuvattu docs/menu-format.md:ssä.
         </p>
 
-        <div className="import-tools">
+        <div className={styles.importTools}>
           <input
             type="file"
             accept="application/json,.json"
@@ -112,7 +115,7 @@ export function MenuImportDialog({
             }}
           />
           <button
-            className="btn btn-ghost"
+            className={cx(ui.btn, ui.btnGhost)}
             onClick={() => void navigator.clipboard.writeText(MENU_PROMPT).catch(() => {})}
           >
             Kopioi LLM-kehote
@@ -120,7 +123,7 @@ export function MenuImportDialog({
         </div>
 
         <textarea
-          className="import-text"
+          className={styles.importText}
           rows={10}
           value={text}
           aria-label="Menu JSON-muodossa"
@@ -132,13 +135,13 @@ export function MenuImportDialog({
         />
 
         {error && (
-          <p className="error" data-testid="error">
+          <p className={ui.error} data-testid="error">
             {error}
           </p>
         )}
 
         {preview && (
-          <div className={`banner ${blocking.length ? 'banner-error' : 'banner-ok'}`}>
+          <div className={cx(ui.banner, blocking.length ? ui.bannerError : ui.bannerOk)}>
             <div>
               {blocking.length === 0 && (
                 <p>
@@ -146,12 +149,12 @@ export function MenuImportDialog({
                   {preview.menu.steps.length} vaihetta
                 </p>
               )}
-              <ul className="plain-list">
+              <ul className={ui.plainList}>
                 {preview.problems.map((p, i) => (
                   <li key={i}>{p.message}</li>
                 ))}
                 {preview.notes.map((n, i) => (
-                  <li key={`n${i}`} className="muted">
+                  <li key={`n${i}`} className={ui.muted}>
                     {n}
                   </li>
                 ))}
@@ -160,18 +163,18 @@ export function MenuImportDialog({
           </div>
         )}
 
-        <div className="modal-actions">
-          <button className="btn" disabled={busy || !text.trim()} onClick={() => void check()}>
+        <div className={ui.modalActions}>
+          <button className={ui.btn} disabled={busy || !text.trim()} onClick={() => void check()}>
             Tarkista
           </button>
           <button
-            className="btn btn-primary"
+            className={cx(ui.btn, ui.btnPrimary)}
             disabled={busy || !text.trim() || blocking.length > 0}
             onClick={() => void accept()}
           >
             {busy ? 'Odota…' : acceptLabel}
           </button>
-          <button className="btn btn-ghost" onClick={onClose}>
+          <button className={cx(ui.btn, ui.btnGhost)} onClick={onClose}>
             Peruuta
           </button>
         </div>

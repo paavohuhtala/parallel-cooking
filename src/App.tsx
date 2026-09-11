@@ -13,6 +13,9 @@ import { GraphView } from './views/GraphView'
 import { KanbanView } from './views/KanbanView'
 import { RecipeView } from './views/RecipeView'
 import { ShiftView } from './views/ShiftView'
+import { cx } from './components/cx.ts'
+import ui from './components/ui.module.css'
+import styles from './App.module.css'
 
 type View = 'recipe' | 'graph' | 'board' | 'shift'
 
@@ -20,6 +23,12 @@ const CONNECTION_LABEL: Record<'connecting' | 'online' | 'offline', string> = {
   connecting: 'Yhdistetään…',
   online: 'Verkossa',
   offline: 'Ei yhteyttä',
+}
+
+const CONNECTION_CLASS: Record<'connecting' | 'online' | 'offline', string> = {
+  connecting: styles.connConnecting,
+  online: styles.connOnline,
+  offline: styles.connOffline,
 }
 
 const VIEWS: { id: View; label: string; icon: IconName }[] = [
@@ -75,31 +84,31 @@ export default function App() {
   const select = (id: string) => setSelected((current) => (current === id ? null : id))
 
   return (
-    <div className={`app view-${view} ${selected ? 'has-detail' : ''}`}>
-      <header className="topbar" data-testid="topbar">
-        <div className="brand">
+    <div className={cx(styles.app, view === 'shift' && styles.viewShift, selected && styles.hasDetail)}>
+      <header className={styles.topbar} data-testid="topbar">
+        <div className={styles.brand}>
           <h1>{room.name}</h1>
-          <p className="muted small" data-testid="room-progress">
+          <p className={cx(ui.muted, ui.small)} data-testid="room-progress">
             {progress.done}/{progress.total} vaihetta valmiina · pisin jäljellä oleva ketju{' '}
             {progress.criticalChainLeft} vaihetta
           </p>
         </div>
 
-        <nav className="tabs" role="tablist">
+        <nav className={styles.tabs} role="tablist">
           {VIEWS.map((v) => (
             <button
               key={v.id}
               role="tab"
               aria-selected={view === v.id}
-              className={`tab ${view === v.id ? 'is-active' : ''}`}
+              className={cx(styles.tab, view === v.id && styles.isActive)}
               onClick={() => setView(v.id)}
             >
-              <Icon name={v.icon} /> {v.label}
+              <Icon name={v.icon} className={styles.tabIcon} /> {v.label}
             </button>
           ))}
         </nav>
 
-        <div className="topbar-actions" data-testid="topbar-actions">
+        <div className={styles.topbarActions} data-testid="topbar-actions">
           <RoomActions
             copied={copied}
             cooks={state.cooks.length}
@@ -112,7 +121,7 @@ export default function App() {
 
         {/* Where the four buttons above do not fit, they move in here. */}
         <button
-          className="btn btn-ghost icon topbar-more"
+          className={cx(ui.btn, ui.btnGhost, ui.icon, styles.topbarMore)}
           onClick={() => setActionsOpen(true)}
           aria-label="Toiminnot"
         >
@@ -120,47 +129,51 @@ export default function App() {
         </button>
 
         <span
-          className={`conn conn-${connection}`}
+          className={cx(styles.conn, CONNECTION_CLASS[connection])}
           data-testid="connection"
           title={CONNECTION_LABEL[connection]}
         >
           {CONNECTION_LABEL[connection]}
         </span>
 
-        <div className="progressbar" aria-hidden>
-          <span className="seg done" style={{ flexGrow: progress.done }} />
-          <span className="seg active" style={{ flexGrow: progress.active }} />
-          <span className="seg ready" style={{ flexGrow: progress.ready }} />
-          <span className="seg blocked" style={{ flexGrow: progress.blocked }} />
+        <div className={styles.progressbar} aria-hidden>
+          <span className={cx(styles.seg, styles.done)} style={{ flexGrow: progress.done }} />
+          <span className={cx(styles.seg, styles.active)} style={{ flexGrow: progress.active }} />
+          <span className={cx(styles.seg, styles.ready)} style={{ flexGrow: progress.ready }} />
+          <span className={cx(styles.seg, styles.blocked)} style={{ flexGrow: progress.blocked }} />
         </div>
       </header>
 
       {index.problems.length > 0 && (
-        <div className="banner banner-error">
+        <div className={cx(ui.banner, ui.bannerError)}>
           <strong>Reseptidatassa on virhe:</strong> {index.problems.join(' ')}
         </div>
       )}
 
       {rejection && (
-        <div className="banner banner-warn" role="alert" data-testid="rejection">
+        <div className={cx(ui.banner, ui.bannerWarn)} role="alert" data-testid="rejection">
           {rejection.stepId && (
             <strong>{index.steps.get(rejection.stepId)?.title}: </strong>
           )}
           {rejection.reason}
-          <button className="btn btn-ghost icon" onClick={dismissRejection} aria-label="Sulje">
+          <button
+            className={cx(ui.btn, ui.btnGhost, ui.icon)}
+            onClick={dismissRejection}
+            aria-label="Sulje"
+          >
             <Icon name="close" />
           </button>
         </div>
       )}
 
       {upNext.length > 0 && (
-        <div className="upnext" data-testid="upnext">
-          <span className="upnext-label">Seuraavaksi</span>
-          <div className="upnext-items">
+        <div className={styles.upnext} data-testid="upnext">
+          <span className={styles.upnextLabel}>Seuraavaksi</span>
+          <div className={styles.upnextItems}>
             {upNext.slice(0, 6).map((step) => (
               <button
                 key={step.id}
-                className="chip"
+                className={ui.chip}
                 data-testid="upnext-chip"
                 onClick={() => select(step.id)}
               >
@@ -176,9 +189,9 @@ export default function App() {
         put, and the board can run as wide as it likes without the header
         sliding out from under it.
       */}
-      <div className="workspace">
-        <div className="scroller">
-          <main className="content">
+      <div className={styles.workspace}>
+        <div className={styles.scroller}>
+          <main className={styles.content}>
             {view === 'recipe' && <RecipeView selected={selected} onSelect={select} />}
             {view === 'graph' && <GraphView selected={selected} onSelect={select} />}
             {view === 'board' && <KanbanView selected={selected} onSelect={select} />}
@@ -190,7 +203,7 @@ export default function App() {
           <>
             {/* Only visible where the panel collapses into a modal sheet. */}
             <div
-              className="detail-backdrop"
+              className={ui.detailBackdrop}
               data-testid="detail-backdrop"
               onClick={() => setSelected(null)}
             />
@@ -254,10 +267,10 @@ function RoomActions({
 }) {
   return (
     <>
-      <button className="btn btn-ghost" onClick={onCooks}>
+      <button className={cx(ui.btn, ui.btnGhost)} onClick={onCooks}>
         <Icon name="cooks" /> Kokit ({cooks})
       </button>
-      <button className="btn btn-ghost" onClick={onCopy}>
+      <button className={cx(ui.btn, ui.btnGhost)} onClick={onCopy}>
         {copied ? (
           <>
             <Icon name="check" /> Kopioitu
@@ -268,10 +281,10 @@ function RoomActions({
           </>
         )}
       </button>
-      <button className="btn btn-ghost" onClick={onEdit}>
+      <button className={cx(ui.btn, ui.btnGhost)} onClick={onEdit}>
         <Icon name="edit" /> Muokkaa menua
       </button>
-      <button className="btn btn-ghost" onClick={onFresh}>
+      <button className={cx(ui.btn, ui.btnGhost)} onClick={onFresh}>
         Uusi keittiö
       </button>
     </>
@@ -280,21 +293,21 @@ function RoomActions({
 
 function ActionsSheet({ onClose, children }: { onClose: () => void; children: ReactNode }) {
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className={ui.modalBackdrop} onClick={onClose}>
       <div
-        className="modal modal-sheet"
+        className={cx(ui.modal, ui.modalSheet)}
         role="dialog"
         aria-modal="true"
         aria-label="Toiminnot"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="modal-head">
+        <div className={ui.modalHead}>
           <h2>Toiminnot</h2>
-          <button className="btn btn-ghost icon" onClick={onClose} aria-label="Sulje">
+          <button className={cx(ui.btn, ui.btnGhost, ui.icon)} onClick={onClose} aria-label="Sulje">
             <Icon name="close" />
           </button>
         </div>
-        <div className="sheet-actions">{children}</div>
+        <div className={styles.sheetActions}>{children}</div>
       </div>
     </div>
   )
@@ -320,8 +333,8 @@ function MenuEditorOverlay({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="editor-overlay">
-      <div className="banner banner-warn editor-live-note">
+    <div className={styles.editorOverlay}>
+      <div className={cx(ui.banner, ui.bannerWarn, styles.editorLiveNote)}>
         Muokkaat tämän keittiön menua. Tallennus näkyy heti kaikille kokeille.
       </div>
       <MenuEditor
@@ -339,47 +352,48 @@ function MenuEditorOverlay({ onClose }: { onClose: () => void }) {
 function CooksModal({ onClose }: { onClose: () => void }) {
   const { state, presence, addCook, renameCook, removeCook, me, setMe } = useStore()
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className={ui.modalBackdrop} onClick={onClose}>
       <div
-        className="modal modal-sheet"
+        className={cx(ui.modal, ui.modalSheet)}
         role="dialog"
         aria-modal="true"
         aria-label="Kokit"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="modal-head">
+        <div className={ui.modalHead}>
           <h2>Kokit</h2>
-          <button className="btn btn-ghost icon" onClick={onClose} aria-label="Sulje">
+          <button className={cx(ui.btn, ui.btnGhost, ui.icon)} onClick={onClose} aria-label="Sulje">
             <Icon name="close" />
           </button>
         </div>
 
-        <div className="cooks-list">
+        <div className={styles.cooksList}>
           {state.cooks.map((cook) => (
             <div
               key={cook.id}
-              className={`cook-row${me === cook.id ? ' is-me' : ''}`}
+              className={cx(styles.cookRow, me === cook.id && styles.isMe)}
               data-testid="cook-row"
             >
               <PresenceDot online={presence.has(cook.id)} />
-              <span className="cook-dot" style={badgeColors(cook.color)}>
+              <span className={ui.cookDot} style={badgeColors(cook.color)}>
                 {cook.name.trim().charAt(0).toUpperCase() || '?'}
               </span>
               <input
+                className={ui.control}
                 value={cook.name}
                 onChange={(e) => renameCook(cook.id, e.target.value)}
                 aria-label="Kokin nimi"
               />
               {/* Who *this browser* is: a per-cook toggle, so it needs no explaining. */}
               <button
-                className={`btn btn-me${me === cook.id ? ' is-active' : ''}`}
+                className={cx(ui.btn, styles.btnMe, me === cook.id && styles.isActive)}
                 onClick={() => setMe(me === cook.id ? null : cook.id)}
                 aria-pressed={me === cook.id}
               >
                 Oon tää
               </button>
               <button
-                className="btn btn-ghost icon"
+                className={cx(ui.btn, ui.btnGhost, ui.icon)}
                 onClick={() => removeCook(cook.id)}
                 aria-label={`Poista ${cook.name}`}
                 disabled={state.cooks.length <= 1}
@@ -390,11 +404,11 @@ function CooksModal({ onClose }: { onClose: () => void }) {
           ))}
         </div>
 
-        <div className="modal-actions" data-testid="modal-actions">
-          <button className="btn" onClick={addCook}>
+        <div className={ui.modalActions} data-testid="modal-actions">
+          <button className={ui.btn} onClick={addCook}>
             Lisää kokki
           </button>
-          <button className="btn btn-ghost" onClick={onClose}>
+          <button className={cx(ui.btn, ui.btnGhost)} onClick={onClose}>
             Sulje
           </button>
         </div>
@@ -412,7 +426,7 @@ function CooksModal({ onClose }: { onClose: () => void }) {
 function PresenceDot({ online }: { online: boolean }) {
   return (
     <span
-      className={`presence${online ? ' is-online' : ''}`}
+      className={cx(styles.presence, online && styles.isOnline)}
       {...(online ? { role: 'img', 'aria-label': 'Paikalla', title: 'Paikalla' } : {})}
     />
   )

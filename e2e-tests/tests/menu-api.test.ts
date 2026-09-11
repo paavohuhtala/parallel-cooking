@@ -140,7 +140,7 @@ test('removing a step from a kitchen menu prunes the progress recorded against i
   // A fresh kitchen has two cooks and nobody has said who they are, so starting
   // a step asks first.
   await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
-  await expect(row).toHaveClass(/status-active/)
+  await expect(row).toHaveAttribute('data-status', 'active')
 
   const trimmed = structuredClone(before.menu)
   trimmed.steps = trimmed.steps

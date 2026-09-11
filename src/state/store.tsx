@@ -11,6 +11,7 @@ import {
 import type { KitchenState, Menu, StepState } from '../model/types.ts'
 import { checkTransition, recordOf, type GraphIndex } from './graph.ts'
 import { sessionFor, type Connection, type Rejection } from './session.ts'
+import ui from '../components/ui.module.css'
 
 export { COOK_COLORS } from '../shared/apply.ts'
 export type { Rejection } from './session.ts'
@@ -184,10 +185,10 @@ export function StoreProvider({ roomId, children }: { roomId: string; children: 
 
   if (snapshot.fatal) {
     return (
-      <div className="splash">
+      <div className={ui.splash}>
         <h1>Keittiötä ei löytynyt</h1>
         <p>{snapshot.fatal}</p>
-        <a className="btn" href="/">
+        <a className={ui.btn} href="/">
           Takaisin alkuun
         </a>
       </div>
@@ -198,8 +199,8 @@ export function StoreProvider({ roomId, children }: { roomId: string; children: 
   // there. Gating here is what keeps that true and leaves those files alone.
   if (!value) {
     return (
-      <div className="splash">
-        <div className="spinner" aria-hidden />
+      <div className={ui.splash}>
+        <div className={ui.spinner} aria-hidden />
         <p>Yhdistetään keittiöön…</p>
       </div>
     )

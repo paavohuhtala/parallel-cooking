@@ -7,7 +7,7 @@ import {
   useState,
   type PointerEvent,
 } from 'react'
-import { STATIONS } from '../model/types'
+import { STATIONS, type StepStatus } from '../model/types'
 import { Icon, STATION_ICON } from '../components/icons.tsx'
 import { badgeColors } from '../components/ink.ts'
 import { recordOf, statusMap, statusOf } from '../state/graph'
@@ -15,6 +15,23 @@ import { buildChains, chainStatus } from '../state/chains'
 import { layoutGraph, NODE_W, type LayoutInput } from '../state/layout'
 import { useStore } from '../state/store'
 import { STATUS_LABEL } from '../components/StepControls'
+import { cx } from '../components/cx.ts'
+import ui from '../components/ui.module.css'
+import styles from './GraphView.module.css'
+
+const DOT_CLASS: Record<StepStatus, string> = {
+  blocked: ui.statusBlocked,
+  ready: ui.statusReady,
+  active: ui.statusActive,
+  done: ui.statusDone,
+}
+
+const NODE_CLASS: Record<StepStatus, string> = {
+  blocked: styles.statusBlocked,
+  ready: styles.statusReady,
+  active: styles.statusActive,
+  done: styles.statusDone,
+}
 
 const MIN_FIT = 0.5
 const MIN_SCALE = 0.35
@@ -173,24 +190,24 @@ export function GraphView({
   const merged = chainIndex.chains.filter((c) => c.stepIds.length > 1).length
 
   return (
-    <div className="graph" data-testid="graph">
-      <div className="graph-toolbar">
-        <button className="btn btn-ghost" onClick={fit}>
+    <div className={styles.graph} data-testid="graph">
+      <div className={styles.graphToolbar}>
+        <button className={cx(ui.btn, ui.btnGhost)} onClick={fit}>
           Sovita näkymään
         </button>
         <button
-          className="btn btn-ghost"
+          className={cx(ui.btn, ui.btnGhost)}
           onClick={() => zoomFromCentre(1.15)}
         >
           <Icon name="add" />
         </button>
         <button
-          className="btn btn-ghost"
+          className={cx(ui.btn, ui.btnGhost)}
           onClick={() => zoomFromCentre(1 / 1.15)}
         >
           <Icon name="subtract" />
         </button>
-        <label className="toggle">
+        <label className={ui.toggle}>
           <input
             type="checkbox"
             checked={merge}
@@ -198,7 +215,7 @@ export function GraphView({
           />
           Yhdistä peräkkäiset vaiheet
         </label>
-        <label className="toggle">
+        <label className={ui.toggle}>
           <input
             type="checkbox"
             checked={showCritical}
@@ -206,7 +223,7 @@ export function GraphView({
           />
           Korosta kriittinen polku
         </label>
-        <span className="muted small">
+        <span className={cx(ui.muted, ui.small)}>
           {merge && merged > 0
             ? `${chainIndex.chains.length} korttia, ${menu.steps.length} vaihetta`
             : `${menu.steps.length} vaihetta`}
@@ -215,7 +232,7 @@ export function GraphView({
 
       <svg
         ref={svgRef}
-        className="graph-canvas"
+        className={styles.graphCanvas}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
@@ -235,9 +252,12 @@ export function GraphView({
               <path
                 key={`${edge.from}->${edge.to}`}
                 d={edge.path}
-                className={`edge ${critical ? 'is-critical' : ''} ${
-                  satisfied ? 'is-satisfied' : ''
-                } ${dim ? 'is-dim' : ''}`}
+                className={cx(
+                  styles.edge,
+                  critical && styles.isCritical,
+                  satisfied && styles.isSatisfied,
+                  dim && styles.isDim,
+                )}
               />
             )
           })}
@@ -254,12 +274,16 @@ export function GraphView({
               <g
                 key={node.id}
                 transform={`translate(${node.x} ${node.y})`}
-                className={`node status-${status} ${critical ? 'is-critical' : ''} ${
-                  holdsSelection ? 'is-selected' : ''
-                } ${dim ? 'is-dim' : ''}`}
+                className={cx(
+                  styles.node,
+                  NODE_CLASS[status],
+                  critical && styles.isCritical,
+                  holdsSelection && styles.isSelected,
+                  dim && styles.isDim,
+                )}
               >
-                <rect width={NODE_W} height={node.height} rx={10} className="node-box" />
-                <rect width={5} height={node.height} rx={2.5} className="node-stripe" />
+                <rect width={NODE_W} height={node.height} rx={10} className={styles.nodeBox} />
+                <rect width={5} height={node.height} rx={2.5} className={styles.nodeStripe} />
                 <foreignObject
                   x={12}
                   y={chain.stepIds.length === 1 ? 7 : CHAIN_PAD_Y}
@@ -278,15 +302,15 @@ export function GraphView({
         </g>
       </svg>
 
-      <div className="graph-legend">
+      <div className={styles.graphLegend}>
         {(['blocked', 'ready', 'active', 'done'] as const).map((s) => (
-          <span key={s} className="legend-item">
-            <span className={`dot status-${s}`} />
+          <span key={s} className={styles.legendItem}>
+            <span className={cx(ui.dot, DOT_CLASS[s])} />
             {STATUS_LABEL[s].toLowerCase()}
           </span>
         ))}
-        <span className="legend-item">
-          <span className="legend-line is-critical" /> kriittinen polku
+        <span className={styles.legendItem}>
+          <span className={styles.legendLine} /> kriittinen polku
         </span>
       </div>
     </div>
@@ -306,17 +330,17 @@ function SingleCard({
   const station = STATIONS.find((s) => s.id === step.station)
 
   return (
-    <div className="node-body" onClick={() => onSelect(stepId)}>
-      <div className="node-title">{step.title}</div>
+    <div className={styles.nodeBody} onClick={() => onSelect(stepId)}>
+      <div className={styles.nodeTitle}>{step.title}</div>
       {(step.station !== 'muu' || cook) && (
-        <div className="node-facts">
+        <div className={styles.nodeFacts}>
           {step.station !== 'muu' && (
             <>
               <Icon name={STATION_ICON[step.station]} /> {station?.label}
             </>
           )}
           {cook ? (
-            <span className="node-cook" style={{ color: cook.color }}>
+            <span style={{ color: cook.color }}>
               {step.station !== 'muu' ? ' · ' : ''}
               {cook.name}
             </span>
@@ -351,8 +375,8 @@ function ChainCard({
 
 
   return (
-    <div className="node-body node-chain">
-      <div className="node-kicker">
+    <div className={cx(styles.nodeBody, styles.nodeChain)}>
+      <div className={styles.nodeKicker}>
         {shared && <Icon name={STATION_ICON[shared]} />} {component?.name} ·{' '}
         {chain.stepIds.length} vaihetta
       </div>
@@ -363,21 +387,21 @@ function ChainCard({
         return (
           <div
             key={id}
-            className={`node-step status-${status} ${selected === id ? 'is-selected' : ''}`}
+            className={cx(styles.nodeStep, NODE_CLASS[status], selected === id && styles.isSelected)}
             title={step.title}
             onClick={(e) => {
               e.stopPropagation()
               onSelect(id)
             }}
           >
-            <span className="node-step-index">{i + 1}</span>
-            <span className={`dot status-${status}`} />
-            <span className="node-step-title">
+            <span className={styles.nodeStepIndex}>{i + 1}</span>
+            <span className={cx(ui.dot, styles.stepDot, DOT_CLASS[status])} />
+            <span className={styles.nodeStepTitle}>
               {!shared && step.station !== 'muu' && <Icon name={STATION_ICON[step.station]} />}{' '}
               {step.title}
             </span>
             {cook && (
-              <span className="node-step-cook" style={badgeColors(cook.color)}>
+              <span className={styles.nodeStepCook} style={badgeColors(cook.color)}>
                 {cook.name.trim().charAt(0).toUpperCase() || '?'}
               </span>
             )}

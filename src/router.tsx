@@ -8,6 +8,7 @@ import { getMenu, getRoom } from './api/client.ts'
 import LandingRoute from './routes/LandingRoute.tsx'
 import MenuEditorRoute from './routes/MenuEditorRoute.tsx'
 import RoomRoute from './routes/RoomRoute.tsx'
+import ui from './components/ui.module.css'
 
 const rootRoute = createRootRoute({ component: Outlet })
 
@@ -25,10 +26,10 @@ const roomRoute = createRoute({
   loader: ({ params }) => getRoom(params.roomId),
   component: RoomRoute,
   errorComponent: () => (
-    <div className="splash">
+    <div className={ui.splash}>
       <h1>Keittiötä ei löytynyt</h1>
       <p>Linkki voi olla vanhentunut tai väärin kirjoitettu.</p>
-      <a className="btn" href="/">
+      <a className={ui.btn} href="/">
         Takaisin alkuun
       </a>
     </div>
@@ -43,10 +44,10 @@ const menuRoute = createRoute({
   loader: ({ params }) => getMenu(params.menuId),
   component: MenuEditorRoute,
   errorComponent: () => (
-    <div className="splash">
+    <div className={ui.splash}>
       <h1>Menua ei löytynyt</h1>
       <p>Linkki voi olla vanhentunut tai väärin kirjoitettu.</p>
-      <a className="btn" href="/">
+      <a className={ui.btn} href="/">
         Takaisin alkuun
       </a>
     </div>
@@ -56,9 +57,9 @@ const menuRoute = createRoute({
 export const router = createRouter({
   routeTree: rootRoute.addChildren([indexRoute, roomRoute, menuRoute]),
   defaultNotFoundComponent: () => (
-    <div className="splash">
+    <div className={ui.splash}>
       <h1>Sivua ei löytynyt</h1>
-      <a className="btn" href="/">
+      <a className={ui.btn} href="/">
         Takaisin alkuun
       </a>
     </div>

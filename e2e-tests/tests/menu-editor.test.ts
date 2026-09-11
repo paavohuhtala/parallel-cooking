@@ -51,13 +51,13 @@ test('a dish can be typed with the keyboard alone, and auto-chains as it goes', 
   await library.startKitchen('Näppäimistömenu')
   const first = page.getByTestId('step-row').filter({ hasText: 'Pilko sipuli' })
   const second = page.getByTestId('step-row').filter({ hasText: 'Kuullota sipuli' })
-  await expect(first).toHaveClass(/status-ready/)
-  await expect(second).toHaveClass(/status-blocked/)
+  await expect(first).toHaveAttribute('data-status', 'ready')
+  await expect(second).toHaveAttribute('data-status', 'blocked')
 
   await first.getByRole('button', { name: 'Aloita' }).click()
   await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
   await first.getByRole('button', { name: 'Valmis' }).click()
-  await expect(second).toHaveClass(/status-ready/)
+  await expect(second).toHaveAttribute('data-status', 'ready')
 })
 
 test('a multi-course menu can be built from a blank one by clicking alone', async ({
@@ -116,16 +116,16 @@ test('a multi-course menu can be built from a blank one by clicking alone', asyn
   const salad = page.getByTestId('step-row').filter({ hasText: 'Pese salaatti' })
   const icecream = page.getByTestId('step-row').filter({ hasText: 'Nosta pakkasesta' })
 
-  await expect(chop).toHaveClass(/status-ready/)
-  await expect(broth).toHaveClass(/status-blocked/)
+  await expect(chop).toHaveAttribute('data-status', 'ready')
+  await expect(broth).toHaveAttribute('data-status', 'blocked')
   // First in their own dish, so they wait for nothing at all.
-  await expect(salad).toHaveClass(/status-ready/)
-  await expect(icecream).toHaveClass(/status-ready/)
+  await expect(salad).toHaveAttribute('data-status', 'ready')
+  await expect(icecream).toHaveAttribute('data-status', 'ready')
 
   await chop.getByRole('button', { name: 'Aloita' }).click()
   await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
   await chop.getByRole('button', { name: 'Valmis' }).click()
-  await expect(broth).toHaveClass(/status-ready/)
+  await expect(broth).toHaveAttribute('data-status', 'ready')
 })
 
 test('a course collapses to a summary and reopens, without touching the menu', async ({
@@ -228,7 +228,7 @@ test("a row's ⋯ sits beside its title, and opening it marks the row without se
   // Looking at a row's menu is not choosing to edit the row: the inspector stays
   // where it was, and the row the menu belongs to is marked instead.
   const menu = await editor.openRowMenu('Keitto')
-  await expect(editor.rowBlock('Osa', 'Keitto')).toHaveClass(/is-menu-open/)
+  await expect(editor.rowBlock('Osa', 'Keitto')).toHaveAttribute('data-menu-open', 'true')
   // A short title puts the ⋯ near the left edge; a menu that ends at its button
   // would open off the screen.
   await editor.expectRowMenuOnScreen()
@@ -237,7 +237,7 @@ test("a row's ⋯ sits beside its title, and opening it marks the row without se
   // menu has no details item to offer.
   await expect(menu.getByRole('menuitem', { name: 'Tiedot' })).toBeHidden()
   await editor.closeRowMenu()
-  await expect(editor.rowBlock('Osa', 'Keitto')).not.toHaveClass(/is-menu-open/)
+  await expect(editor.rowBlock('Osa', 'Keitto')).not.toHaveAttribute('data-menu-open', 'true')
 })
 
 test("on a phone the row menu is how a dish's details are opened", async ({
@@ -342,11 +342,11 @@ test('Alt+Arrow reorders a step and rebuilds the chain around it', async ({
   // "Kolmas" now follows "Eka", so finishing Eka unblocks it rather than Toka.
   const eka = page.getByTestId('step-row').filter({ hasText: 'Eka' })
   const kolmas = page.getByTestId('step-row').filter({ hasText: 'Kolmas' })
-  await expect(kolmas).toHaveClass(/status-blocked/)
+  await expect(kolmas).toHaveAttribute('data-status', 'blocked')
   await eka.getByRole('button', { name: 'Aloita' }).click()
   await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
   await eka.getByRole('button', { name: 'Valmis' }).click()
-  await expect(kolmas).toHaveClass(/status-ready/)
+  await expect(kolmas).toHaveAttribute('data-status', 'ready')
 })
 
 test('deleting a step in the middle heals the chain instead of breaking it', async ({
@@ -382,11 +382,11 @@ test('deleting a step in the middle heals the chain instead of breaking it', asy
   await library.startKitchen('Poisto')
   const eka = page.getByTestId('step-row').filter({ hasText: 'Eka' })
   const kolmas = page.getByTestId('step-row').filter({ hasText: 'Kolmas' })
-  await expect(kolmas).toHaveClass(/status-blocked/)
+  await expect(kolmas).toHaveAttribute('data-status', 'blocked')
   await eka.getByRole('button', { name: 'Aloita' }).click()
   await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
   await eka.getByRole('button', { name: 'Valmis' }).click()
-  await expect(kolmas).toHaveClass(/status-ready/)
+  await expect(kolmas).toHaveAttribute('data-status', 'ready')
 })
 
 /** One course, one dish, three steps in a line — enough to lose by accident. */
@@ -452,11 +452,11 @@ test('a course deleted from the row menu comes back whole, chain and all', async
   await library.startKitchen('Kumoa')
   const eka = page.getByTestId('step-row').filter({ hasText: 'Eka' })
   const toka = page.getByTestId('step-row').filter({ hasText: 'Toka' })
-  await expect(toka).toHaveClass(/status-blocked/)
+  await expect(toka).toHaveAttribute('data-status', 'blocked')
   await eka.getByRole('button', { name: 'Aloita' }).click()
   await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
   await eka.getByRole('button', { name: 'Valmis' }).click()
-  await expect(toka).toHaveClass(/status-ready/)
+  await expect(toka).toHaveAttribute('data-status', 'ready')
 })
 
 test('the row menu says what a delete would take with it', async ({ page, library, editor }) => {
@@ -815,7 +815,7 @@ test('removing a step that somebody has started asks before discarding it', asyn
   const row = page.getByTestId('step-row').filter({ hasText: doomed })
   await row.getByRole('button', { name: 'Aloita' }).click()
   await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
-  await expect(row).toHaveClass(/status-active/)
+  await expect(row).toHaveAttribute('data-status', 'active')
 
   await page.getByRole('button', { name: 'Muokkaa menua' }).click()
   await editor.deleteRow(doomed)
@@ -852,7 +852,7 @@ test('declining the confirmation leaves the kitchen exactly as it was', async ({
   await editor.expectDirty()
 
   await editor.closeButton.click()
-  await expect(row).toHaveClass(/status-active/)
+  await expect(row).toHaveAttribute('data-status', 'active')
 })
 
 /** One recipe converted on its own, which is the unit an LLM produces. */
@@ -910,11 +910,11 @@ test('several separately converted recipes assemble into one multi-course menu',
   await expect(page.getByTestId('course')).toHaveCount(3)
   const roast = page.getByTestId('step-row').filter({ hasText: 'Paista uunissa' })
   const season = page.getByTestId('step-row').filter({ hasText: 'Mausta liha' })
-  await expect(roast).toHaveClass(/status-blocked/)
+  await expect(roast).toHaveAttribute('data-status', 'blocked')
   await season.getByRole('button', { name: 'Aloita' }).click()
   await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
   await season.getByRole('button', { name: 'Valmis' }).click()
-  await expect(roast).toHaveClass(/status-ready/)
+  await expect(roast).toHaveAttribute('data-status', 'ready')
 })
 
 test('merging two recipes that use the same names keeps their chains apart', async ({
@@ -937,8 +937,8 @@ test('merging two recipes that use the same names keeps their chains apart', asy
   // "Paista" — that is exactly what an id collision would have caused.
   const rows = page.getByTestId('step-row').filter({ hasText: 'Paista' })
   await expect(rows).toHaveCount(2)
-  await expect(rows.nth(0)).toHaveClass(/status-blocked/)
-  await expect(rows.nth(1)).toHaveClass(/status-blocked/)
+  await expect(rows.nth(0)).toHaveAttribute('data-status', 'blocked')
+  await expect(rows.nth(1)).toHaveAttribute('data-status', 'blocked')
 
   const firstPilko = page.getByTestId('step-row').filter({ hasText: 'Pilko' }).nth(0)
   await firstPilko.getByRole('button', { name: 'Aloita' }).click()

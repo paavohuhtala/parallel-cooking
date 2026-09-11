@@ -3,6 +3,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { getRoom } from '../api/client.ts'
 import { NewKitchenCard } from '../components/NewKitchenCard.tsx'
 import { forgetRoom, listRecent, type RecentRoom } from '../state/recent.ts'
+import styles from '../components/landing.module.css'
 
 export default function LandingRoute() {
   const navigate = useNavigate()
@@ -19,8 +20,8 @@ export default function LandingRoute() {
   }, [])
 
   return (
-    <div className="landing">
-      <header className="landing-head">
+    <div className={styles.landing}>
+      <header className={styles.head}>
         <h1>Mössömestari</h1>
         <p>Suunnittele monen kokin illallinen ja seuraa etenemistä yhdessä.</p>
       </header>
@@ -28,13 +29,13 @@ export default function LandingRoute() {
       <NewKitchenCard />
 
       {recent.length > 0 && (
-        <section className="landing-card" data-testid="landing-card">
+        <section className={styles.card} data-testid="landing-card">
           <h2>Viimeksi avatut</h2>
-          <ul className="recent-list">
+          <ul className={styles.recentList}>
             {recent.map((room) => (
               <li key={room.id}>
                 <button
-                  className="recent-item"
+                  className={styles.recentItem}
                   data-testid="recent-room"
                   onClick={() => void navigate({ to: '/r/$roomId', params: { roomId: room.id } })}
                 >

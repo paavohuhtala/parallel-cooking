@@ -1,0 +1,7 @@
+/* The moves a step can make, wherever it is drawn. */
+
+.stepControls {
+  display: flex;
+  gap: 0.3rem;
+  flex: none;
+}
