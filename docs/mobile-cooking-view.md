@@ -80,6 +80,19 @@ only thing the viewport decides is the *default*: `useState` initialises to `shi
 `matchMedia('(max-width: 640px)')` matches at mount, and never again — narrowing a desktop
 window must not yank the view out from under someone mid-task.
 
+**At desktop width it is a capped, centred column** — `max-width: 620px; margin: 0 auto`,
+exactly the treatment `.landing` already gets in [`styles.css`](../src/styles.css). One
+implementation, one layout, nothing that exists only at one screen size. The tempting
+alternative — two columns at wide widths, *Työn alla* beside *Ota seuraava* — is declined:
+it is a second layout to maintain for a view whose entire argument is that it does one thing
+in one column.
+
+Everything else this adds to a desktop is a fourth entry in the tab strip. The chrome changes
+below are all inside `@media (max-width: 640px)`; `RecipeView`, `GraphView`, `KanbanView` and
+`StepDetail` are untouched. Worth watching: four tabs with icon *and* label is a wide strip,
+and `.topbar` already wraps around 900 px — icon-only tabs may be wanted a little earlier than
+they otherwise would be.
+
 ## ① Työn alla — what I have going
 
 The steps where `recordOf(state, id).cookId === me && state === 'active'`. Usually one; often
