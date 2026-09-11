@@ -173,7 +173,7 @@ export function GraphView({
   const merged = chainIndex.chains.filter((c) => c.stepIds.length > 1).length
 
   return (
-    <div className="graph">
+    <div className="graph" data-testid="graph">
       <div className="graph-toolbar">
         <button className="btn btn-ghost" onClick={fit}>
           Sovita näkymään

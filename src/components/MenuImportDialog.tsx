@@ -131,7 +131,11 @@ export function MenuImportDialog({
           }}
         />
 
-        {error && <p className="error">{error}</p>}
+        {error && (
+          <p className="error" data-testid="error">
+            {error}
+          </p>
+        )}
 
         {preview && (
           <div className={`banner ${blocking.length ? 'banner-error' : 'banner-ok'}`}>

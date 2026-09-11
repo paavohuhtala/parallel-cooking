@@ -388,16 +388,17 @@ export function MenuEditor({
   const behindSheet = sheet || undefined
 
   return (
-    <div className="editor" ref={root}>
-      <header className="editor-head" ref={head} inert={behindSheet}>
+    <div className="editor" data-testid="menu-editor" ref={root}>
+      <header className="editor-head" data-testid="editor-head" ref={head} inert={behindSheet}>
         <input
           className="editor-title"
+          data-testid="editor-title"
           value={draft.name}
           aria-label="Menun nimi"
           placeholder="Menun nimi"
           onChange={(e) => dispatch({ type: 'rename_menu', value: e.target.value })}
         />
-        <div className="editor-actions" ref={actions}>
+        <div className="editor-actions" data-testid="editor-actions" ref={actions}>
           {/* Undo has to be reachable without a keyboard too: the row menu's
               Poista is a thumb's only way to delete, so it needs a thumb's way
               back. */}
@@ -448,6 +449,7 @@ export function MenuEditor({
               in. `visibility` also keeps the hidden labels out of the name. */}
           <button
             className="btn editor-save"
+            data-testid="editor-save"
             data-state={saveState}
             onClick={() => void onSave()}
             disabled={saveState !== 'dirty'}
@@ -512,7 +514,9 @@ export function MenuEditor({
         {/* The kitchen's own sheet backdrop, with the same rule: a tap that
             misses the sheet closes it, instead of landing on a row behind it
             and changing what the sheet is editing. */}
-        {sheet && <div className="detail-backdrop" onClick={closeSheet} />}
+        {sheet && (
+          <div className="detail-backdrop" data-testid="detail-backdrop" onClick={closeSheet} />
+        )}
         <Inspector
           draft={draft}
           row={selectedRow}
@@ -563,6 +567,7 @@ function ProblemList({
     <div
       id={id}
       className={`banner ${errors.length ? 'banner-error' : 'banner-warn'} editor-problems`}
+      data-testid="editor-problems"
       inert={inert}
     >
       <ul className="plain-list">
@@ -656,6 +661,7 @@ function Row({
   return (
     <div
       className={`outline-row depth-${row.depth} kind-${row.kind}${selected ? ' is-selected' : ''}${menuOpen ? ' is-menu-open' : ''}`}
+      data-testid="outline-row"
       role="treeitem"
       aria-level={row.depth + 1}
       aria-selected={selected}
@@ -676,6 +682,7 @@ function Row({
         {parent ? (
           <button
             className="row-glyph"
+            data-testid="row-glyph"
             aria-label={`${collapsed ? 'Näytä' : 'Piilota'} sisältö: ${name}`}
             onClick={() => onToggleCollapse(row.key)}
           >
@@ -692,6 +699,7 @@ function Row({
         <textarea
           data-rowkey={row.key}
           className="outline-title"
+          data-testid="outline-title"
           rows={1}
           value={row.title}
           aria-label={`${KIND_LABEL[row.kind]}: ${row.title || 'nimetön'}`}
@@ -749,6 +757,7 @@ function StationGlyph({
   return (
     <button
       className={`row-glyph station-glyph${station === 'muu' ? ' is-quiet' : ''}`}
+      data-testid="row-glyph"
       aria-label={`Tiedot: ${item.row.title || 'nimetön'}`}
       title={`${label} — avaa tiedot`}
       onClick={() => onOpenDetails(item.key)}
@@ -881,6 +890,7 @@ function RowMenu({
     <div className="row-menu" ref={box}>
       <button
         className="btn btn-ghost icon row-menu-open"
+        data-testid="row-menu-open"
         aria-label={`Toiminnot: ${name}`}
         aria-expanded={open}
         aria-haspopup="menu"
@@ -1089,6 +1099,7 @@ function Inspector({
     <div
       ref={panel}
       className={`inspector${open ? ' is-open' : ''}`}
+      data-testid="inspector"
       role={modal ? 'dialog' : 'complementary'}
       aria-modal={modal || undefined}
       aria-label="Rivin tiedot"
@@ -1099,12 +1110,14 @@ function Inspector({
         <p className="muted small">Valitse rivi nähdäksesi sen tiedot.</p>
       ) : (
         <>
-          <div className="inspector-grab" {...grab}>
+          <div className="inspector-grab" data-testid="inspector-grab" {...grab}>
             <div className="sheet-handle" aria-hidden />
             <div className="inspector-head">
               <div>
                 <span className="inspector-kind muted small">{KIND_LABEL[row.kind]}</span>
-                <h3 className="inspector-title">{row.title || 'nimetön'}</h3>
+                <h3 className="inspector-title" data-testid="inspector-title">
+                  {row.title || 'nimetön'}
+                </h3>
               </div>
               <button className="btn btn-ghost icon inspector-close" onClick={onClose} aria-label="Sulje tiedot">
                 <Icon name="close" />
@@ -1117,7 +1130,7 @@ function Inspector({
           )}
           {row.kind === 'course' && (
             <label className="field">
-              <span>Huomio</span>
+              <span data-testid="field-label">Huomio</span>
               <input
                 value={draft.courses.find((c) => c.id === row.id)?.note ?? ''}
                 onChange={(e) =>
@@ -1151,7 +1164,7 @@ function StepFields({
   return (
     <>
       <label className="field">
-        <span>Ohje</span>
+        <span data-testid="field-label">Ohje</span>
         <textarea
           rows={3}
           value={step.detail ?? ''}
@@ -1161,7 +1174,7 @@ function StepFields({
 
       <fieldset className="field">
         <legend>Asema</legend>
-        <div className="chips">
+        <div className="chips" data-testid="chips">
           {STATIONS.map((s) => (
             <button
               key={s.id}
@@ -1178,7 +1191,7 @@ function StepFields({
 
       <fieldset className="field">
         <legend>Edellyttää</legend>
-        <div className="chips">
+        <div className="chips" data-testid="chips">
           {step.deps.map((dep) => (
             <button
               key={dep}
@@ -1192,6 +1205,7 @@ function StepFields({
           {/* Only steps that cannot close a cycle are offered at all. */}
           <select
             className="dep-picker"
+            data-testid="dep-picker"
             value=""
             aria-label="Lisää riippuvuus"
             onChange={(e) => {
@@ -1213,7 +1227,7 @@ function StepFields({
       {component && (
         <fieldset className="field">
           <legend>Tarvitaan</legend>
-          <div className="chips">
+          <div className="chips" data-testid="chips">
             {component.ingredients.map((ingredient) => (
               <button
                 key={ingredient}
@@ -1274,7 +1288,7 @@ function ComponentFields({
   return (
     <>
       <label className="field">
-        <span>Huomio</span>
+        <span data-testid="field-label">Huomio</span>
         <input
           value={component.note ?? ''}
           onChange={(e) =>
@@ -1284,7 +1298,7 @@ function ComponentFields({
       </label>
       <fieldset className="field">
         <legend>Ainekset</legend>
-        <div className="chips">
+        <div className="chips" data-testid="chips">
           {component.ingredients.map((ingredient) => (
             <button
               key={ingredient}

@@ -115,7 +115,7 @@ export function NewKitchenCard() {
     })
 
   return (
-    <section className="landing-card">
+    <section className="landing-card" data-testid="landing-card">
       <h2>Uusi keittiö</h2>
 
       <label className="field">
@@ -138,7 +138,7 @@ export function NewKitchenCard() {
         {choices.length > 0 && (
           <ul className="menu-list">
             {choices.map((choice) => (
-              <li key={keyOf(choice)} className="menu-row">
+              <li key={keyOf(choice)} className="menu-row" data-testid="menu-row">
                 <label className="menu-choice">
                   <input
                     type="radio"
@@ -236,7 +236,11 @@ export function NewKitchenCard() {
         </div>
       </fieldset>
 
-      {error && <p className="error">{error}</p>}
+      {error && (
+        <p className="error" data-testid="error">
+          {error}
+        </p>
+      )}
 
       <button className="btn btn-primary" disabled={!selected || busy} onClick={() => void create()}>
         {busy ? 'Luodaan…' : 'Luo keittiö'}

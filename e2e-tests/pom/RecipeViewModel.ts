@@ -12,11 +12,11 @@ export class StepRowModel extends StepControlsModel {
   readonly cookDot: Locator
 
   constructor(recipe: Locator, title: string) {
-    super(recipe.locator('.step-row').filter({ hasText: title }))
+    super(recipe.getByTestId('step-row').filter({ hasText: title }))
     this.title = title
-    this.main = this.root.locator('.step-main')
-    this.facts = this.root.locator('.step-facts')
-    this.cookDot = this.root.locator('.cook-dot')
+    this.main = this.root.getByTestId('step-main')
+    this.facts = this.root.getByTestId('step-facts')
+    this.cookDot = this.root.getByTestId('cook-dot')
   }
 
   async open(): Promise<void> {
@@ -43,9 +43,9 @@ export class ComponentModel {
   readonly progress: Locator
 
   constructor(recipe: Locator, name: string) {
-    this.locator = recipe.locator('.component').filter({ hasText: name })
-    this.steps = this.locator.locator('.step-row')
-    this.progress = this.locator.locator('.component-head .muted')
+    this.locator = recipe.getByTestId('component').filter({ hasText: name })
+    this.steps = this.locator.getByTestId('step-row')
+    this.progress = this.locator.getByTestId('component-progress')
   }
 
   async expectProgress(done: number, total: number): Promise<void> {
@@ -64,9 +64,9 @@ export class RecipeViewModel {
   readonly stepRows: Locator
 
   constructor(page: Page) {
-    this.locator = page.locator('.recipe')
-    this.courses = this.locator.locator('.course')
-    this.stepRows = this.locator.locator('.step-row')
+    this.locator = page.getByTestId('recipe')
+    this.courses = this.locator.getByTestId('course')
+    this.stepRows = this.locator.getByTestId('step-row')
   }
 
   step(title: string): StepRowModel {

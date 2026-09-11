@@ -16,7 +16,12 @@ export function CookDot({ cookId }: { cookId: string | null }) {
   const cook = state.cooks.find((c) => c.id === cookId)
   if (!cook) return null
   return (
-    <span className="cook-dot" style={badgeColors(cook.color)} title={cook.name}>
+    <span
+      className="cook-dot"
+      data-testid="cook-dot"
+      style={badgeColors(cook.color)}
+      title={cook.name}
+    >
       {cook.name.trim().charAt(0).toUpperCase() || '?'}
     </span>
   )
@@ -121,12 +126,15 @@ export function StartDialog() {
         onClick={(e) => e.stopPropagation()}
       >
         <h2>Kuka ottaa tämän?</h2>
-        <p className="muted small">{step.title}</p>
+        <p className="muted small" data-testid="start-dialog-step">
+          {step.title}
+        </p>
         <div className="modal-cooks">
           {state.cooks.map((cook) => (
             <button
               key={cook.id}
               className="cook-choice"
+              data-testid="cook-choice"
               onClick={() => confirmStart(pendingStart, cook.id)}
             >
               <span className="cook-dot" style={badgeColors(cook.color)}>

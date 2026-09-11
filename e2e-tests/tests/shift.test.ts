@@ -146,8 +146,8 @@ pcTest('the header collapses to one row, with the actions behind it', async ({
 }) => {
   await kitchen.goto(room.id)
 
-  await expect(kitchen.topbar.locator('.topbar-actions')).toBeHidden()
-  await expect(kitchen.page.locator('.upnext')).toBeHidden()
+  await expect(kitchen.topbar.getByTestId('topbar-actions')).toBeHidden()
+  await expect(kitchen.page.getByTestId('upnext')).toBeHidden()
 
   await kitchen.topbar.getByRole('button', { name: 'Toiminnot' }).click()
   const sheet = kitchen.page.getByRole('dialog', { name: 'Toiminnot' })

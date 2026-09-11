@@ -28,9 +28,9 @@ pcTest('groups the board by cook', async ({ kitchen, room }) => {
   await kitchen.board.groupBy('Kokin mukaan')
 
   const lane = kitchen.board.lane(COOK.second)
-  await expect(lane.locator('.card').filter({ hasText: STEP.mushrooms })).toBeVisible()
+  await expect(lane.getByTestId('card').filter({ hasText: STEP.mushrooms })).toBeVisible()
   await expect(
-    kitchen.board.lane('Ei tekijää').locator('.card').filter({ hasText: STEP.onions }),
+    kitchen.board.lane('Ei tekijää').getByTestId('card').filter({ hasText: STEP.onions }),
   ).toBeVisible()
 })
 

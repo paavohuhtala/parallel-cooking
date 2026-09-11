@@ -16,15 +16,15 @@ export class StepDetailModel extends StepControlsModel {
   readonly dependents: Locator
 
   constructor(page: Page) {
-    super(page.locator('.detail'))
+    super(page.getByTestId('step-detail'))
     this.page = page
-    this.title = this.root.locator('.detail-head h2')
-    this.component = this.root.locator('.detail-kicker')
-    this.status = this.root.locator('.detail-meta .pill').first()
-    this.text = this.root.locator('.detail-text')
+    this.title = this.root.getByTestId('detail-title')
+    this.component = this.root.getByTestId('detail-kicker')
+    this.status = this.root.getByTestId('detail-status')
+    this.text = this.root.getByTestId('detail-text')
     this.closeButton = this.root.getByRole('button', { name: 'Sulje tiedot' })
-    this.dependencies = this.section('Edellyttää').locator('.linky')
-    this.dependents = this.section('Avaa seuraavat').locator('.linky')
+    this.dependencies = this.section('Edellyttää').getByTestId('detail-link')
+    this.dependents = this.section('Avaa seuraavat').getByTestId('detail-link')
   }
 
   section(heading: string): Locator {

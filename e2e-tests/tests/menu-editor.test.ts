@@ -49,8 +49,8 @@ test('a dish can be typed with the keyboard alone, and auto-chains as it goes', 
   // The chain is real: in the kitchen, step two waits for step one.
   await page.goto('/')
   await library.startKitchen('Näppäimistömenu')
-  const first = page.locator('.step-row').filter({ hasText: 'Pilko sipuli' })
-  const second = page.locator('.step-row').filter({ hasText: 'Kuullota sipuli' })
+  const first = page.getByTestId('step-row').filter({ hasText: 'Pilko sipuli' })
+  const second = page.getByTestId('step-row').filter({ hasText: 'Kuullota sipuli' })
   await expect(first).toHaveClass(/status-ready/)
   await expect(second).toHaveClass(/status-blocked/)
 
@@ -109,12 +109,12 @@ test('a multi-course menu can be built from a blank one by clicking alone', asyn
   // dishes, so the two starters can be cooked by two people at once.
   await page.goto('/')
   await library.startKitchen('Alusta')
-  await expect(page.locator('.course')).toHaveCount(2)
+  await expect(page.getByTestId('course')).toHaveCount(2)
 
-  const chop = page.locator('.step-row').filter({ hasText: 'Pilko sipuli' })
-  const broth = page.locator('.step-row').filter({ hasText: 'Keitä liemi' })
-  const salad = page.locator('.step-row').filter({ hasText: 'Pese salaatti' })
-  const icecream = page.locator('.step-row').filter({ hasText: 'Nosta pakkasesta' })
+  const chop = page.getByTestId('step-row').filter({ hasText: 'Pilko sipuli' })
+  const broth = page.getByTestId('step-row').filter({ hasText: 'Keitä liemi' })
+  const salad = page.getByTestId('step-row').filter({ hasText: 'Pese salaatti' })
+  const icecream = page.getByTestId('step-row').filter({ hasText: 'Nosta pakkasesta' })
 
   await expect(chop).toHaveClass(/status-ready/)
   await expect(broth).toHaveClass(/status-blocked/)
@@ -340,8 +340,8 @@ test('Alt+Arrow reorders a step and rebuilds the chain around it', async ({
   await page.goto('/')
   await library.startKitchen('Järjestys')
   // "Kolmas" now follows "Eka", so finishing Eka unblocks it rather than Toka.
-  const eka = page.locator('.step-row').filter({ hasText: 'Eka' })
-  const kolmas = page.locator('.step-row').filter({ hasText: 'Kolmas' })
+  const eka = page.getByTestId('step-row').filter({ hasText: 'Eka' })
+  const kolmas = page.getByTestId('step-row').filter({ hasText: 'Kolmas' })
   await expect(kolmas).toHaveClass(/status-blocked/)
   await eka.getByRole('button', { name: 'Aloita' }).click()
   await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
@@ -380,8 +380,8 @@ test('deleting a step in the middle heals the chain instead of breaking it', asy
 
   await page.goto('/')
   await library.startKitchen('Poisto')
-  const eka = page.locator('.step-row').filter({ hasText: 'Eka' })
-  const kolmas = page.locator('.step-row').filter({ hasText: 'Kolmas' })
+  const eka = page.getByTestId('step-row').filter({ hasText: 'Eka' })
+  const kolmas = page.getByTestId('step-row').filter({ hasText: 'Kolmas' })
   await expect(kolmas).toHaveClass(/status-blocked/)
   await eka.getByRole('button', { name: 'Aloita' }).click()
   await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
@@ -450,8 +450,8 @@ test('a course deleted from the row menu comes back whole, chain and all', async
   await editor.save()
   await page.goto('/')
   await library.startKitchen('Kumoa')
-  const eka = page.locator('.step-row').filter({ hasText: 'Eka' })
-  const toka = page.locator('.step-row').filter({ hasText: 'Toka' })
+  const eka = page.getByTestId('step-row').filter({ hasText: 'Eka' })
+  const toka = page.getByTestId('step-row').filter({ hasText: 'Toka' })
   await expect(toka).toHaveClass(/status-blocked/)
   await eka.getByRole('button', { name: 'Aloita' }).click()
   await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
@@ -784,8 +784,8 @@ test('the menu can be fixed while a kitchen is cooking, and everyone sees it', a
   await editor.closeButton.click()
 
   // Both cooks are looking at the new menu, with no reload anywhere.
-  await expect(kitchen.page.locator('.step-row').filter({ hasText: renamed })).toBeVisible()
-  await expect(second.page.locator('.step-row').filter({ hasText: renamed })).toBeVisible()
+  await expect(kitchen.page.getByTestId('step-row').filter({ hasText: renamed })).toBeVisible()
+  await expect(second.page.getByTestId('step-row').filter({ hasText: renamed })).toBeVisible()
 })
 
 test("in a kitchen the header sticks flush to the overlay's top, with no strip above it", async ({
@@ -812,7 +812,7 @@ test('removing a step that somebody has started asks before discarding it', asyn
 }) => {
   await page.goto(`/r/${room.id}`)
   const doomed = 'Kuori ja pilko sipuli'
-  const row = page.locator('.step-row').filter({ hasText: doomed })
+  const row = page.getByTestId('step-row').filter({ hasText: doomed })
   await row.getByRole('button', { name: 'Aloita' }).click()
   await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
   await expect(row).toHaveClass(/status-active/)
@@ -830,7 +830,7 @@ test('removing a step that somebody has started asks before discarding it', asyn
   expect(seen.join(' ')).toContain(doomed)
 
   await editor.closeButton.click()
-  await expect(page.locator('.step-row').filter({ hasText: doomed })).toHaveCount(0)
+  await expect(page.getByTestId('step-row').filter({ hasText: doomed })).toHaveCount(0)
 })
 
 test('declining the confirmation leaves the kitchen exactly as it was', async ({
@@ -840,7 +840,7 @@ test('declining the confirmation leaves the kitchen exactly as it was', async ({
 }) => {
   await page.goto(`/r/${room.id}`)
   const doomed = 'Kuori ja pilko sipuli'
-  const row = page.locator('.step-row').filter({ hasText: doomed })
+  const row = page.getByTestId('step-row').filter({ hasText: doomed })
   await row.getByRole('button', { name: 'Aloita' }).click()
   await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
 
@@ -907,9 +907,9 @@ test('several separately converted recipes assemble into one multi-course menu',
   // The assembled menu cooks: each course keeps its own chain.
   await page.goto('/')
   await library.startKitchen('Alkupala')
-  await expect(page.locator('.course')).toHaveCount(3)
-  const roast = page.locator('.step-row').filter({ hasText: 'Paista uunissa' })
-  const season = page.locator('.step-row').filter({ hasText: 'Mausta liha' })
+  await expect(page.getByTestId('course')).toHaveCount(3)
+  const roast = page.getByTestId('step-row').filter({ hasText: 'Paista uunissa' })
+  const season = page.getByTestId('step-row').filter({ hasText: 'Mausta liha' })
   await expect(roast).toHaveClass(/status-blocked/)
   await season.getByRole('button', { name: 'Aloita' }).click()
   await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
@@ -931,22 +931,22 @@ test('merging two recipes that use the same names keeps their chains apart', asy
   await page.goto('/')
   await library.startKitchen('Alkupala')
   // Four distinct steps, not two collapsed pairs.
-  await expect(page.locator('.step-row')).toHaveCount(4)
+  await expect(page.getByTestId('step-row')).toHaveCount(4)
 
   // Finishing the first course's "Pilko" must not unblock the second course's
   // "Paista" — that is exactly what an id collision would have caused.
-  const rows = page.locator('.step-row').filter({ hasText: 'Paista' })
+  const rows = page.getByTestId('step-row').filter({ hasText: 'Paista' })
   await expect(rows).toHaveCount(2)
   await expect(rows.nth(0)).toHaveClass(/status-blocked/)
   await expect(rows.nth(1)).toHaveClass(/status-blocked/)
 
-  const firstPilko = page.locator('.step-row').filter({ hasText: 'Pilko' }).nth(0)
+  const firstPilko = page.getByTestId('step-row').filter({ hasText: 'Pilko' }).nth(0)
   await firstPilko.getByRole('button', { name: 'Aloita' }).click()
   await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
   await firstPilko.getByRole('button', { name: 'Valmis' }).click()
 
   // Exactly one of the two "Paista" steps became ready.
-  await expect(page.locator('.step-row.status-ready').filter({ hasText: 'Paista' })).toHaveCount(1)
+  await expect(page.locator('[data-testid="step-row"][data-status="ready"]').filter({ hasText: 'Paista' })).toHaveCount(1)
 })
 
 test('tabbing through the editor never changes the recipe', async ({ page, library, editor }) => {

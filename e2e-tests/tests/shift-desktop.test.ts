@@ -14,7 +14,7 @@ pcTest('the queue holds still when a step is opened beside it', async ({ kitchen
   await shift.claim(COOK.first)
   await shift.startSuggested()
 
-  const column = page.locator('.shift')
+  const column = page.getByTestId('shift')
   const closed = await column.boundingBox()
 
   await kitchen.openStepFromShift(STEP.mushrooms)
@@ -63,11 +63,11 @@ pcTest('"Seuraavaksi" gives way to the view that supersedes it', async ({ kitche
   await kitchen.goto(room.id)
 
   // It is the recipe view's quick jump list, and it stays that.
-  await expect(page.locator('.upnext')).toBeVisible()
+  await expect(page.getByTestId('upnext')).toBeVisible()
 
   await kitchen.showShift()
-  await expect(page.locator('.upnext')).toBeHidden()
+  await expect(page.getByTestId('upnext')).toBeHidden()
 
   await kitchen.showRecipe()
-  await expect(page.locator('.upnext')).toBeVisible()
+  await expect(page.getByTestId('upnext')).toBeVisible()
 })

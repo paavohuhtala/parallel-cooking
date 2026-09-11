@@ -15,9 +15,9 @@ export function RecipeView({
   const order = new Map(index.topoOrder.map((id, i) => [id, i]))
 
   return (
-    <div className="recipe">
+    <div className="recipe" data-testid="recipe">
       {menu.courses.map((course) => (
-        <article key={course.id} className="course">
+        <article key={course.id} className="course" data-testid="course">
           <header className="course-head">
             <span className="course-number">{course.order}</span>
             <div>
@@ -36,10 +36,10 @@ export function RecipeView({
                 const done = steps.filter((s) => statusOf(s, state) === 'done').length
 
                 return (
-                  <section key={component.id} className="component">
+                  <section key={component.id} className="component" data-testid="component">
                     <header className="component-head">
                       <h3>{component.name}</h3>
-                      <span className="muted small">
+                      <span className="muted small" data-testid="component-progress">
                         {done}/{steps.length} valmiina
                       </span>
                       <div
@@ -74,9 +74,12 @@ export function RecipeView({
                             className={`step-row status-${status} ${
                               selected === step.id ? 'is-selected' : ''
                             }`}
+                            data-testid="step-row"
+                            data-status={status}
                           >
                             <button
                               className="step-main"
+                              data-testid="step-main"
                               onClick={() => onSelect(step.id)}
                               aria-expanded={selected === step.id}
                             >
@@ -89,7 +92,7 @@ export function RecipeView({
                                   </span>
                                 )}
                               </span>
-                              <span className="step-facts muted small">
+                              <span className="step-facts muted small" data-testid="step-facts">
                                 {step.station !== 'muu' && (
                                   <>
                                     <Icon name={STATION_ICON[step.station]} /> {station?.label} ·{' '}

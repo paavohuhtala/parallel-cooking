@@ -10,13 +10,13 @@ export class StepCardModel extends StepControlsModel {
   readonly cookDot: Locator
 
   constructor(board: Locator, title: string) {
-    super(board.locator('.card').filter({ hasText: title }))
+    super(board.getByTestId('card').filter({ hasText: title }))
     this.title = title
-    this.cookDot = this.root.locator('.cook-dot')
+    this.cookDot = this.root.getByTestId('cook-dot')
   }
 
   async select(): Promise<void> {
-    await this.root.locator('.card-title').click()
+    await this.root.getByTestId('card-title').click()
   }
 }
 
@@ -25,8 +25,8 @@ export class BoardViewModel {
   readonly toolbar: Locator
 
   constructor(page: Page) {
-    this.locator = page.locator('.kanban')
-    this.toolbar = this.locator.locator('.kanban-toolbar')
+    this.locator = page.getByTestId('board')
+    this.toolbar = this.locator.getByTestId('board-toolbar')
   }
 
   card(title: string): StepCardModel {
@@ -34,7 +34,7 @@ export class BoardViewModel {
   }
 
   column(status: StepStatus): Locator {
-    return this.locator.locator(`.column.status-${status}`)
+    return this.locator.getByTestId(`column-${status}`)
   }
 
   async expectVisible(): Promise<void> {
@@ -46,11 +46,11 @@ export class BoardViewModel {
   }
 
   async expectCardIn(title: string, status: StepStatus): Promise<void> {
-    await expect(this.column(status).locator('.card').filter({ hasText: title })).toBeVisible()
+    await expect(this.column(status).getByTestId('card').filter({ hasText: title })).toBeVisible()
   }
 
   /** A lane exists per cook / station / component once grouping is on. */
   lane(label: string): Locator {
-    return this.locator.locator('.lane').filter({ hasText: label })
+    return this.locator.getByTestId('lane').filter({ hasText: label })
   }
 }

@@ -19,10 +19,10 @@ export class MenuLibraryModel {
 
   constructor(page: Page) {
     this.page = page
-    this.root = page.locator('.landing-card').filter({ hasText: 'Uusi keittiö' })
+    this.root = page.getByTestId('landing-card').filter({ hasText: 'Uusi keittiö' })
     this.newButton = this.root.getByRole('button', { name: 'Uusi menu' })
     this.importButton = this.root.getByRole('button', { name: 'Tuo JSON' })
-    this.rows = this.root.locator('.menu-row')
+    this.rows = this.root.getByTestId('menu-row')
 
     this.dialog = page.getByRole('dialog', { name: 'Tuo menu' })
     this.importText = this.dialog.getByLabel('Menu JSON-muodossa')

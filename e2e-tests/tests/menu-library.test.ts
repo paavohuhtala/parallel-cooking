@@ -91,7 +91,7 @@ test('deleting a menu leaves a kitchen already started from it alone', async ({
 
   await page.goto('/')
   await library.startKitchen('Poistettava')
-  await expect(page.locator('.step-row')).toHaveCount(2)
+  await expect(page.getByTestId('step-row')).toHaveCount(2)
   const roomUrl = page.url()
 
   await page.goto('/')
@@ -101,7 +101,7 @@ test('deleting a menu leaves a kitchen already started from it alone', async ({
 
   // The kitchen cooks from its own copy, so it is untouched.
   await page.goto(roomUrl)
-  await expect(page.locator('.step-row')).toHaveCount(2)
+  await expect(page.getByTestId('step-row')).toHaveCount(2)
 })
 
 test('a cook is told when a menu edit takes away work they had started', async ({
@@ -111,7 +111,7 @@ test('a cook is told when a menu edit takes away work they had started', async (
 }) => {
   await page.goto(`/r/${room.id}`)
   const doomed = 'Kuori ja pilko sipuli'
-  const row = page.locator('.step-row').filter({ hasText: doomed })
+  const row = page.getByTestId('step-row').filter({ hasText: doomed })
   await row.getByRole('button', { name: 'Aloita' }).click()
   await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
   await expect(row).toHaveClass(/status-active/)
@@ -126,19 +126,19 @@ test('a cook is told when a menu edit takes away work they had started', async (
   await api.saveRoomMenu(room.id, trimmed, before.version)
 
   // The step vanishing on its own would be baffling; it is explained instead.
-  await expect(page.locator('.banner-warn')).toContainText('Menua muokattiin')
-  await expect(page.locator('.banner-warn')).toContainText(doomed)
+  await expect(page.getByTestId('rejection')).toContainText('Menua muokattiin')
+  await expect(page.getByTestId('rejection')).toContainText(doomed)
 })
 
 test('an edit that costs nothing passes without a notice', async ({ api, page, room }) => {
   await page.goto(`/r/${room.id}`)
-  await expect(page.locator('.step-row').first()).toBeVisible()
+  await expect(page.getByTestId('step-row').first()).toBeVisible()
 
   const before = await api.getRoomMenu(room.id)
   const renamed = structuredClone(before.menu)
   renamed.steps[0].title = 'Uusi otsikko kokonaan'
   await api.saveRoomMenu(room.id, renamed, before.version)
 
-  await expect(page.locator('.step-row').filter({ hasText: 'Uusi otsikko kokonaan' })).toBeVisible()
-  await expect(page.locator('.banner-warn')).toHaveCount(0)
+  await expect(page.getByTestId('step-row').filter({ hasText: 'Uusi otsikko kokonaan' })).toBeVisible()
+  await expect(page.getByTestId('rejection')).toHaveCount(0)
 })

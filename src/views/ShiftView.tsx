@@ -41,7 +41,7 @@ export function ShiftView({ onSelect }: { selected: string | null; onSelect: (id
   })
 
   return (
-    <div className="shift">
+    <div className="shift" data-testid="shift">
       <ActiveZone steps={active} onSelect={onSelect} onFinished={setFinished} />
       <NextZone picks={picks} onSelect={onSelect} />
       {waiting.length > 0 && <WaitingZone waiting={waiting} onSelect={onSelect} />}
@@ -62,7 +62,7 @@ export function ShiftView({ onSelect }: { selected: string | null; onSelect: (id
 function CookGate() {
   const { state, presence, me, setMe, addCook } = useStore()
   return (
-    <div className="shift-gate">
+    <div className="shift-gate" data-testid="shift-gate">
       <h2>Kuka sinä olet?</h2>
       <p className="muted small">
         Nimi jää tälle puhelimelle. Sen jälkeen vaiheen aloitus on yksi napautus.
@@ -148,19 +148,30 @@ function ActiveCard({
   const toTodo = checkTransition(index, state, step.id, 'todo')
 
   return (
-    <article className="shift-card is-active">
-      <button className="shift-card-head" onClick={onToggle} aria-expanded={open}>
+    <article className="shift-card is-active" data-testid="shift-active-card">
+      <button
+        className="shift-card-head"
+        data-testid="shift-card-head"
+        onClick={onToggle}
+        aria-expanded={open}
+      >
         <span className="shift-kicker muted small">
           {component?.name}
           <StationTag station={step.station} />
         </span>
-        <span className="shift-title">{step.title}</span>
+        <span className="shift-title" data-testid="shift-card-title">
+          {step.title}
+        </span>
         <Elapsed since={record.startedAt} />
       </button>
 
       {open && (
         <div className="shift-card-body">
-          {step.detail && <p className="shift-detail">{step.detail}</p>}
+          {step.detail && (
+            <p className="shift-detail" data-testid="shift-card-detail">
+              {step.detail}
+            </p>
+          )}
           {step.uses?.length ? (
             <ul className="plain-list shift-uses">
               {step.uses.map((u) => (
@@ -240,7 +251,7 @@ function Elapsed({ since }: { since?: number }) {
   if (!since) return null
   const minutes = Math.max(0, Math.floor((Date.now() - since) / 60_000))
   return (
-    <span className="shift-elapsed muted small">
+    <span className="shift-elapsed muted small" data-testid="shift-elapsed">
       {minutes < 1 ? 'juuri nyt' : `${minutes} min`} · aloitettu{' '}
       {new Date(since).toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })}
     </span>
@@ -269,14 +280,22 @@ function NextZone({ picks, onSelect }: { picks: ShiftPick[]; onSelect: (id: stri
       </h2>
 
       {hero ? (
-        <article className="shift-card is-hero">
-          <span className={`shift-why why-${hero.reason.kind}`}>{reasonLabel(hero.reason, menu)}</span>
-          <button className="shift-card-head" onClick={() => onSelect(hero.step.id)}>
+        <article className="shift-card is-hero" data-testid="shift-hero">
+          <span className={`shift-why why-${hero.reason.kind}`} data-testid="shift-why">
+            {reasonLabel(hero.reason, menu)}
+          </span>
+          <button
+            className="shift-card-head"
+            data-testid="shift-card-head"
+            onClick={() => onSelect(hero.step.id)}
+          >
             <span className="shift-kicker muted small">
               {menu.components.find((c) => c.id === hero.step.componentId)?.name}
               <StationTag station={hero.step.station} />
             </span>
-            <span className="shift-title">{hero.step.title}</span>
+            <span className="shift-title" data-testid="shift-card-title">
+              {hero.step.title}
+            </span>
           </button>
           <div className="shift-card-actions">
             <button
@@ -296,7 +315,7 @@ function NextZone({ picks, onSelect }: { picks: ShiftPick[]; onSelect: (id: stri
       )}
 
       {available.length > 1 && (
-        <div className="shift-filters">
+        <div className="shift-filters" data-testid="shift-filters">
           <button
             className={`chip ${station === null ? 'is-active' : ''}`}
             onClick={() => setStation(null)}
@@ -319,6 +338,7 @@ function NextZone({ picks, onSelect }: { picks: ShiftPick[]; onSelect: (id: stri
         <>
           <button
             className="shift-fold"
+            data-testid="shift-fold"
             onClick={() => setListOpen((o) => !o)}
             aria-expanded={listOpen}
           >
@@ -357,7 +377,7 @@ function ReadyRow({ pick, onSelect }: { pick: ShiftPick; onSelect: (id: string) 
   const cookId = recordOf(state, pick.step.id).cookId
 
   return (
-    <div className={`shift-row ${pick.offered ? '' : 'is-taken'}`}>
+    <div className={`shift-row ${pick.offered ? '' : 'is-taken'}`} data-testid="shift-row">
       <button className="shift-row-main" onClick={() => onSelect(pick.step.id)}>
         <span className="shift-row-title">{pick.step.title}</span>
         <span className="muted small">
@@ -389,7 +409,12 @@ function WaitingZone({
 
   return (
     <section className="shift-zone">
-      <button className="shift-fold" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+      <button
+        className="shift-fold"
+        data-testid="shift-fold"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
         Odottaa muita
         <span className="muted small">{waiting.length}</span>
         <Icon name="disclosure" className={open ? 'is-open' : ''} />
@@ -403,7 +428,7 @@ function WaitingZone({
             ] as string[]
             return (
               <li key={step.id}>
-                <div className="shift-row">
+                <div className="shift-row" data-testid="shift-row">
                   <button className="shift-row-main" onClick={() => onSelect(step.id)}>
                     <span className="shift-row-title">{step.title}</span>
                     <span className="muted small">
@@ -444,7 +469,12 @@ function DoneZone({ steps }: { steps: Step[] }) {
 
   return (
     <section className="shift-zone">
-      <button className="shift-fold" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+      <button
+        className="shift-fold"
+        data-testid="shift-fold"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
         Tekemäsi vaiheet
         <span className="muted small">{steps.length}</span>
         <Icon name="disclosure" className={open ? 'is-open' : ''} />
@@ -455,7 +485,7 @@ function DoneZone({ steps }: { steps: Step[] }) {
             const back = checkTransition(index, state, step.id, 'todo')
             return (
               <li key={step.id}>
-                <div className="shift-row is-done">
+                <div className="shift-row is-done" data-testid="shift-row">
                   <span className="shift-row-main">
                     <span className="shift-row-title">{step.title}</span>
                   </span>
@@ -507,7 +537,7 @@ function CompletionBar({
   const next = opened[0]
 
   return (
-    <div className="shift-toast" role="status">
+    <div className="shift-toast" role="status" data-testid="shift-toast">
       <div className="shift-toast-text">
         <strong>Valmis:</strong> {step.title}
         {next && (

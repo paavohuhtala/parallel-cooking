@@ -76,10 +76,10 @@ export default function App() {
 
   return (
     <div className={`app view-${view} ${selected ? 'has-detail' : ''}`}>
-      <header className="topbar">
+      <header className="topbar" data-testid="topbar">
         <div className="brand">
           <h1>{room.name}</h1>
-          <p className="muted small">
+          <p className="muted small" data-testid="room-progress">
             {progress.done}/{progress.total} vaihetta valmiina · pisin jäljellä oleva ketju{' '}
             {progress.criticalChainLeft} vaihetta
           </p>
@@ -99,7 +99,7 @@ export default function App() {
           ))}
         </nav>
 
-        <div className="topbar-actions">
+        <div className="topbar-actions" data-testid="topbar-actions">
           <RoomActions
             copied={copied}
             cooks={state.cooks.length}
@@ -119,7 +119,11 @@ export default function App() {
           <Icon name="overflow" />
         </button>
 
-        <span className={`conn conn-${connection}`} title={CONNECTION_LABEL[connection]}>
+        <span
+          className={`conn conn-${connection}`}
+          data-testid="connection"
+          title={CONNECTION_LABEL[connection]}
+        >
           {CONNECTION_LABEL[connection]}
         </span>
 
@@ -138,7 +142,7 @@ export default function App() {
       )}
 
       {rejection && (
-        <div className="banner banner-warn" role="alert">
+        <div className="banner banner-warn" role="alert" data-testid="rejection">
           {rejection.stepId && (
             <strong>{index.steps.get(rejection.stepId)?.title}: </strong>
           )}
@@ -150,13 +154,14 @@ export default function App() {
       )}
 
       {upNext.length > 0 && (
-        <div className="upnext">
+        <div className="upnext" data-testid="upnext">
           <span className="upnext-label">Seuraavaksi</span>
           <div className="upnext-items">
             {upNext.slice(0, 6).map((step) => (
               <button
                 key={step.id}
                 className="chip"
+                data-testid="upnext-chip"
                 onClick={() => select(step.id)}
               >
                 {step.title}
@@ -184,7 +189,11 @@ export default function App() {
         {selected && (
           <>
             {/* Only visible where the panel collapses into a modal sheet. */}
-            <div className="detail-backdrop" onClick={() => setSelected(null)} />
+            <div
+              className="detail-backdrop"
+              data-testid="detail-backdrop"
+              onClick={() => setSelected(null)}
+            />
             <StepDetail
               stepId={selected}
               onClose={() => setSelected(null)}
@@ -347,7 +356,11 @@ function CooksModal({ onClose }: { onClose: () => void }) {
 
         <div className="cooks-list">
           {state.cooks.map((cook) => (
-            <div key={cook.id} className={`cook-row${me === cook.id ? ' is-me' : ''}`}>
+            <div
+              key={cook.id}
+              className={`cook-row${me === cook.id ? ' is-me' : ''}`}
+              data-testid="cook-row"
+            >
               <PresenceDot online={presence.has(cook.id)} />
               <span className="cook-dot" style={badgeColors(cook.color)}>
                 {cook.name.trim().charAt(0).toUpperCase() || '?'}
@@ -377,7 +390,7 @@ function CooksModal({ onClose }: { onClose: () => void }) {
           ))}
         </div>
 
-        <div className="modal-actions">
+        <div className="modal-actions" data-testid="modal-actions">
           <button className="btn" onClick={addCook}>
             Lisää kokki
           </button>

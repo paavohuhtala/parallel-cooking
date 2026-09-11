@@ -28,17 +28,20 @@ export default function LandingRoute() {
       <NewKitchenCard />
 
       {recent.length > 0 && (
-        <section className="landing-card">
+        <section className="landing-card" data-testid="landing-card">
           <h2>Viimeksi avatut</h2>
           <ul className="recent-list">
             {recent.map((room) => (
               <li key={room.id}>
                 <button
                   className="recent-item"
+                  data-testid="recent-room"
                   onClick={() => void navigate({ to: '/r/$roomId', params: { roomId: room.id } })}
                 >
                   <strong>{room.name}</strong>
-                  <small>{new Date(room.lastVisitedAt).toLocaleString('fi-FI')}</small>
+                  <small data-testid="recent-room-time">
+                    {new Date(room.lastVisitedAt).toLocaleString('fi-FI')}
+                  </small>
                 </button>
               </li>
             ))}

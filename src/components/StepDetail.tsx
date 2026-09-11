@@ -24,11 +24,13 @@ export function StepDetail({
   const dependents = index.dependents.get(step.id) ?? []
 
   return (
-    <aside className="detail">
+    <aside className="detail" data-testid="step-detail">
       <div className="detail-head">
         <div>
-          <div className="detail-kicker">{component?.name}</div>
-          <h2>{step.title}</h2>
+          <div className="detail-kicker" data-testid="detail-kicker">
+            {component?.name}
+          </div>
+          <h2 data-testid="detail-title">{step.title}</h2>
         </div>
         <button className="btn btn-ghost icon" onClick={onClose} aria-label="Sulje tiedot">
           <Icon name="close" />
@@ -36,7 +38,9 @@ export function StepDetail({
       </div>
 
       <div className="detail-meta">
-        <span className={`pill status-${status}`}>{STATUS_LABEL[status]}</span>
+        <span className={`pill status-${status}`} data-testid="detail-status">
+          {STATUS_LABEL[status]}
+        </span>
         {step.station !== 'muu' && (
           <span className="pill">
             <Icon name={STATION_ICON[step.station]} /> {station?.label}
@@ -45,7 +49,11 @@ export function StepDetail({
         {step.holdPoint && <span className="pill pill-hold">Voi tehdä etukäteen</span>}
       </div>
 
-      {step.detail && <p className="detail-text">{step.detail}</p>}
+      {step.detail && (
+        <p className="detail-text" data-testid="detail-text">
+          {step.detail}
+        </p>
+      )}
 
       {step.uses?.length ? (
         <section>
@@ -62,7 +70,7 @@ export function StepDetail({
         <h3>Tekijä</h3>
         <CookPicker step={step} />
         {record.startedAt && (
-          <p className="muted small">
+          <p className="muted small" data-testid="detail-started">
             Aloitettu {new Date(record.startedAt).toLocaleTimeString('fi-FI')}
             {record.completedAt
               ? ` · valmistui ${new Date(record.completedAt).toLocaleTimeString('fi-FI')}`
@@ -79,7 +87,11 @@ export function StepDetail({
               const dep = index.steps.get(d)!
               return (
                 <li key={d}>
-                  <button className="linky" onClick={() => onSelect(d)}>
+                  <button
+                    className="linky"
+                    data-testid="detail-link"
+                    onClick={() => onSelect(d)}
+                  >
                     <span className={`dot status-${statusOf(dep, state)}`} />
                     {dep.title}
                   </button>
@@ -100,7 +112,11 @@ export function StepDetail({
               const dep = index.steps.get(d)!
               return (
                 <li key={d}>
-                  <button className="linky" onClick={() => onSelect(d)}>
+                  <button
+                    className="linky"
+                    data-testid="detail-link"
+                    onClick={() => onSelect(d)}
+                  >
                     <span className={`dot status-${statusOf(dep, state)}`} />
                     {dep.title}
                   </button>

@@ -19,13 +19,13 @@ export class LandingPageModel {
     this.nameInput = page.getByRole('textbox', { name: 'Nimi' })
     this.menuOptions = page.getByRole('radio')
     this.createButton = page.getByRole('button', { name: 'Luo keittiö' })
-    this.error = page.locator('.error')
-    this.recentSection = page.locator('.landing-card').filter({ hasText: 'Viimeksi avatut' })
-    this.recentRooms = this.recentSection.locator('.recent-item')
+    this.error = page.getByTestId('error')
+    this.recentSection = page.getByTestId('landing-card').filter({ hasText: 'Viimeksi avatut' })
+    this.recentRooms = this.recentSection.getByTestId('recent-room')
   }
 
   menuOption(name: string): Locator {
-    return this.page.locator('.menu-row').filter({ hasText: name }).getByRole('radio')
+    return this.page.getByTestId('menu-row').filter({ hasText: name }).getByRole('radio')
   }
 
   recentRoom(name: string): Locator {

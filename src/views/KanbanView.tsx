@@ -92,8 +92,8 @@ export function KanbanView({
   }
 
   return (
-    <div className="kanban">
-      <div className="kanban-toolbar">
+    <div className="kanban" data-testid="board">
+      <div className="kanban-toolbar" data-testid="board-toolbar">
         <span className="muted small">Ryhmittely:</span>
         {(Object.keys(GROUPING_LABEL) as Grouping[]).map((g) => (
           <button
@@ -112,7 +112,7 @@ export function KanbanView({
           const laneSteps = menu.steps.filter(lane.match)
           if (grouping !== 'none' && laneSteps.length === 0) return null
           return (
-            <section key={lane.id} className="lane">
+            <section key={lane.id} className="lane" data-testid="lane">
               {lane.label && (
                 <h3 className="lane-title">
                   {lane.color && <span className="cook-dot" style={{ background: lane.color }} />}
@@ -135,6 +135,7 @@ export function KanbanView({
                       className={`column status-${column.status} ${
                         hover === key ? 'is-hover' : ''
                       } ${dragging && !column.drop ? 'is-nodrop' : ''}`}
+                      data-testid={`column-${column.status}`}
                       onDragOver={(e) => {
                         if (!column.drop) return
                         e.preventDefault()
@@ -200,6 +201,7 @@ function Card({
   return (
     <article
       className={`card status-${status} ${selected ? 'is-selected' : ''}`}
+      data-testid="card"
       draggable
       onDragStart={(e) => {
         e.dataTransfer.setData('text/plain', step.id)
@@ -213,7 +215,9 @@ function Card({
         <span className="card-component muted small">{component?.name}</span>
         <CookDot cookId={record.cookId} />
       </div>
-      <div className="card-title">{step.title}</div>
+      <div className="card-title" data-testid="card-title">
+        {step.title}
+      </div>
       {step.station !== 'muu' && (
         <div className="card-facts muted small">
           <Icon name={STATION_ICON[step.station]} /> {station?.label}
