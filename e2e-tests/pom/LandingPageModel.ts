@@ -11,7 +11,9 @@ export class LandingPageModel {
   readonly createButton: Locator
   readonly error: Locator
   readonly recentSection: Locator
+  readonly recentRows: Locator
   readonly recentRooms: Locator
+  readonly recentError: Locator
 
   constructor(page: Page) {
     this.page = page
@@ -21,7 +23,9 @@ export class LandingPageModel {
     this.createButton = page.getByRole('button', { name: 'Luo keittiö' })
     this.error = page.getByTestId('error')
     this.recentSection = page.getByTestId('landing-card').filter({ hasText: 'Viimeksi avatut' })
+    this.recentRows = this.recentSection.getByTestId('recent-row')
     this.recentRooms = this.recentSection.getByTestId('recent-room')
+    this.recentError = this.recentSection.getByTestId('recent-error')
   }
 
   menuOption(name: string): Locator {
@@ -30,6 +34,14 @@ export class LandingPageModel {
 
   recentRoom(name: string): Locator {
     return this.recentRooms.filter({ hasText: name })
+  }
+
+  recentRow(name: string): Locator {
+    return this.recentRows.filter({ hasText: name })
+  }
+
+  removeRoomButton(name: string): Locator {
+    return this.recentRow(name).getByTestId('recent-room-remove')
   }
 
   async goto(): Promise<void> {
@@ -60,6 +72,23 @@ export class LandingPageModel {
     const kitchen = new KitchenPageModel(this.page)
     await kitchen.expectLoaded()
     return kitchen
+  }
+
+  /**
+   * Waits for the page to have heard how many cooks are in the kitchen — the
+   * count arrives from /api/rooms/<id> after the first render, and it is what
+   * enables or disables the remove button.
+   */
+  async expectOnlineCount(name: string, count: number): Promise<void> {
+    await expect(this.recentRow(name)).toHaveAttribute('data-online', String(count))
+  }
+
+  /** Removes the kitchen for good, past the confirm(). */
+  async removeRoom(name: string): Promise<void> {
+    await this.expectOnlineCount(name, 0)
+    this.page.once('dialog', (dialog) => void dialog.accept())
+    await this.removeRoomButton(name).click()
+    await expect(this.recentRoom(name)).toHaveCount(0)
   }
 
   async expectMenuListed(name: string): Promise<void> {

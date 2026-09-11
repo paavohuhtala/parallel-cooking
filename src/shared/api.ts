@@ -12,7 +12,6 @@ const RoomName = z.string().trim().max(80).optional()
 
 export const CreateRoomSchema = z.union([
   z.object({ name: RoomName, templateId: z.string().min(1) }),
-  z.object({ name: RoomName, fromRoomId: z.string().min(1) }),
   z.object({ name: RoomName, fromMenuId: z.string().min(1) }),
 ])
 
@@ -35,6 +34,13 @@ export interface RoomSummary {
   menuName: string
   version: number
   createdAt: number
+  /**
+   * Clients with this kitchen open at the moment of the request. Presence is
+   * the one thing the database does not hold, so this is a reading rather than
+   * a stored field — and the front page uses it to decide whether a kitchen is
+   * safe to delete.
+   */
+  online: number
 }
 
 /*

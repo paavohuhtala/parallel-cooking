@@ -9,7 +9,13 @@ export function getRoomRow(id: string): RoomRow | null {
   return one<RoomRow>('SELECT * FROM room WHERE id = ?', id)
 }
 
-export function getRoomSummary(id: string): RoomSummary | null {
+/**
+ * A room summary minus `online`: presence lives on the socket layer, so the
+ * route is what puts the two halves together.
+ */
+export type RoomRecord = Omit<RoomSummary, 'online'>
+
+export function getRoomRecord(id: string): RoomRecord | null {
   const row = one<{
     id: string
     name: string
@@ -54,20 +60,6 @@ export function createRoomFromTemplate(templateId: string, name?: string): Creat
   return { ok: true, id }
 }
 
-/** "Uusi keittiö tällä menulla" — the replacement for resetting a room. */
-export function createRoomFromRoom(fromRoomId: string, name?: string): CreateResult {
-  const source = getRoomRow(fromRoomId)
-  if (!source) return { ok: false, reason: 'Lähdekeittiötä ei löytynyt.' }
-  const sourceMenu = getMenu(source.menu_id)
-  if (!sourceMenu) return { ok: false, reason: 'Lähdekeittiön menua ei löytynyt.' }
-  const id = transact(() => {
-    const menuId = copyMenu(source.menu_id)
-    const menu = JSON.parse(sourceMenu.doc) as Menu
-    return insertRoom(menuId, name?.trim() || menu.name)
-  })
-  return { ok: true, id }
-}
-
 /**
  * "Start a kitchen from this menu." The library entry is *copied*, so editing it
  * later never touches a dinner already in progress.
@@ -86,6 +78,28 @@ export function createRoomFromMenu(fromMenuId: string, name?: string): CreateRes
 export function renameRoom(id: string, name: string): boolean {
   const result = run('UPDATE room SET name = ?, updated_at = ? WHERE id = ?', name, Date.now(), id)
   return result.changes > 0
+}
+
+/**
+ * Removes a kitchen for good: the audit trail, the row, and the private copy of
+ * the menu it was cooking from. The library entry that copy came from is left
+ * alone — it is a different thing on a different shelf, and deleting one is
+ * what the menu list is for.
+ *
+ * Whether anybody is *in* the kitchen is not decided here; the route checks
+ * that against the socket layer.
+ */
+export function deleteRoom(id: string): boolean {
+  const room = getRoomRow(id)
+  if (!room) return false
+  transact(() => {
+    run('DELETE FROM command_log WHERE room_id = ?', id)
+    run('DELETE FROM room WHERE id = ?', id)
+    // `is_library = 0` is the guard that keeps a shelved menu out of this: a
+    // room only ever cooks from a copy it owns.
+    run('DELETE FROM menu WHERE id = ? AND is_library = 0', room.menu_id)
+  })
+  return true
 }
 
 export function touchRoom(id: string): void {

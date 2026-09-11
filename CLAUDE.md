@@ -31,7 +31,10 @@ One process serves the built client, a REST API and a WebSocket; SQLite (`node:s
 stores state as JSON. REST does room management, the socket carries everything *inside* a
 room. A **room** is one kitchen, created explicitly and shared by link; it owns a copy of
 its menu. Nothing is seeded, there is no default room, and there is no reset — you create
-a new room from the same menu.
+a new room from the same menu. Deleting one is offered from the list of kitchens on the
+front page and only while nobody is connected: presence is the one piece of state the
+database does not hold, so `DELETE /api/rooms/:id` asks the socket layer and answers 409
+rather than trusting the button that was drawn from a count read seconds ago.
 
 Protocol: **commands in, whole versioned snapshots out**. State is ~2 KB, so there is no
 reason to diff it, and carrying it whole lets the server delete records without tombstones.

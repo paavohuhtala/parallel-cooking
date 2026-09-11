@@ -105,6 +105,11 @@ export class TestApiClient {
     return (await this.request.delete(`/api/menus/${encodeURIComponent(id)}`)).status()
   }
 
+  /** The status only: refusing to delete a busy kitchen is as interesting as doing it. */
+  async deleteRoom(id: string): Promise<number> {
+    return (await this.request.delete(`/api/rooms/${encodeURIComponent(id)}`)).status()
+  }
+
   async roomExists(id: string): Promise<boolean> {
     const res = await this.request.get(`/api/rooms/${encodeURIComponent(id)}`)
     return res.ok()

@@ -28,7 +28,6 @@ export class KitchenPageModel {
   readonly connection: Locator
   readonly cooksButton: Locator
   readonly shareButton: Locator
-  readonly newKitchenButton: Locator
   readonly recipeTab: Locator
   readonly graphTab: Locator
   readonly boardTab: Locator
@@ -53,7 +52,6 @@ export class KitchenPageModel {
     this.connection = this.topbar.getByTestId('connection')
     this.cooksButton = this.topbar.getByRole('button', { name: 'Kokit' })
     this.shareButton = this.topbar.getByRole('button', { name: 'Jaa' })
-    this.newKitchenButton = this.topbar.getByRole('button', { name: 'Uusi keittiö' })
     this.recipeTab = this.topbar.getByRole('tab', { name: 'Resepti' })
     this.graphTab = this.topbar.getByRole('tab', { name: 'Graafi' })
     this.boardTab = this.topbar.getByRole('tab', { name: 'Keittiötaulu' })
@@ -173,18 +171,6 @@ export class KitchenPageModel {
 
   async expectRejection(reason: string | RegExp): Promise<void> {
     await expect(this.rejection).toContainText(reason)
-  }
-
-  /** "Uusi keittiö": a fresh room from the same menu, behind a confirm(). */
-  async startFreshKitchen(): Promise<string> {
-    // This navigates from one room to another, so the wait has to be for a
-    // *different* URL — the shape of a room URL already matches.
-    const from = this.page.url()
-    this.page.once('dialog', (dialog) => void dialog.accept())
-    await this.newKitchenButton.click()
-    await this.page.waitForURL((url) => url.href !== from)
-    await this.expectLoaded()
-    return this.roomId()
   }
 
   roomId(): string {

@@ -59,6 +59,12 @@ export const getRoom = (roomId: string): Promise<RoomSummary> =>
 export const createRoom = (body: CreateRoomBody): Promise<RoomSummary> =>
   send('POST', '/api/rooms', body).then(unwrap<RoomSummary>)
 
+/** Refused with a 409 while anybody still has the kitchen open. */
+export const deleteRoom = (roomId: string): Promise<void> =>
+  send('DELETE', `/api/rooms/${id(roomId)}`).then(async (res) => {
+    if (!res.ok) await unwrap(res)
+  })
+
 /* ------------------------------------------------------------------- menus */
 
 export const listMenus = (): Promise<MenuSummary[]> =>
