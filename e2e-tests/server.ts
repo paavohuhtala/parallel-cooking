@@ -102,6 +102,7 @@ function serverEnv(port: number, dataDir: string, overrides: Record<string, stri
     'BASIC_AUTH_USER',
     'BASIC_AUTH_PASS',
     'MENU_FOLLOW_TEMPLATE',
+    'DEV_CLIENT_URL',
   ]) {
     delete env[key]
   }

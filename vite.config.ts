@@ -9,6 +9,10 @@ export default defineConfig({
   // paths would resolve against that segment instead of the site root.
   base: '/',
   server: {
+    // dev:all redirects :8080 page loads here, so a busy port must be an error
+    // rather than a silent move to 5174 — usually it is a dev server left over.
+    port: 5173,
+    strictPort: true,
     proxy: {
       '/api': { target },
       '/healthz': { target },

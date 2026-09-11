@@ -326,6 +326,7 @@ CI needs `pnpm exec playwright install --with-deps chromium` before `pnpm e2e`.
 | `NODE_ENV` | `development` | `production` turns template-following off. |
 | `BASIC_AUTH_USER` / `BASIC_AUTH_PASS` | unset | Set **both** to require basic auth; set neither for open local dev. Setting exactly one is a startup error. |
 | `MENU_FOLLOW_TEMPLATE` | `1` outside production | Whether rooms track their code template. |
+| `DEV_CLIENT_URL` | unset | Origin of a Vite dev server. When set, the server redirects page loads there instead of serving `dist/`. `pnpm dev:all` sets it. |
 | `PROXY_TARGET` | `http://localhost:8080` | Where the Vite dev server proxies `/api` and `/ws`. |
 
 Basic auth covers the WebSocket too. Browsers cannot set headers on a `WebSocket` and are

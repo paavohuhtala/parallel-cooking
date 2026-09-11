@@ -8,6 +8,7 @@ const EnvSchema = z.object({
   BASIC_AUTH_PASS: z.string().min(1).optional(),
   /** '1' or '0'; defaults to on outside production. */
   MENU_FOLLOW_TEMPLATE: z.enum(['0', '1']).optional(),
+  DEV_CLIENT_URL: z.url().optional(),
 })
 
 function read() {
@@ -42,6 +43,12 @@ function read() {
     followTemplate: env.MENU_FOLLOW_TEMPLATE
       ? env.MENU_FOLLOW_TEMPLATE === '1'
       : !production,
+    /**
+     * Origin of a Vite dev server. When set, this process leaves the client to
+     * it and redirects page loads there instead of serving `dist/`, which in
+     * development is whatever the last `pnpm build` or e2e run left behind.
+     */
+    devClientUrl: env.DEV_CLIENT_URL?.replace(/\/$/, '') ?? null,
   }
 }
 

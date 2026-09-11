@@ -29,8 +29,8 @@ function shutdown(code) {
 // `shell` is only for the .bin shims, which are .CMD files on Windows and so
 // cannot be spawned directly. Node itself is spawned without one, which also
 // keeps args away from the shell (DEP0190).
-function start(name, command, args, shell = false) {
-  const child = spawn(command, args, { stdio: 'inherit', shell })
+function start(name, command, args, { shell = false, env = {} } = {}) {
+  const child = spawn(command, args, { stdio: 'inherit', shell, env: { ...process.env, ...env } })
   child.on('error', (err) => {
     console.error(`[dev:all] could not start ${name}: ${err.message}`)
     shutdown(1)
@@ -45,5 +45,11 @@ function start(name, command, args, shell = false) {
 
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => shutdown(0))
 
-start('server', 'node', ['--watch', 'src/server/main.ts'])
-start('vite', 'vite', [], isWindows)
+// The server would otherwise also serve the client from dist/, which is only as
+// fresh as the last `pnpm build` or e2e run — so :8080 looked like the app and
+// showed yesterday's code. It redirects page loads to Vite instead; the port is
+// pinned with strictPort in vite.config.ts, so it cannot drift from this one.
+start('server', 'node', ['--watch', 'src/server/main.ts'], {
+  env: { DEV_CLIENT_URL: 'http://localhost:5173' },
+})
+start('vite', 'vite', [], { shell: isWindows })

@@ -199,6 +199,9 @@ composed, self-coloured mark in the app.
   pnpm both run scripts through cmd.exe on Windows, where `;` separates arguments and
   `&` runs the next command instead of backgrounding. The old one-liner started Vite
   without the server, so every `/api` call came back ECONNREFUSED through the proxy.
+  It also sets `DEV_CLIENT_URL`, so :8080 redirects page loads to Vite instead of serving
+  `dist/` — otherwise :8080 serves whatever the last `pnpm build` or e2e run built, and
+  looks like the app while showing old code.
 - `pnpm test` quotes its glob with **double** quotes: scripts run through cmd.exe on
   Windows, which does not strip single quotes, so `'src/**/*.test.ts'` reached Node as a
   literal and matched nothing — reported as a green run of zero tests. Node expands the

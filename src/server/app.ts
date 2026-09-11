@@ -6,6 +6,7 @@ import { CreateRoomSchema, RenameRoomSchema, type TemplateSummary } from '../sha
 import { renderedSchema } from '../shared/menuDocs.ts'
 import { MENU_TEMPLATES } from '../shared/templates.ts'
 import { authMiddleware } from './auth.ts'
+import { config } from './config.ts'
 import { menuRoutes } from './menuRoutes.ts'
 import { one } from './db.ts'
 import {
@@ -102,25 +103,36 @@ app.all('/api/*', (c) => c.json({ error: 'Not found' }, 404))
  * cached forever, while index.html must not be — it is what points at the
  * current bundle. The last route is the SPA fallback that makes /r/<id>
  * survive a reload.
+ *
+ * Under `dev:all` the client belongs to Vite, and `dist/` is only a stale
+ * build, so a page load here is sent there rather than answered from it.
  */
 const DIST = './dist'
+const devClientUrl = config.devClientUrl
 
-app.use(
-  '/assets/*',
-  serveStatic({
-    root: DIST,
-    onFound: (_path, c) => c.header('Cache-Control', 'public, max-age=31536000, immutable'),
-  }),
-)
+if (devClientUrl) {
+  app.get('*', (c) => {
+    const { pathname, search } = new URL(c.req.url)
+    return c.redirect(`${devClientUrl}${pathname}${search}`, 307)
+  })
+} else {
+  app.use(
+    '/assets/*',
+    serveStatic({
+      root: DIST,
+      onFound: (_path, c) => c.header('Cache-Control', 'public, max-age=31536000, immutable'),
+    }),
+  )
 
-app.use(
-  '*',
-  serveStatic({
-    root: DIST,
-    onFound: (path, c) => {
-      if (path.endsWith('.html')) c.header('Cache-Control', 'no-cache')
-    },
-  }),
-)
+  app.use(
+    '*',
+    serveStatic({
+      root: DIST,
+      onFound: (path, c) => {
+        if (path.endsWith('.html')) c.header('Cache-Control', 'no-cache')
+      },
+    }),
+  )
 
-app.get('*', serveStatic({ path: `${DIST}/index.html`, onFound: (_p, c) => c.header('Cache-Control', 'no-cache') }))
+  app.get('*', serveStatic({ path: `${DIST}/index.html`, onFound: (_p, c) => c.header('Cache-Control', 'no-cache') }))
+}

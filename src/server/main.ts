@@ -14,6 +14,7 @@ if (refreshed.length) console.log(`[menus] ${refreshed.length} room(s) updated f
 
 const server = serve({ fetch: app.fetch, port: config.port }, (info) => {
   console.log(`[server] listening on http://localhost:${info.port}`)
+  if (config.devClientUrl) console.log(`[server] client is served by Vite: open ${config.devClientUrl}`)
   if (!config.auth) console.log('[server] basic auth disabled (no BASIC_AUTH_USER/PASS)')
 })
 
