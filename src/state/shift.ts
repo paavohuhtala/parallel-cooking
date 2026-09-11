@@ -99,7 +99,11 @@ function focusOf(
   if (active.length) {
     return {
       components: new Set(active.map((s) => s.componentId)),
-      stations: new Set(active.map((s) => s.station)),
+      // `muu` is not a station — it is the absence of one, the bucket for bench
+      // work and cold prep that `STATIONS` keeps only so a step always has a
+      // value. "You are already standing at the not-a-station" is no reason for
+      // anything, which is why every other view hides the tag too.
+      stations: new Set(active.map((s) => s.station).filter((st) => st !== 'muu')),
     }
   }
 

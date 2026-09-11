@@ -1,5 +1,9 @@
 # Oma vuoro — a cooking view for one cook on one phone
 
+**Built.** `Oma vuoro` ships as the fourth view; this document is what it was built from,
+amended where the building taught us something. What changed on contact is marked *in the
+event*.
+
 A design for the missing fourth view. The board, the recipe and the graph all answer *what is
 the state of the kitchen*; none of them answers *what do I do next, and how*. On a laptop
 propped against the wall that distinction does not matter, because the whole board fits. On a
@@ -106,6 +110,9 @@ two (rice simmering, sauce reducing); never many.
   screen and it costs one local `setInterval`.
 - **One primary action, `✓ Valmis`**, full-width. `Palauta` and `Vaihda tekijä` live behind the
   card's `⋯`, because a mis-tap that hands your work back is worse than one extra tap.
+  *In the event:* filling that button needed an ink. White on `--done` measures 3.88:1; the
+  page's near-black measures 4.71:1, and 7.19:1 against the dark theme's lighter green — so
+  `--on-done` exists now, and unlike `--on-ready` it is the same value in both themes.
 - Steps active under *another* cook's name never appear here. They are in zone ③.
 
 ## ② Ota seuraava — the picker
@@ -147,6 +154,12 @@ It starts from `suggestedNext` (ready steps, longest remaining chain first) and 
 
 Ties break on `index.topoOrder`, so the function is deterministic and the test can assert an
 order rather than a set.
+
+*In the event:* the station bonus had to exclude `muu`. `muu` is not a station — `types.ts` says
+so in its first comment, it is the bucket a step falls into when no contended equipment is
+involved — so "you are already standing at the not-a-station" was firing on half the menu and
+putting `Sama piste: Muu` on the suggestion. Every other view hides the `muu` tag for the same
+reason; the ranker now ignores it, with a test.
 
 **`criticalPath` is deliberately not a signal.** `buildIndex` says so itself: ties between
 equally long chains are broken arbitrarily, *"so it is never used to label an individual step."*
@@ -244,15 +257,15 @@ Worth stating plainly, because it is why the change is small:
 
 | File | |
 | --- | --- |
-| `src/state/shift.ts` | **new** — `rankReady`, `activeFor`, `oneStepAway`, `justUnblocked`. Pure, React-free. |
-| `src/state/shift.test.ts` | **new** — the ranking's order, the continuity bonus, the tie-break, `oneStepAway`. |
-| `src/views/ShiftView.tsx` | **new** — the three zones, the gate, the completion bar. |
+| `src/state/shift.ts` | **done** — `rankReady`, `activeFor`, `oneStepAway`, `justUnblocked`. Pure, React-free. |
+| `src/state/shift.test.ts` | **done**, 13 tests — the ranking's order, the continuity bonus, the tie-break, `oneStepAway`. |
+| `src/views/ShiftView.tsx` | **done** — the three zones, the gate, the completion bar. |
 | `src/App.tsx` | fourth entry in `VIEWS`; viewport-chosen initial view; actions behind `⋯` under 640 px. |
-| `src/components/icons.tsx` | one vendored Phosphor glyph for the tab, or reuse `cooks` to start. |
+| `src/components/icons.tsx` | `shift`, vendored from Lucide's `user` — `cooks` is the whole roster, this is one of them. |
 | `src/styles.css` | the shift view; the 640 px chrome block. |
-| `e2e-tests/pom/ShiftViewModel.ts` | **new** — page object, per the repo's rule that new UI means extending a model. |
-| `e2e-tests/tests/shift.test.ts` | **new** — gate → pick → work → finish → pick again. |
-| `playwright.config.ts` | a second project, `devices['Pixel 7']`, `testMatch: /shift\.test\.ts/` — one phone-sized project rather than doubling the suite. |
+| `e2e-tests/pom/ShiftViewModel.ts` | **done** — page object, per the repo's rule that new UI means extending a model. |
+| `e2e-tests/tests/shift.test.ts` | **done**, 9 tests — gate → pick → work → finish → pick again. |
+| `playwright.config.ts` | a second project, `devices['Pixel 7']`, matching only this spec — one phone-sized project rather than doubling the suite. The desktop project ignores it, since it would open the room on the recipe and never reach the view. |
 
 ## Declined, on purpose
 

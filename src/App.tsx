@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import type { Menu } from './model/types'
 import { useNavigate } from '@tanstack/react-router'
 import { createRoom, saveRoomMenu } from './api/client'
@@ -12,8 +12,9 @@ import { useStore } from './state/store'
 import { GraphView } from './views/GraphView'
 import { KanbanView } from './views/KanbanView'
 import { RecipeView } from './views/RecipeView'
+import { ShiftView } from './views/ShiftView'
 
-type View = 'recipe' | 'graph' | 'board'
+type View = 'recipe' | 'graph' | 'board' | 'shift'
 
 const CONNECTION_LABEL: Record<'connecting' | 'online' | 'offline', string> = {
   connecting: 'Yhdistetään…',
@@ -25,15 +26,27 @@ const VIEWS: { id: View; label: string; icon: IconName }[] = [
   { id: 'recipe', label: 'Resepti', icon: 'recipe' },
   { id: 'graph', label: 'Graafi', icon: 'graph' },
   { id: 'board', label: 'Keittiötaulu', icon: 'board' },
+  { id: 'shift', label: 'Oma vuoro', icon: 'shift' },
 ]
+
+/**
+ * A phone opens on `Oma vuoro`; anything wider opens on the recipe. Read once,
+ * at mount, and never again: narrowing a desktop window must not yank the view
+ * out from under somebody mid-task.
+ */
+const initialView = (): View =>
+  typeof matchMedia === 'function' && matchMedia('(max-width: 640px)').matches
+    ? 'shift'
+    : 'recipe'
 
 export default function App() {
   const store = useStore()
   const { room, menu, index, state, rejection, dismissRejection, connection } = store
   const navigate = useNavigate()
-  const [view, setView] = useState<View>('recipe')
+  const [view, setView] = useState<View>(initialView)
   const [selected, setSelected] = useState<string | null>(null)
   const [cooksOpen, setCooksOpen] = useState(false)
+  const [actionsOpen, setActionsOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [copied, setCopied] = useState(false)
 
@@ -87,30 +100,28 @@ export default function App() {
         </nav>
 
         <div className="topbar-actions">
-          <button className="btn btn-ghost" onClick={() => setCooksOpen((o) => !o)}>
-            <Icon name="cooks" /> Kokit ({state.cooks.length})
-          </button>
-          <button className="btn btn-ghost" onClick={() => void copyLink()}>
-            {copied ? (
-              <>
-                <Icon name="check" /> Kopioitu
-              </>
-            ) : (
-              <>
-                <Icon name="share" /> Jaa
-              </>
-            )}
-          </button>
-          <button className="btn btn-ghost" onClick={() => setEditing(true)}>
-            <Icon name="edit" /> Muokkaa menua
-          </button>
-          <button className="btn btn-ghost" onClick={() => void startFresh()}>
-            Uusi keittiö
-          </button>
-          <span className={`conn conn-${connection}`} title={CONNECTION_LABEL[connection]}>
-            {CONNECTION_LABEL[connection]}
-          </span>
+          <RoomActions
+            copied={copied}
+            cooks={state.cooks.length}
+            onCooks={() => setCooksOpen((o) => !o)}
+            onCopy={() => void copyLink()}
+            onEdit={() => setEditing(true)}
+            onFresh={() => void startFresh()}
+          />
         </div>
+
+        {/* Where the four buttons above do not fit, they move in here. */}
+        <button
+          className="btn btn-ghost icon topbar-more"
+          onClick={() => setActionsOpen(true)}
+          aria-label="Toiminnot"
+        >
+          <Icon name="overflow" />
+        </button>
+
+        <span className={`conn conn-${connection}`} title={CONNECTION_LABEL[connection]}>
+          {CONNECTION_LABEL[connection]}
+        </span>
 
         <div className="progressbar" aria-hidden>
           <span className="seg done" style={{ flexGrow: progress.done }} />
@@ -166,6 +177,7 @@ export default function App() {
             {view === 'recipe' && <RecipeView selected={selected} onSelect={select} />}
             {view === 'graph' && <GraphView selected={selected} onSelect={select} />}
             {view === 'board' && <KanbanView selected={selected} onSelect={select} />}
+            {view === 'shift' && <ShiftView selected={selected} onSelect={select} />}
           </main>
         </div>
 
@@ -183,8 +195,98 @@ export default function App() {
       </div>
 
       <StartDialog />
+      {actionsOpen && (
+        <ActionsSheet onClose={() => setActionsOpen(false)}>
+          <RoomActions
+            copied={copied}
+            cooks={state.cooks.length}
+            onCooks={() => {
+              setActionsOpen(false)
+              setCooksOpen(true)
+            }}
+            onCopy={() => void copyLink()}
+            onEdit={() => {
+              setActionsOpen(false)
+              setEditing(true)
+            }}
+            onFresh={() => {
+              setActionsOpen(false)
+              void startFresh()
+            }}
+          />
+        </ActionsSheet>
+      )}
       {cooksOpen && <CooksModal onClose={() => setCooksOpen(false)} />}
       {editing && <MenuEditorOverlay onClose={() => setEditing(false)} />}
+    </div>
+  )
+}
+
+/**
+ * The room's four actions. Rendered twice — inline in the header, and again in
+ * the sheet a phone reaches them through — so there is one definition of what
+ * they are and one place to change them. The sheet lives outside `.topbar`, so
+ * a locator scoped to the header still finds exactly one of each.
+ */
+function RoomActions({
+  copied,
+  cooks,
+  onCooks,
+  onCopy,
+  onEdit,
+  onFresh,
+}: {
+  copied: boolean
+  cooks: number
+  onCooks: () => void
+  onCopy: () => void
+  onEdit: () => void
+  onFresh: () => void
+}) {
+  return (
+    <>
+      <button className="btn btn-ghost" onClick={onCooks}>
+        <Icon name="cooks" /> Kokit ({cooks})
+      </button>
+      <button className="btn btn-ghost" onClick={onCopy}>
+        {copied ? (
+          <>
+            <Icon name="check" /> Kopioitu
+          </>
+        ) : (
+          <>
+            <Icon name="share" /> Jaa
+          </>
+        )}
+      </button>
+      <button className="btn btn-ghost" onClick={onEdit}>
+        <Icon name="edit" /> Muokkaa menua
+      </button>
+      <button className="btn btn-ghost" onClick={onFresh}>
+        Uusi keittiö
+      </button>
+    </>
+  )
+}
+
+function ActionsSheet({ onClose, children }: { onClose: () => void; children: ReactNode }) {
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div
+        className="modal modal-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Toiminnot"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-head">
+          <h2>Toiminnot</h2>
+          <button className="btn btn-ghost icon" onClick={onClose} aria-label="Sulje">
+            <Icon name="close" />
+          </button>
+        </div>
+        <div className="sheet-actions">{children}</div>
+      </div>
     </div>
   )
 }

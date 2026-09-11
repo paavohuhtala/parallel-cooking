@@ -3,6 +3,7 @@ import { CONNECTION_LABEL } from '../labels.ts'
 import { BoardViewModel } from './BoardViewModel.ts'
 import { CooksModalModel } from './CooksModalModel.ts'
 import { RecipeViewModel } from './RecipeViewModel.ts'
+import { ShiftViewModel } from './ShiftViewModel.ts'
 import { StartDialogModel } from './StartDialogModel.ts'
 import { StepDetailModel } from './StepDetailModel.ts'
 
@@ -16,6 +17,7 @@ export class KitchenPageModel {
 
   readonly recipe: RecipeViewModel
   readonly board: BoardViewModel
+  readonly shift: ShiftViewModel
   readonly detail: StepDetailModel
   readonly cooks: CooksModalModel
   readonly startDialog: StartDialogModel
@@ -30,6 +32,7 @@ export class KitchenPageModel {
   readonly recipeTab: Locator
   readonly graphTab: Locator
   readonly boardTab: Locator
+  readonly shiftTab: Locator
   readonly graph: Locator
   readonly upNext: Locator
   readonly rejection: Locator
@@ -39,6 +42,7 @@ export class KitchenPageModel {
     this.page = page
     this.recipe = new RecipeViewModel(page)
     this.board = new BoardViewModel(page)
+    this.shift = new ShiftViewModel(page)
     this.detail = new StepDetailModel(page)
     this.cooks = new CooksModalModel(page)
     this.startDialog = new StartDialogModel(page)
@@ -53,6 +57,7 @@ export class KitchenPageModel {
     this.recipeTab = this.topbar.getByRole('tab', { name: 'Resepti' })
     this.graphTab = this.topbar.getByRole('tab', { name: 'Graafi' })
     this.boardTab = this.topbar.getByRole('tab', { name: 'Keittiötaulu' })
+    this.shiftTab = this.topbar.getByRole('tab', { name: 'Oma vuoro' })
     this.graph = page.locator('.graph')
     this.upNext = page.locator('.upnext-items .chip')
     this.rejection = page.locator('.banner-warn')
@@ -99,6 +104,15 @@ export class KitchenPageModel {
   async showBoard(): Promise<void> {
     await this.boardTab.click()
     await this.board.expectVisible()
+  }
+
+  /**
+   * "Oma vuoro". On a phone this is already the view a room opens on, so the
+   * tab click is a no-op there rather than a navigation.
+   */
+  async showShift(): Promise<ShiftViewModel> {
+    await this.shiftTab.click()
+    return this.shift
   }
 
   async showGraph(): Promise<void> {

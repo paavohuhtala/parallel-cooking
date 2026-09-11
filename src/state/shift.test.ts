@@ -111,6 +111,17 @@ test('the dish you finished last still counts, but the station does not', () => 
   assert.equal(scoreOf(picks, 'b2'), WEIGHT.chain * 2 + WEIGHT.continues)
 })
 
+test('sharing the "muu" bucket is not sharing a station', () => {
+  // Anna is chopping (muu); so is b1. That is not standing in the same place —
+  // `muu` is what a step gets when no contended equipment is involved.
+  const m = menu()
+  const state = kitchen({ s1: { state: 'active', cookId: 'anna' } })
+  const picks = rankReady(m, buildIndex(m), state, 'anna')
+
+  assert.equal(scoreOf(picks, 'b1'), WEIGHT.chain * 3)
+  assert.deepEqual(picks.find((p) => p.step.id === 'b1')!.reason, { kind: 'chain', opens: 2 })
+})
+
 test('a hold point sinks, and says so', () => {
   const m = menu([{ id: 'b1', holdPoint: true }])
   const picks = rankReady(m, buildIndex(m), kitchen(), 'anna')
