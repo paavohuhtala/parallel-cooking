@@ -45,7 +45,8 @@ interface Store {
   /** Returns false (and records a rejection) when the move is not legal. */
   setStepState: (stepId: string, next: StepState) => boolean
   assign: (stepId: string, cookId: string | null) => void
-  addCook: () => void
+  /** Adds a cook and returns their id, so a caller can claim them at once. */
+  addCook: () => string
   renameCook: (cookId: string, name: string) => void
   removeCook: (cookId: string) => void
 }
@@ -126,7 +127,9 @@ export function StoreProvider({ roomId, children }: { roomId: string; children: 
   )
 
   const addCook = useCallback(() => {
-    session.send({ type: 'add_cook', cookId: crypto.randomUUID() })
+    const cookId = crypto.randomUUID()
+    session.send({ type: 'add_cook', cookId })
+    return cookId
   }, [session])
 
   const renameCook = useCallback(

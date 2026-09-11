@@ -143,8 +143,8 @@ schema modules is `import type`; `check:bundle` enforces it.
 
 Icons are vendored path data in [icons.tsx](src/components/icons.tsx) — a couple of KB, no
 dependency, nothing to build. Mostly Phosphor (MIT), with the grill from Material Design
-Icons (Apache-2.0) and two unwired glyphs from Lucide (ISC); Lucide alone has neither an oven
-nor a grill, which is what settled it. Two rules keep the table honest: `STATIONS` in
+Icons (Apache-2.0) and three from Lucide (ISC), of which only `shift` is wired up; Lucide alone
+has neither an oven nor a grill, which is what settled it. Two rules keep the table honest: `STATIONS` in
 [types.ts](src/model/types.ts) stays `{id, label}` because that module is server-reachable, so
 the id→glyph map lives on the client side of the boundary; and every glyph is sized in `em`,
 so a call site sets its size with `font-size` and one `<Icon>` serves a 15px row and a heading

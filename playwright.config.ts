@@ -33,5 +33,23 @@ export default defineConfig({
     video: 'off',
   },
 
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+      // "Oma vuoro" is the phone's view; the desktop project would open the
+      // room on the recipe and never reach it.
+      testIgnore: /shift\.test\.ts/,
+    },
+    /*
+     * One phone-sized project rather than a second run of the whole suite: the
+     * other specs are about the kitchen's behaviour, which does not change with
+     * the viewport, and this one is about what a 390 px screen does with it.
+     */
+    {
+      name: 'phone',
+      use: { ...devices['Pixel 7'] },
+      testMatch: /shift\.test\.ts/,
+    },
+  ],
 })
