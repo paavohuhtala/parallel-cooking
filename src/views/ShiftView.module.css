@@ -44,6 +44,43 @@
   border-radius: var(--radius);
 }
 
+/* ----------------------------------------------------------- who you are */
+
+/*
+ * One line, above everything the view ranks for you. Quieter than a card — it
+ * is an answer you glance at, not work — but a real control, because it is the
+ * only way back to the question once the gate has been answered.
+ */
+.who {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+}
+.who:hover {
+  border-color: var(--muted);
+}
+.whoName {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.whoSwap {
+  flex: none;
+}
+
 /* ------------------------------------------------------------------ cards */
 
 .card {
@@ -258,6 +295,11 @@
 .gateCooks .gateTaken {
   margin-left: auto;
 }
+/* Whoever you already are, in the same green the roster marks you with. Only
+   the switcher ever shows it: at the gate the question has no answer yet. */
+.gateCooks button[aria-current] {
+  border-color: var(--done);
+}
 .emptyDot {
   background: transparent;
   border: 1px dashed var(--border);
@@ -322,7 +364,8 @@
   .fold,
   .rowMain,
   .row button,
-  .cardHead {
+  .cardHead,
+  .who {
     min-height: 2.75rem;
   }
 }

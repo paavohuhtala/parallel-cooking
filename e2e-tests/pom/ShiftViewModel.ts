@@ -44,6 +44,10 @@ export class ActiveCardModel {
 export class ShiftViewModel {
   readonly locator: Locator
   readonly gate: Locator
+  /** The one line above the queue that says who this phone is. */
+  readonly who: Locator
+  /** "Kuka sinä olet?" again, opened from that line. */
+  readonly switcher: Locator
   readonly activeZone: Locator
   readonly hero: Locator
   readonly heroTitle: Locator
@@ -55,6 +59,8 @@ export class ShiftViewModel {
   constructor(page: Page) {
     this.locator = page.getByTestId('shift')
     this.gate = page.getByTestId('shift-gate')
+    this.who = this.locator.getByTestId('shift-who')
+    this.switcher = page.getByRole('dialog', { name: 'Kuka sinä olet?' })
     this.activeZone = this.locator.getByTestId('shift-active-card')
     this.hero = this.locator.getByTestId('shift-hero')
     this.heroTitle = this.hero.getByTestId('shift-card-title')
@@ -80,6 +86,27 @@ export class ShiftViewModel {
 
   async expectGate(): Promise<void> {
     await expect(this.gate.getByRole('heading', { name: 'Kuka sinä olet?' })).toBeVisible()
+  }
+
+  /** Who the view thinks you are, as the line above the queue states it. */
+  async expectWho(cookName: string): Promise<void> {
+    await expect(this.who).toContainText(cookName)
+  }
+
+  async openSwitcher(): Promise<Locator> {
+    await this.who.click()
+    await expect(this.switcher).toBeVisible()
+    return this.switcher
+  }
+
+  /**
+   * Become somebody else from that line. The gate is the same question, but it
+   * is only ever asked once — this is the way back to it.
+   */
+  async switchTo(cookName: string): Promise<void> {
+    await (await this.openSwitcher()).getByRole('button', { name: cookName }).click()
+    await expect(this.switcher).toBeHidden()
+    await this.expectWho(cookName)
   }
 
   /** Take the suggested step. No dialog: the view already knows who you are. */

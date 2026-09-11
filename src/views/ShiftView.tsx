@@ -29,6 +29,7 @@ import styles from './ShiftView.module.css'
 export function ShiftView({ onSelect }: { selected: string | null; onSelect: (id: string) => void }) {
   const { menu, index, state, me } = useStore()
   const [finished, setFinished] = useState<string | null>(null)
+  const [switching, setSwitching] = useState(false)
 
   // Every one-tap affordance below depends on knowing who is holding the
   // phone, so the view opens on that question rather than on the content.
@@ -45,16 +46,18 @@ export function ShiftView({ onSelect }: { selected: string | null; onSelect: (id
 
   return (
     <div className={styles.shift} data-testid="shift">
+      <CookBar open={switching} onOpen={() => setSwitching(true)} />
       <ActiveZone steps={active} onSelect={onSelect} onFinished={setFinished} />
       <NextZone picks={picks} onSelect={onSelect} />
       {waiting.length > 0 && <WaitingZone waiting={waiting} onSelect={onSelect} />}
       {mine.length > 0 && <DoneZone steps={mine} />}
       {finished && <CompletionBar stepId={finished} onDismiss={() => setFinished(null)} />}
+      {switching && <CookSwitcher onClose={() => setSwitching(false)} />}
     </div>
   )
 }
 
-/* --------------------------------------------------------------- the gate */
+/* -------------------------------------------------------- who this phone is */
 
 /**
  * Without this, every `Aloita` below becomes a two-step `StartDialog` — which
@@ -63,35 +66,119 @@ export function ShiftView({ onSelect }: { selected: string | null; onSelect: (id
  * reconnect, so this is asked once.
  */
 function CookGate() {
-  const { state, presence, me, setMe, addCook } = useStore()
+  const { setMe } = useStore()
   return (
     <div className={styles.gate} data-testid="shift-gate">
       <h2>Kuka sinä olet?</h2>
       <p className={cx(ui.muted, ui.small)}>
         Nimi jää tälle puhelimelle. Sen jälkeen vaiheen aloitus on yksi napautus.
       </p>
-      <div className={styles.gateCooks}>
-        {state.cooks.map((cook) => (
-          <button key={cook.id} className={ui.cookChoice} onClick={() => setMe(cook.id)}>
-            <span className={ui.cookDot} style={badgeColors(cook.color)}>
-              {cook.name.trim().charAt(0).toUpperCase() || '?'}
-            </span>
-            {cook.name}
-            {presence.has(cook.id) && cook.id !== me && (
-              <span className={cx(styles.gateTaken, ui.muted, ui.small)}>jo paikalla</span>
-            )}
+      <CookChoices onPick={setMe} />
+    </div>
+  )
+}
+
+/**
+ * The answer, on one line above the queue.
+ *
+ * Asked once is not the same as answered once: every suggestion below is
+ * ranked *for* a particular cook, and until this line existed the view never
+ * said which. Changing it meant the roster behind the header's `⋯` — three
+ * taps, under a label that promises actions rather than an identity.
+ */
+function CookBar({ open, onOpen }: { open: boolean; onOpen: () => void }) {
+  const { state, me } = useStore()
+  const cook = state.cooks.find((c) => c.id === me)
+  if (!cook) return null
+
+  return (
+    <button
+      className={styles.who}
+      data-testid="shift-who"
+      onClick={onOpen}
+      aria-haspopup="dialog"
+      aria-expanded={open}
+    >
+      <span className={ui.cookDot} style={badgeColors(cook.color)} aria-hidden>
+        {initial(cook.name)}
+      </span>
+      <span className={styles.whoName}>{cook.name}</span>
+      <span className={cx(styles.whoSwap, ui.muted, ui.small)}>Vaihda</span>
+    </button>
+  )
+}
+
+/**
+ * The same question the gate asks, asked again later. A dialog rather than a
+ * second full-screen gate, because by now there is a kitchen behind it worth
+ * not throwing away — and picking somebody is the only thing in it, so it
+ * closes on the tap that answers.
+ */
+function CookSwitcher({ onClose }: { onClose: () => void }) {
+  const { setMe } = useStore()
+  return (
+    <div className={ui.modalBackdrop} onClick={onClose}>
+      <div
+        className={cx(ui.modal, ui.modalSheet)}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Kuka sinä olet?"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className={ui.modalHead}>
+          <h2>Kuka sinä olet?</h2>
+          <button className={cx(ui.btn, ui.btnGhost, ui.icon)} onClick={onClose} aria-label="Sulje">
+            <Icon name="close" />
           </button>
-        ))}
-        <button className={ui.cookChoice} onClick={() => setMe(addCook())}>
-          <span className={cx(ui.cookDot, styles.emptyDot)}>
-            <Icon name="add" />
-          </span>
-          Lisää kokki
-        </button>
+        </div>
+        <CookChoices
+          onPick={(cookId) => {
+            setMe(cookId)
+            onClose()
+          }}
+        />
       </div>
     </div>
   )
 }
+
+/**
+ * The roster as one-tap choices. Shared, because the gate and the switcher are
+ * the same question at two different moments; only the frame around it differs.
+ */
+function CookChoices({ onPick }: { onPick: (cookId: string) => void }) {
+  const { state, presence, me, addCook } = useStore()
+  return (
+    <div className={styles.gateCooks}>
+      {state.cooks.map((cook) => (
+        <button
+          key={cook.id}
+          className={ui.cookChoice}
+          // Marks whoever you already are, which is the whole point of the list
+          // the second time it is opened. Nothing carries it at the gate.
+          aria-current={cook.id === me || undefined}
+          onClick={() => onPick(cook.id)}
+        >
+          <span className={ui.cookDot} style={badgeColors(cook.color)}>
+            {initial(cook.name)}
+          </span>
+          {cook.name}
+          {presence.has(cook.id) && cook.id !== me && (
+            <span className={cx(styles.gateTaken, ui.muted, ui.small)}>jo paikalla</span>
+          )}
+        </button>
+      ))}
+      <button className={ui.cookChoice} onClick={() => onPick(addCook())}>
+        <span className={cx(ui.cookDot, styles.emptyDot)}>
+          <Icon name="add" />
+        </span>
+        Lisää kokki
+      </button>
+    </div>
+  )
+}
+
+const initial = (name: string) => name.trim().charAt(0).toUpperCase() || '?'
 
 /* ---------------------------------------------------------------- zone one */
 
