@@ -510,6 +510,25 @@ export class MenuEditorModel {
       .toBeGreaterThanOrEqual(atLeast)
   }
 
+  /**
+   * One of a dish's ingredients in its inspector: the name field. Its label
+   * carries the name as last committed, so it holds still while being retyped.
+   */
+  ingredient(name: string): Locator {
+    return this.inspector.getByLabel(`Aines: ${name}`, { exact: true })
+  }
+
+  /** Retype an ingredient's name and press Enter, which is what sends it. */
+  async renameIngredient(from: string, to: string): Promise<void> {
+    await this.ingredient(from).fill(to)
+    await this.page.keyboard.press('Enter')
+  }
+
+  /** A step's "Tarvitaan" chips; `pressed: true` narrows them to the ones it uses. */
+  stepIngredients(options?: { pressed: boolean }): Locator {
+    return this.inspector.getByRole('group', { name: 'Tarvitaan' }).getByRole('button', options)
+  }
+
   async addDependency(stepTitle: string, optionText: string): Promise<void> {
     await this.openDetails(stepTitle)
     await this.inspector.getByLabel('Lisää riippuvuus').selectOption({ label: optionText })

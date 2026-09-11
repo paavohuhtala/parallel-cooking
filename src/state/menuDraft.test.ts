@@ -155,6 +155,53 @@ test('removing an ingredient also stops the steps that were using it', () => {
   assert.equal(menu.steps[0].uses, undefined)
 })
 
+test('renaming an ingredient renames it in place and in the steps that use it', () => {
+  const two = run(base(), { type: 'add_ingredient', componentId: 'k1', value: 'sipuli' })
+  const used = run(two, { type: 'toggle_use', id: 'a', ingredient: 'voita' })
+  const menu = run(used, { type: 'rename_ingredient', componentId: 'k1', from: 'voita', to: ' voi ' })
+  assert.deepEqual(menu.components[0].ingredients, ['voi', 'sipuli'])
+  assert.deepEqual(menu.steps[0].uses, ['voi'])
+})
+
+test("renaming an ingredient leaves another dish's namesake alone", () => {
+  const menu: Menu = {
+    ...base(),
+    components: [
+      ...base().components,
+      { id: 'k2', courseId: 'c1', name: 'Leipä', ingredients: ['voita'] },
+    ],
+    steps: [
+      ...base().steps,
+      { id: 'd', componentId: 'k2', title: 'D', station: 'muu', deps: [], uses: ['voita'] },
+    ],
+  }
+  const renamed = run(menu, { type: 'rename_ingredient', componentId: 'k1', from: 'voita', to: 'voi' })
+  assert.deepEqual(renamed.components[1].ingredients, ['voita'])
+  assert.deepEqual(renamed.steps.find((s) => s.id === 'd')!.uses, ['voita'])
+})
+
+test('renaming an ingredient onto one the dish already lists merges the two', () => {
+  const menu: Menu = {
+    ...base(),
+    components: [{ ...base().components[0], ingredients: ['voi', 'suola', 'voita'] }],
+    steps: base().steps.map((s) =>
+      s.id === 'a' ? { ...s, uses: ['voi', 'voita'] } : s.id === 'b' ? { ...s, uses: ['voita'] } : s,
+    ),
+  }
+  const merged = run(menu, { type: 'rename_ingredient', componentId: 'k1', from: 'voita', to: 'voi' })
+  assert.deepEqual(merged.components[0].ingredients, ['voi', 'suola'])
+  assert.deepEqual(merged.steps[0].uses, ['voi'])
+  assert.deepEqual(merged.steps[1].uses, ['voi'])
+})
+
+test('a rename to nothing, to itself, or of an unknown ingredient changes nothing', () => {
+  // The same object back, which is what keeps it from costing an undo step.
+  const menu = base()
+  for (const [from, to] of [['voita', '  '], ['voita', 'voita'], ['suola', 'sokeri']] as const) {
+    assert.equal(run(menu, { type: 'rename_ingredient', componentId: 'k1', from, to }), menu)
+  }
+})
+
 test('a dependency picker never offers a step that would close a cycle', () => {
   const offered = dependencyCandidates(base(), 'a').map((s) => s.id)
   // B and C are downstream of A, and A is not offered itself.

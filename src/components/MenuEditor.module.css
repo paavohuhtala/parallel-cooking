@@ -521,6 +521,61 @@
   color: var(--text);
 }
 
+/* A dish's ingredient is two controls in one chip: the name is a field and the
+   × removes it. The chip's padding moves onto the two halves, so each owns its
+   side of the pill as hit area and the outline stays the chip's own size. */
+.inspector .ingredient {
+  display: inline-flex;
+  align-items: stretch;
+  padding: 0;
+  cursor: auto;
+}
+.inspector .ingredient:has(> .ingredientName:focus) {
+  border-color: var(--ready);
+}
+/* Sized like `.rowTitle`: one scrolling line where `field-sizing` is missing
+   (`cols` sets the width there, in average characters), and where it is not,
+   as wide as the name until the column stops it, then wrapping onto a second
+   line. Scoped to `.inspector` to outrank `.inspector textarea`, which dresses
+   the Ohje field as a boxed, resizable one. */
+.inspector .ingredientName {
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 0.25rem 0.1rem 0.25rem 0.7rem;
+  border: 0;
+  border-radius: 999px 0 0 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  resize: none;
+  overflow: hidden;
+  white-space: pre;
+}
+.ingredientName:focus {
+  outline: none;
+}
+@supports (field-sizing: content) {
+  .inspector .ingredientName {
+    field-sizing: content;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+  }
+}
+.ingredientRemove {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.6rem 0 0.3rem;
+  border: 0;
+  border-radius: 0 999px 999px 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+.ingredientRemove:hover {
+  color: var(--text);
+}
+
 @media (max-width: 900px) {
   .body {
     grid-template-columns: minmax(0, 1fr);

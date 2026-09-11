@@ -196,6 +196,55 @@ test('a long step title never widens the inspector', async ({ page, library, edi
   await editor.expectNoHorizontalOverflow()
 })
 
+test('an ingredient can be renamed, and the steps using it follow', async ({
+  page,
+  library,
+  editor,
+}) => {
+  await page.goto('/')
+  await library.import({
+    name: 'Ainekset',
+    courses: [
+      {
+        name: 'Alkupala',
+        components: [
+          {
+            name: 'Keitto',
+            ingredients: ['voita', 'sipuli'],
+            steps: [{ title: 'Pilko sipuli', uses: ['voita'] }],
+          },
+        ],
+      },
+    ],
+  })
+  await editor.expectOpen()
+  await editor.openDetails('Keitto')
+
+  // Escape takes back an edit in progress, and nothing reaches the draft.
+  await editor.ingredient('voita').fill('margariinia')
+  await page.keyboard.press('Escape')
+  await expect(editor.ingredient('voita')).toHaveValue('voita')
+  await editor.expectClean()
+
+  // Enter sends the rename and leaves the caret where it was.
+  await editor.renameIngredient('voita', 'voi')
+  await expect(editor.ingredient('voi')).toBeFocused()
+  await editor.expectDirty()
+
+  // Leaving the field sends it too — even when what takes the press is another
+  // row, which swaps the inspector out from under the field.
+  await editor.ingredient('sipuli').fill('salottisipuli')
+  await editor.openDetails('Pilko sipuli')
+  await expect(editor.stepIngredients()).toHaveText(['voi', 'salottisipuli'])
+  await expect(editor.stepIngredients({ pressed: true })).toHaveText(['voi'])
+
+  // Each rename is one undo step, and takes the step's use back with it.
+  await editor.undo()
+  await editor.undo()
+  await expect(editor.stepIngredients()).toHaveText(['voita', 'sipuli'])
+  await expect(editor.stepIngredients({ pressed: true })).toHaveText(['voita'])
+})
+
 test("a row's ⋯ sits beside its title, and opening it marks the row without selecting it", async ({
   page,
   library,

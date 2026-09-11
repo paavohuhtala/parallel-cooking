@@ -1348,17 +1348,16 @@ function ComponentFields({
       <fieldset className={cx(ui.field, styles.field)}>
         <legend>Ainekset</legend>
         <div className={styles.chips} data-testid="chips">
-          {component.ingredients.map((ingredient) => (
-            <button
-              key={ingredient}
-              className={cx(ui.chip, styles.inspectorChip)}
-              aria-label={`Poista aines ${ingredient}`}
-              onClick={() =>
-                dispatch({ type: 'remove_ingredient', componentId: component.id, value: ingredient })
-              }
-            >
-              {ingredient} <Icon name="close" />
-            </button>
+          {component.ingredients.map((ingredient, i) => (
+            // By position, not by name: a rename changes the name, and a key
+            // that changed with it would remount the field Enter just left the
+            // caret in.
+            <IngredientChip
+              key={i}
+              componentId={component.id}
+              ingredient={ingredient}
+              dispatch={dispatch}
+            />
           ))}
           <input
             className={styles.ingredientAdd}
@@ -1376,6 +1375,81 @@ function ComponentFields({
         </div>
       </fieldset>
     </>
+  )
+}
+
+/**
+ * One of a dish's ingredients: the name is a field, the × beside it removes it.
+ *
+ * Unlike every other field in the editor, the rename is sent when the edit is
+ * finished — on Enter or on leaving the field — rather than per keystroke. An
+ * ingredient *is* its name, so renaming as you type would walk every step that
+ * uses it through each intermediate spelling: emptying the field to retype it
+ * would have nowhere to go, and backspacing "voita" past "voi" would merge it
+ * into a "voi" already on the list before the rest was typed.
+ *
+ * Escape puts back a name being edited, and only that: the sheet's own Escape
+ * waits for the next press, so the first one never throws the edit away along
+ * with the sheet.
+ */
+function IngredientChip({
+  componentId,
+  ingredient,
+  dispatch,
+}: {
+  componentId: string
+  ingredient: string
+  dispatch: (action: MenuAction) => void
+}) {
+  const [value, setValue] = useState(ingredient)
+  // Follow the name when it changes underneath the field — an undo, or the
+  // list closing up after a removal, since chips are keyed by position.
+  const [shown, setShown] = useState(ingredient)
+  if (shown !== ingredient) {
+    setShown(ingredient)
+    setValue(ingredient)
+  }
+
+  const commit = () => {
+    // An empty name is not a request to delete — the × is right there — so it
+    // simply goes back to what it was. A real rename resets the field anyway,
+    // through `shown`, once the new name comes back down.
+    setValue(value.trim() || ingredient)
+    dispatch({ type: 'rename_ingredient', componentId, from: ingredient, to: value })
+  }
+
+  return (
+    <span className={cx(ui.chip, styles.inspectorChip, styles.ingredient)}>
+      {/* A textarea for the reason the outline's titles are one: a long name
+          has to wrap in the narrow column rather than be cut through a letter,
+          and the chip it replaced did wrap. Still one line of text. */}
+      <textarea
+        className={styles.ingredientName}
+        rows={1}
+        // The fallback width where `field-sizing` is missing.
+        cols={Math.max(value.length, 1)}
+        aria-label={`Aines: ${ingredient}`}
+        value={value}
+        onChange={(e) => setValue(e.target.value.replace(/[\r\n]+/g, ' '))}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            commit()
+          } else if (e.key === 'Escape' && value !== ingredient) {
+            e.stopPropagation()
+            setValue(ingredient)
+          }
+        }}
+      />
+      <button
+        className={styles.ingredientRemove}
+        aria-label={`Poista aines ${ingredient}`}
+        onClick={() => dispatch({ type: 'remove_ingredient', componentId, value: ingredient })}
+      >
+        <Icon name="close" />
+      </button>
+    </span>
   )
 }
 

@@ -323,6 +323,8 @@ export type MenuAction =
   | { type: 'toggle_use'; id: string; ingredient: string }
   | { type: 'add_ingredient'; componentId: string; value: string; alsoUse?: string }
   | { type: 'remove_ingredient'; componentId: string; value: string }
+  /** Sent once per finished edit, not per keystroke — see `IngredientChip`. */
+  | { type: 'rename_ingredient'; componentId: string; from: string; to: string }
   /** Enter: a new sibling directly below this row. */
   | { type: 'insert_after'; kind: RowKind; id: string }
   /**
@@ -480,6 +482,27 @@ export function applyDraftAction(menu: Menu, action: MenuAction): DraftResult {
           return { ...s, uses: uses.length ? uses : undefined }
         }),
       })
+
+    case 'rename_ingredient': {
+      const { componentId, from } = action
+      const to = action.to.trim()
+      const component = menu.components.find((c) => c.id === componentId)
+      if (!to || to === from || !component?.ingredients.includes(from)) return keep(menu)
+      // An ingredient *is* its name — steps refer to it by that string — so the
+      // steps have to be renamed with the list or they would all fall off it.
+      // Renaming onto a name the dish already lists says the two were one thing
+      // all along: they merge, in the list and in every step that used either.
+      const swap = (list: string[]) => [...new Set(list.map((i) => (i === from ? to : i)))]
+      return keep({
+        ...menu,
+        components: menu.components.map((c) =>
+          c.id === componentId ? { ...c, ingredients: swap(c.ingredients) } : c,
+        ),
+        steps: menu.steps.map((s) =>
+          s.componentId === componentId && s.uses?.includes(from) ? { ...s, uses: swap(s.uses) } : s,
+        ),
+      })
+    }
 
     case 'insert_after':
       return insertAfter(menu, action.kind, action.id)
