@@ -62,7 +62,9 @@ export class ShiftViewModel {
     this.who = this.locator.getByTestId('shift-who')
     this.switcher = page.getByRole('dialog', { name: 'Kuka sinä olet?' })
     this.activeZone = this.locator.getByTestId('shift-active-card')
-    this.hero = this.locator.getByTestId('shift-hero')
+    // A new suggestion fades in while the one it replaces fades out, and for
+    // that moment both are in the DOM. The one leaving says so.
+    this.hero = this.locator.getByTestId('shift-hero').and(page.locator(':not([data-leaving])'))
     this.heroTitle = this.hero.getByTestId('shift-card-title')
     this.heroReason = this.hero.getByTestId('shift-why')
     this.heroStart = this.hero.getByRole('button', { name: 'Aloita' })

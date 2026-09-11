@@ -3,7 +3,7 @@ import type { Menu } from '../model/types.ts'
 import type { MenuImportResponse } from '../shared/api.ts'
 import { MENU_PROMPT } from '../shared/menuPrompt.ts'
 import { ApiError, importMenu } from '../api/client.ts'
-import { Icon } from './icons.tsx'
+import { Modal, ModalHead } from './Modal.tsx'
 import { cx } from './cx.ts'
 import ui from './ui.module.css'
 import styles from './MenuImportDialog.module.css'
@@ -82,103 +82,90 @@ export function MenuImportDialog({
   const blocking = preview?.problems.filter((p) => p.severity === 'error') ?? []
 
   return (
-    <div className={ui.modalBackdrop} onClick={onClose}>
-      <div
-        className={cx(ui.modal, ui.modalWide)}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className={ui.modalHead}>
-          <h2>{title}</h2>
-          <button className={cx(ui.btn, ui.btnGhost, ui.icon)} onClick={onClose} aria-label="Sulje">
-            <Icon name="close" />
-          </button>
-        </div>
+    <Modal label={title} variant="wide" onClose={onClose}>
+      <ModalHead title={title} onClose={onClose} />
 
-        <p className={cx(ui.muted, ui.small)}>
-          Liitä JSON tai valitse tiedosto. Muoto on kuvattu docs/menu-format.md:ssä.
-        </p>
+      <p className={cx(ui.muted, ui.small)}>
+        Liitä JSON tai valitse tiedosto. Muoto on kuvattu docs/menu-format.md:ssä.
+      </p>
 
-        <div className={styles.importTools}>
-          <input
-            type="file"
-            accept="application/json,.json"
-            aria-label="Valitse JSON-tiedosto"
-            onChange={async (e) => {
-              const file = e.target.files?.[0]
-              if (file) {
-                setText(await file.text())
-                setPreview(null)
-              }
-            }}
-          />
-          <button
-            className={cx(ui.btn, ui.btnGhost)}
-            onClick={() => void navigator.clipboard.writeText(MENU_PROMPT).catch(() => {})}
-          >
-            Kopioi LLM-kehote
-          </button>
-        </div>
-
-        <textarea
-          className={styles.importText}
-          rows={10}
-          value={text}
-          aria-label="Menu JSON-muodossa"
-          placeholder='{ "name": "Illallinen", "courses": [ … ] }'
-          onChange={(e) => {
-            setText(e.target.value)
-            setPreview(null)
+      <div className={styles.importTools}>
+        <input
+          type="file"
+          accept="application/json,.json"
+          aria-label="Valitse JSON-tiedosto"
+          onChange={async (e) => {
+            const file = e.target.files?.[0]
+            if (file) {
+              setText(await file.text())
+              setPreview(null)
+            }
           }}
         />
-
-        {error && (
-          <p className={ui.error} data-testid="error">
-            {error}
-          </p>
-        )}
-
-        {preview && (
-          <div className={cx(ui.banner, blocking.length ? ui.bannerError : ui.bannerOk)}>
-            <div>
-              {blocking.length === 0 && (
-                <p>
-                  {preview.menu.courses.length} ruokalajia · {preview.menu.components.length} osaa ·{' '}
-                  {preview.menu.steps.length} vaihetta
-                </p>
-              )}
-              <ul className={ui.plainList}>
-                {preview.problems.map((p, i) => (
-                  <li key={i}>{p.message}</li>
-                ))}
-                {preview.notes.map((n, i) => (
-                  <li key={`n${i}`} className={ui.muted}>
-                    {n}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        )}
-
-        <div className={ui.modalActions}>
-          <button className={ui.btn} disabled={busy || !text.trim()} onClick={() => void check()}>
-            Tarkista
-          </button>
-          <button
-            className={cx(ui.btn, ui.btnPrimary)}
-            disabled={busy || !text.trim() || blocking.length > 0}
-            onClick={() => void accept()}
-          >
-            {busy ? 'Odota…' : acceptLabel}
-          </button>
-          <button className={cx(ui.btn, ui.btnGhost)} onClick={onClose}>
-            Peruuta
-          </button>
-        </div>
+        <button
+          className={cx(ui.btn, ui.btnGhost)}
+          onClick={() => void navigator.clipboard.writeText(MENU_PROMPT).catch(() => {})}
+        >
+          Kopioi LLM-kehote
+        </button>
       </div>
-    </div>
+
+      <textarea
+        className={styles.importText}
+        rows={10}
+        value={text}
+        aria-label="Menu JSON-muodossa"
+        placeholder='{ "name": "Illallinen", "courses": [ … ] }'
+        onChange={(e) => {
+          setText(e.target.value)
+          setPreview(null)
+        }}
+      />
+
+      {error && (
+        <p className={ui.error} data-testid="error">
+          {error}
+        </p>
+      )}
+
+      {preview && (
+        <div className={cx(ui.banner, blocking.length ? ui.bannerError : ui.bannerOk)}>
+          <div>
+            {blocking.length === 0 && (
+              <p>
+                {preview.menu.courses.length} ruokalajia · {preview.menu.components.length} osaa ·{' '}
+                {preview.menu.steps.length} vaihetta
+              </p>
+            )}
+            <ul className={ui.plainList}>
+              {preview.problems.map((p, i) => (
+                <li key={i}>{p.message}</li>
+              ))}
+              {preview.notes.map((n, i) => (
+                <li key={`n${i}`} className={ui.muted}>
+                  {n}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      <div className={ui.modalActions}>
+        <button className={ui.btn} disabled={busy || !text.trim()} onClick={() => void check()}>
+          Tarkista
+        </button>
+        <button
+          className={cx(ui.btn, ui.btnPrimary)}
+          disabled={busy || !text.trim() || blocking.length > 0}
+          onClick={() => void accept()}
+        >
+          {busy ? 'Odota…' : acceptLabel}
+        </button>
+        <button className={cx(ui.btn, ui.btnGhost)} onClick={onClose}>
+          Peruuta
+        </button>
+      </div>
+    </Modal>
   )
 }

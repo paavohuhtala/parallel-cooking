@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { AnimatePresence } from 'motion/react'
 import { useNavigate } from '@tanstack/react-router'
 import {
   createMenu,
@@ -258,20 +259,23 @@ export function NewKitchenCard() {
       </button>
       <p className={ui.muted}>Jaa linkki muille kokeille — kaikki näkevät saman tilanteen.</p>
 
-      {importing && (
-        <MenuImportDialog
-          title="Tuo menu"
-          acceptLabel="Tuo"
-          onClose={() => setImporting(false)}
-          onAccept={async (menu) => {
-            // A canonical menu is itself a valid document, so the same endpoint
-            // stores it.
-            const created = await importMenu(menu, { name: menu.name })
-            setImporting(false)
-            if (created.id) await open(created.id)
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {importing && (
+          <MenuImportDialog
+            key="import"
+            title="Tuo menu"
+            acceptLabel="Tuo"
+            onClose={() => setImporting(false)}
+            onAccept={async (menu) => {
+              // A canonical menu is itself a valid document, so the same endpoint
+              // stores it.
+              const created = await importMenu(menu, { name: menu.name })
+              setImporting(false)
+              if (created.id) await open(created.id)
+            }}
+          />
+        )}
+      </AnimatePresence>
     </section>
   )
 }

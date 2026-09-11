@@ -52,7 +52,11 @@ export function StepDetail({
       </div>
 
       <div className={styles.detailMeta}>
-        <span className={cx(ui.pill, STATUS_CLASS[status])} data-testid="detail-status">
+        <span
+          className={cx(ui.pill, STATUS_CLASS[status])}
+          data-testid="detail-status"
+          data-step-id={step.id}
+        >
           {STATUS_LABEL[status]}
         </span>
         {step.station !== 'muu' && (

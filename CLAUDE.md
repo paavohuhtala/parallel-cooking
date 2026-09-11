@@ -140,6 +140,38 @@ Scoping the names is not free of consequence: two unrelated `.menu-list` classes
 landing page's list of menus and the editor's popup — were one global class, and the landing
 page's list was silently taking the popup's `position: absolute`. Splitting them fixed it.
 
+### Motion
+
+[motion.tsx](src/components/motion.tsx) holds the shared pieces, and its header says what
+Motion is for: making changes that arrive over the socket visible — a card travelling
+between columns, a suggestion lifting into `Työn alla`, a refused move shaking its head.
+Hover and colour fades stay in CSS. The rules:
+
+- **`m.*`, never `motion.*`.** `LazyMotion` is `strict`, so a `motion.div` throws. `domMax`
+  loads after first render from [motionFeatures.ts](src/components/motionFeatures.ts);
+  anything imported statically from `motion/react` lands in the main chunk, which is why
+  the rejection nudge uses the WAAPI-only `motion/react-mini` rather than
+  `useAnimationControls` (that one pulls in the whole engine).
+- **A Motion element eats `onDragStart`/`onDragEnd`** as its own gesture props and never
+  hands them to the DOM. The board's cards use native drag, so the layout animation sits on
+  a wrapper `m.div` around a plain `<article draggable>`.
+- **`layoutId` is namespaced per view** (`LayoutGroup id="board"` / `"shift"`). Both use
+  step ids, and a tab switch swaps one view for the other in a single render — without the
+  names, cards would fly from the board into the shift view.
+- The workspace's `.scroller` is `m.div layoutScroll`; without it every layout animation
+  inside is off by the scroll offset.
+- **Dialogs are [Modal.tsx](src/components/Modal.tsx)**, rendered inside an
+  `AnimatePresence` with the condition outside: `{open && <X key="x" />}`. Unmounting still
+  closes them, so their state starts fresh on every open. A `sheet` docks below 900 px and
+  is pulled down by its head (`ModalHead`). The editor's inspector keeps its own
+  hand-rolled drag: it is always mounted and is a column above that width, not a dialog.
+- **Anything on its way out is `inert` and carries `data-leaving`** (`useLeaving`) — it is
+  still in the DOM for its exit, and must neither take a second tap nor be found as *the*
+  element by a test.
+- The nudge finds its target by `data-step-id`. Every view marks the element that stands
+  for a step with it; a new view should too.
+- `reducedMotion="user"`: transforms and layout animations go, opacity and height fades stay.
+
 ### E2E tests
 
 [playwright.config.ts](playwright.config.ts) has **no `webServer`** on purpose. Each
@@ -159,10 +191,17 @@ and is the stylesheet's business; a state a test needs to see is a `data-` attri
 constructor body: `useDefineForClassFields` means a field initialiser runs before the
 constructor can store `page`. The REST API is for arranging a test only.
 
+Exit animations mean an element can briefly exist twice — the shift view's hero card
+fades out beside its replacement. Count and visibility assertions retry through that, but
+a strict locator fails at once on two matches, so a model locating something that is
+replaced in place excludes the one leaving: `.and(page.locator(':not([data-leaving])'))`.
+
 ## Tech choices
 
 `hono` + `@hono/node-server` (correct static serving is the driver; zero transitive deps),
-`zod` for untrusted input only, `ws`, `@tanstack/react-router` (code-based routes).
+`zod` for untrusted input only, `ws`, `@tanstack/react-router` (code-based routes),
+`motion` (client only; ~19 KB gzip in the main chunk, ~28 KB in the lazily loaded
+feature chunk — see [Motion](#motion)).
 
 Declined on purpose: ORM/query builder, migration tool, socket.io, `nanoid`,
 reconnecting-socket wrapper, icon library. **Keep zod out of the client bundle** — runtime

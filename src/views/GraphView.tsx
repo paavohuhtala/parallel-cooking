@@ -273,6 +273,8 @@ export function GraphView({
             return (
               <g
                 key={node.id}
+                // A lone step is the whole card; a chain's steps are its rows.
+                data-step-id={chain.stepIds.length === 1 ? chain.id : undefined}
                 transform={`translate(${node.x} ${node.y})`}
                 className={cx(
                   styles.node,
@@ -388,6 +390,7 @@ function ChainCard({
           <div
             key={id}
             className={cx(styles.nodeStep, NODE_CLASS[status], selected === id && styles.isSelected)}
+            data-step-id={id}
             title={step.title}
             onClick={(e) => {
               e.stopPropagation()

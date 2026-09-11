@@ -6,8 +6,8 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
 } from 'react'
+import { AnimatePresence } from 'motion/react'
 import { STATIONS, type Menu, type Station } from '../model/types.ts'
 import type { MenuWriteResponse } from '../shared/api.ts'
 import { errorsOf, toExportDoc, validateMenu, type MenuProblem } from '../shared/menuDoc.ts'
@@ -15,6 +15,7 @@ import { MENU_PROMPT } from '../shared/menuPrompt.ts'
 import { ApiError } from '../api/client.ts'
 import { MenuImportDialog } from './MenuImportDialog.tsx'
 import { Icon, STATION_ICON } from './icons.tsx'
+import { SHEET_QUERY, useMediaQuery } from './useMediaQuery.ts'
 import {
   ancestorKeys,
   dependencyCandidates,
@@ -548,18 +549,21 @@ export function MenuEditor({
         />
       </div>
 
-      {merging && (
-        <MenuImportDialog
-          title="Tuo ja yhdistä"
-          acceptLabel="Yhdistä"
-          onClose={() => setMerging(false)}
-          onAccept={(incoming) => {
-            dispatch({ type: 'merge', incoming })
-            setMerging(false)
-            setNote('Ruokalajit lisättiin. Tarkista ja tallenna.')
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {merging && (
+          <MenuImportDialog
+            key="merge"
+            title="Tuo ja yhdistä"
+            acceptLabel="Yhdistä"
+            onClose={() => setMerging(false)}
+            onAccept={(incoming) => {
+              dispatch({ type: 'merge', incoming })
+              setMerging(false)
+              setNote('Ruokalajit lisättiin. Tarkista ja tallenna.')
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       <p className={cx(styles.hint, ui.muted, ui.small)} inert={behindSheet}>
         Enter lisää rivin · Vaihto+Enter lisää sisällön · ↑/↓ siirtyy rivien välillä ·
@@ -1373,26 +1377,6 @@ function ComponentFields({
       </fieldset>
     </>
   )
-}
-
-/** Where the inspector stops being a column. Must match `styles.css`. */
-const SHEET_QUERY = '(max-width: 900px)'
-
-/**
- * CSS decides how the inspector looks at a width, but not what it *is*: a
- * dialog's role, `inert` behind it and the Escape key are the script's, so the
- * script has to know which side of the breakpoint it is on.
- */
-function useMediaQuery(query: string): boolean {
-  const subscribe = useCallback(
-    (notify: () => void) => {
-      const list = window.matchMedia(query)
-      list.addEventListener('change', notify)
-      return () => list.removeEventListener('change', notify)
-    },
-    [query],
-  )
-  return useSyncExternalStore(subscribe, () => window.matchMedia(query).matches)
 }
 
 /** The nearest ancestor that scrolls vertically, or the page. */

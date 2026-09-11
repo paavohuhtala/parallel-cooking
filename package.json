@@ -24,6 +24,7 @@
     "@hono/node-server": "^2.1.1",
     "@tanstack/react-router": "^1.170.33",
     "hono": "^4.13.7",
+    "motion": "^13.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "ws": "^8.21.3",

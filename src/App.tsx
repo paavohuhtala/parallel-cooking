@@ -1,8 +1,12 @@
 import { useMemo, useState, type ReactNode } from 'react'
+import { AnimatePresence } from 'motion/react'
+import * as m from 'motion/react-m'
 import type { Menu } from './model/types'
 import { useNavigate } from '@tanstack/react-router'
 import { createRoom, saveRoomMenu } from './api/client'
 import { MenuEditor } from './components/MenuEditor'
+import { Modal, ModalHead } from './components/Modal.tsx'
+import { Collapse, useRejectionNudge } from './components/motion.tsx'
 import { Icon, type IconName } from './components/icons.tsx'
 import { badgeColors } from './components/ink.ts'
 import { StartDialog } from './components/StepControls'
@@ -82,9 +86,13 @@ export default function App() {
   const upNext = useMemo(() => suggestedNext(menu, index, state), [menu, index, state])
 
   const select = (id: string) => setSelected((current) => (current === id ? null : id))
+  const nudgeScope = useRejectionNudge<HTMLDivElement>(rejection)
 
   return (
-    <div className={cx(styles.app, view === 'shift' && styles.viewShift, selected && styles.hasDetail)}>
+    <div
+      ref={nudgeScope}
+      className={cx(styles.app, view === 'shift' && styles.viewShift, selected && styles.hasDetail)}
+    >
       <header className={styles.topbar} data-testid="topbar">
         <div className={styles.brand}>
           <h1>{room.name}</h1>
@@ -150,21 +158,31 @@ export default function App() {
         </div>
       )}
 
-      {rejection && (
-        <div className={cx(ui.banner, ui.bannerWarn)} role="alert" data-testid="rejection">
-          {rejection.stepId && (
-            <strong>{index.steps.get(rejection.stepId)?.title}: </strong>
-          )}
-          {rejection.reason}
-          <button
-            className={cx(ui.btn, ui.btnGhost, ui.icon)}
-            onClick={dismissRejection}
-            aria-label="Sulje"
-          >
-            <Icon name="close" />
-          </button>
-        </div>
-      )}
+      {/*
+        Opens and closes rather than popping, so the workspace below slides
+        instead of jumping — and so the eight-second timeout taking it away is
+        something you see happen. One key for every rejection: a second one
+        while the first is showing changes the words, not the banner.
+      */}
+      <AnimatePresence initial={false}>
+        {rejection && (
+          <Collapse key="rejection" className={styles.bannerSlot}>
+            <div className={cx(ui.banner, ui.bannerWarn)} role="alert" data-testid="rejection">
+              {rejection.stepId && (
+                <strong>{index.steps.get(rejection.stepId)?.title}: </strong>
+              )}
+              {rejection.reason}
+              <button
+                className={cx(ui.btn, ui.btnGhost, ui.icon)}
+                onClick={dismissRejection}
+                aria-label="Sulje"
+              >
+                <Icon name="close" />
+              </button>
+            </div>
+          </Collapse>
+        )}
+      </AnimatePresence>
 
       {upNext.length > 0 && (
         <div className={styles.upnext} data-testid="upnext">
@@ -190,14 +208,17 @@ export default function App() {
         sliding out from under it.
       */}
       <div className={styles.workspace}>
-        <div className={styles.scroller}>
+        {/* `layoutScroll`: the board and the shift view animate layout inside
+            this, and without it Motion measures a scrolled card as having moved
+            by however far the page is scrolled. */}
+        <m.div className={styles.scroller} layoutScroll>
           <main className={styles.content}>
             {view === 'recipe' && <RecipeView selected={selected} onSelect={select} />}
             {view === 'graph' && <GraphView selected={selected} onSelect={select} />}
             {view === 'board' && <KanbanView selected={selected} onSelect={select} />}
             {view === 'shift' && <ShiftView selected={selected} onSelect={select} />}
           </main>
-        </div>
+        </m.div>
 
         {selected && (
           <>
@@ -217,28 +238,30 @@ export default function App() {
       </div>
 
       <StartDialog />
-      {actionsOpen && (
-        <ActionsSheet onClose={() => setActionsOpen(false)}>
-          <RoomActions
-            copied={copied}
-            cooks={state.cooks.length}
-            onCooks={() => {
-              setActionsOpen(false)
-              setCooksOpen(true)
-            }}
-            onCopy={() => void copyLink()}
-            onEdit={() => {
-              setActionsOpen(false)
-              setEditing(true)
-            }}
-            onFresh={() => {
-              setActionsOpen(false)
-              void startFresh()
-            }}
-          />
-        </ActionsSheet>
-      )}
-      {cooksOpen && <CooksModal onClose={() => setCooksOpen(false)} />}
+      <AnimatePresence>
+        {actionsOpen && (
+          <ActionsSheet key="actions" onClose={() => setActionsOpen(false)}>
+            <RoomActions
+              copied={copied}
+              cooks={state.cooks.length}
+              onCooks={() => {
+                setActionsOpen(false)
+                setCooksOpen(true)
+              }}
+              onCopy={() => void copyLink()}
+              onEdit={() => {
+                setActionsOpen(false)
+                setEditing(true)
+              }}
+              onFresh={() => {
+                setActionsOpen(false)
+                void startFresh()
+              }}
+            />
+          </ActionsSheet>
+        )}
+        {cooksOpen && <CooksModal key="cooks" onClose={() => setCooksOpen(false)} />}
+      </AnimatePresence>
       {editing && <MenuEditorOverlay onClose={() => setEditing(false)} />}
     </div>
   )
@@ -293,23 +316,10 @@ function RoomActions({
 
 function ActionsSheet({ onClose, children }: { onClose: () => void; children: ReactNode }) {
   return (
-    <div className={ui.modalBackdrop} onClick={onClose}>
-      <div
-        className={cx(ui.modal, ui.modalSheet)}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Toiminnot"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className={ui.modalHead}>
-          <h2>Toiminnot</h2>
-          <button className={cx(ui.btn, ui.btnGhost, ui.icon)} onClick={onClose} aria-label="Sulje">
-            <Icon name="close" />
-          </button>
-        </div>
-        <div className={styles.sheetActions}>{children}</div>
-      </div>
-    </div>
+    <Modal label="Toiminnot" variant="sheet" onClose={onClose}>
+      <ModalHead title="Toiminnot" onClose={onClose} />
+      <div className={styles.sheetActions}>{children}</div>
+    </Modal>
   )
 }
 
@@ -352,68 +362,55 @@ function MenuEditorOverlay({ onClose }: { onClose: () => void }) {
 function CooksModal({ onClose }: { onClose: () => void }) {
   const { state, presence, addCook, renameCook, removeCook, me, setMe } = useStore()
   return (
-    <div className={ui.modalBackdrop} onClick={onClose}>
-      <div
-        className={cx(ui.modal, ui.modalSheet)}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Kokit"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className={ui.modalHead}>
-          <h2>Kokit</h2>
-          <button className={cx(ui.btn, ui.btnGhost, ui.icon)} onClick={onClose} aria-label="Sulje">
-            <Icon name="close" />
-          </button>
-        </div>
+    <Modal label="Kokit" variant="sheet" onClose={onClose}>
+      <ModalHead title="Kokit" onClose={onClose} />
 
-        <div className={styles.cooksList}>
-          {state.cooks.map((cook) => (
-            <div
-              key={cook.id}
-              className={cx(styles.cookRow, me === cook.id && styles.isMe)}
-              data-testid="cook-row"
+      <div className={styles.cooksList}>
+        {state.cooks.map((cook) => (
+          <div
+            key={cook.id}
+            className={cx(styles.cookRow, me === cook.id && styles.isMe)}
+            data-testid="cook-row"
+          >
+            <PresenceDot online={presence.has(cook.id)} />
+            <span className={ui.cookDot} style={badgeColors(cook.color)}>
+              {cook.name.trim().charAt(0).toUpperCase() || '?'}
+            </span>
+            <input
+              className={ui.control}
+              value={cook.name}
+              onChange={(e) => renameCook(cook.id, e.target.value)}
+              aria-label="Kokin nimi"
+            />
+            {/* Who *this browser* is: a per-cook toggle, so it needs no explaining. */}
+            <button
+              className={cx(ui.btn, styles.btnMe, me === cook.id && styles.isActive)}
+              onClick={() => setMe(me === cook.id ? null : cook.id)}
+              aria-pressed={me === cook.id}
             >
-              <PresenceDot online={presence.has(cook.id)} />
-              <span className={ui.cookDot} style={badgeColors(cook.color)}>
-                {cook.name.trim().charAt(0).toUpperCase() || '?'}
-              </span>
-              <input
-                className={ui.control}
-                value={cook.name}
-                onChange={(e) => renameCook(cook.id, e.target.value)}
-                aria-label="Kokin nimi"
-              />
-              {/* Who *this browser* is: a per-cook toggle, so it needs no explaining. */}
-              <button
-                className={cx(ui.btn, styles.btnMe, me === cook.id && styles.isActive)}
-                onClick={() => setMe(me === cook.id ? null : cook.id)}
-                aria-pressed={me === cook.id}
-              >
-                Oon tää
-              </button>
-              <button
-                className={cx(ui.btn, ui.btnGhost, ui.icon)}
-                onClick={() => removeCook(cook.id)}
-                aria-label={`Poista ${cook.name}`}
-                disabled={state.cooks.length <= 1}
-              >
-                <Icon name="close" />
-              </button>
-            </div>
-          ))}
-        </div>
-
-        <div className={ui.modalActions} data-testid="modal-actions">
-          <button className={ui.btn} onClick={addCook}>
-            Lisää kokki
-          </button>
-          <button className={cx(ui.btn, ui.btnGhost)} onClick={onClose}>
-            Sulje
-          </button>
-        </div>
+              Oon tää
+            </button>
+            <button
+              className={cx(ui.btn, ui.btnGhost, ui.icon)}
+              onClick={() => removeCook(cook.id)}
+              aria-label={`Poista ${cook.name}`}
+              disabled={state.cooks.length <= 1}
+            >
+              <Icon name="close" />
+            </button>
+          </div>
+        ))}
       </div>
-    </div>
+
+      <div className={ui.modalActions} data-testid="modal-actions">
+        <button className={ui.btn} onClick={addCook}>
+          Lisää kokki
+        </button>
+        <button className={cx(ui.btn, ui.btnGhost)} onClick={onClose}>
+          Sulje
+        </button>
+      </div>
+    </Modal>
   )
 }
 

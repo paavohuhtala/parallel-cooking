@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { RouterProvider } from '@tanstack/react-router'
+import { MotionProvider } from './components/motion.tsx'
 import { router } from './router.tsx'
 import './styles.css'
 
@@ -14,6 +15,8 @@ try {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <MotionProvider>
+      <RouterProvider router={router} />
+    </MotionProvider>
   </StrictMode>,
 )

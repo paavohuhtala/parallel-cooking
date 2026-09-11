@@ -1,6 +1,9 @@
 import { useMemo, useState, type DragEvent } from 'react'
+import { LayoutGroup } from 'motion/react'
+import * as m from 'motion/react-m'
 import { STATIONS, type Step, type StepState, type StepStatus } from '../model/types'
 import { Icon, STATION_ICON } from '../components/icons.tsx'
+import { MOVE } from '../components/motion.tsx'
 import { recordOf, statusOf } from '../state/graph'
 import { useStore } from '../state/store'
 import { CookDot, STATUS_LABEL, StepControls } from '../components/StepControls'
@@ -125,77 +128,81 @@ export function KanbanView({
         <span className={cx(ui.muted, ui.small)}>Raahaa kortti sarakkeesta toiseen.</span>
       </div>
 
-      <div className={styles.lanes}>
-        {lanes.map((lane) => {
-          const laneSteps = menu.steps.filter(lane.match)
-          if (grouping !== 'none' && laneSteps.length === 0) return null
-          return (
-            <section key={lane.id} data-testid="lane">
-              {lane.label && (
-                <h3 className={styles.laneTitle}>
-                  {lane.color && <span className={ui.cookDot} style={{ background: lane.color }} />}
-                  {lane.label}
-                  <span className={cx(ui.muted, ui.small)}>
-                    {laneSteps.filter((s) => statuses.get(s.id) === 'done').length}/
-                    {laneSteps.length}
-                  </span>
-                </h3>
-              )}
-              <div className={styles.board}>
-                {COLUMNS.map((column) => {
-                  const cards = laneSteps
-                    .filter((s) => statuses.get(s.id) === column.status)
-                    .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
-                  const key = `${lane.id}:${column.status}`
-                  return (
-                    <div
-                      key={column.status}
-                      className={cx(
-                        styles.column,
-                        hover === key && styles.isHover,
-                        dragging && !column.drop && styles.isNodrop,
-                      )}
-                      data-testid={`column-${column.status}`}
-                      onDragOver={(e) => {
-                        if (!column.drop) return
-                        e.preventDefault()
-                        setHover(key)
-                      }}
-                      onDragLeave={() => setHover((h) => (h === key ? null : h))}
-                      onDrop={(e) => drop(e, column.drop)}
-                    >
-                      <header className={styles.columnHead}>
-                        <span className={cx(ui.dot, DOT_CLASS[column.status])} />
-                        <strong>{STATUS_LABEL[column.status]}</strong>
-                        <span className={cx(styles.columnCount, ui.muted, ui.small)}>
-                          {cards.length}
-                        </span>
-                      </header>
-                      {!lane.label && <p className={cx(ui.muted, ui.small)}>{column.hint}</p>}
-                      <div className={styles.columnBody}>
-                        {cards.map((step) => (
-                          <Card
-                            key={step.id}
-                            step={step}
-                            status={column.status}
-                            selected={selected === step.id}
-                            onSelect={onSelect}
-                            onDragStart={() => setDragging(step.id)}
-                            onDragEnd={() => {
-                              setDragging(null)
-                              setHover(null)
-                            }}
-                          />
-                        ))}
+      {/* Named, so a card here and the same step's card in the shift view are
+          not taken for one element when a tab switch swaps them in one render. */}
+      <LayoutGroup id="board">
+        <div className={styles.lanes}>
+          {lanes.map((lane) => {
+            const laneSteps = menu.steps.filter(lane.match)
+            if (grouping !== 'none' && laneSteps.length === 0) return null
+            return (
+              <section key={lane.id} data-testid="lane">
+                {lane.label && (
+                  <h3 className={styles.laneTitle}>
+                    {lane.color && <span className={ui.cookDot} style={{ background: lane.color }} />}
+                    {lane.label}
+                    <span className={cx(ui.muted, ui.small)}>
+                      {laneSteps.filter((s) => statuses.get(s.id) === 'done').length}/
+                      {laneSteps.length}
+                    </span>
+                  </h3>
+                )}
+                <div className={styles.board}>
+                  {COLUMNS.map((column) => {
+                    const cards = laneSteps
+                      .filter((s) => statuses.get(s.id) === column.status)
+                      .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+                    const key = `${lane.id}:${column.status}`
+                    return (
+                      <div
+                        key={column.status}
+                        className={cx(
+                          styles.column,
+                          hover === key && styles.isHover,
+                          dragging && !column.drop && styles.isNodrop,
+                        )}
+                        data-testid={`column-${column.status}`}
+                        onDragOver={(e) => {
+                          if (!column.drop) return
+                          e.preventDefault()
+                          setHover(key)
+                        }}
+                        onDragLeave={() => setHover((h) => (h === key ? null : h))}
+                        onDrop={(e) => drop(e, column.drop)}
+                      >
+                        <header className={styles.columnHead}>
+                          <span className={cx(ui.dot, DOT_CLASS[column.status])} />
+                          <strong>{STATUS_LABEL[column.status]}</strong>
+                          <span className={cx(styles.columnCount, ui.muted, ui.small)}>
+                            {cards.length}
+                          </span>
+                        </header>
+                        {!lane.label && <p className={cx(ui.muted, ui.small)}>{column.hint}</p>}
+                        <div className={styles.columnBody}>
+                          {cards.map((step) => (
+                            <Card
+                              key={step.id}
+                              step={step}
+                              status={column.status}
+                              selected={selected === step.id}
+                              onSelect={onSelect}
+                              onDragStart={() => setDragging(step.id)}
+                              onDragEnd={() => {
+                                setDragging(null)
+                                setHover(null)
+                              }}
+                            />
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </section>
-          )
-        })}
-      </div>
+                    )
+                  })}
+                </div>
+              </section>
+            )
+          })}
+        </div>
+      </LayoutGroup>
     </div>
   )
 }
@@ -220,32 +227,48 @@ function Card({
   const component = menu.components.find((c) => c.id === step.componentId)
   const station = STATIONS.find((s) => s.id === step.station)
 
+  /*
+   * A card that changes column is unmounted from one and mounted in another,
+   * so `layoutId` is what lets Motion see one card travelling. That covers every
+   * way a card moves — your own drop, another cook's tap arriving over the
+   * socket, a rejected move rolling back, a change of grouping — and makes each
+   * of them something you watch happen rather than a board that is suddenly
+   * different. `position` only: a card's buttons differ by column, so its size
+   * snaps rather than stretching the text on the way.
+   *
+   * The motion is on a wrapper because a Motion element takes `onDragStart` and
+   * `onDragEnd` for its own gesture props and never hands them to the DOM — on
+   * the article itself they would silently break the board's native drag.
+   */
   return (
-    <article
-      className={cx(styles.card, CARD_CLASS[status], selected && styles.isSelected)}
-      data-testid="card"
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData('text/plain', step.id)
-        e.dataTransfer.effectAllowed = 'move'
-        onDragStart()
-      }}
-      onDragEnd={onDragEnd}
-      onClick={() => onSelect(step.id)}
-    >
-      <div className={styles.cardTop}>
-        <span className={cx(ui.muted, ui.small)}>{component?.name}</span>
-        <CookDot cookId={record.cookId} className={styles.cardCook} />
-      </div>
-      <div className={styles.cardTitle} data-testid="card-title">
-        {step.title}
-      </div>
-      {step.station !== 'muu' && (
-        <div className={cx(ui.muted, ui.small)}>
-          <Icon name={STATION_ICON[step.station]} /> {station?.label}
+    <m.div layout="position" layoutId={step.id} transition={MOVE}>
+      <article
+        className={cx(styles.card, CARD_CLASS[status], selected && styles.isSelected)}
+        data-testid="card"
+        data-step-id={step.id}
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.setData('text/plain', step.id)
+          e.dataTransfer.effectAllowed = 'move'
+          onDragStart()
+        }}
+        onDragEnd={onDragEnd}
+        onClick={() => onSelect(step.id)}
+      >
+        <div className={styles.cardTop}>
+          <span className={cx(ui.muted, ui.small)}>{component?.name}</span>
+          <CookDot cookId={record.cookId} className={styles.cardCook} />
         </div>
-      )}
-      <StepControls step={step} status={status} className={styles.cardControls} />
-    </article>
+        <div className={styles.cardTitle} data-testid="card-title">
+          {step.title}
+        </div>
+        {step.station !== 'muu' && (
+          <div className={cx(ui.muted, ui.small)}>
+            <Icon name={STATION_ICON[step.station]} /> {station?.label}
+          </div>
+        )}
+        <StepControls step={step} status={status} className={styles.cardControls} />
+      </article>
+    </m.div>
   )
 }

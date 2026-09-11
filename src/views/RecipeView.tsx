@@ -96,6 +96,7 @@ export function RecipeView({
                             )}
                             data-testid="step-row"
                             data-status={status}
+                            data-step-id={step.id}
                           >
                             <button
                               className={styles.stepMain}

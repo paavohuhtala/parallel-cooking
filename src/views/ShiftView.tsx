@@ -1,7 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type Ref } from 'react'
+import { AnimatePresence, LayoutGroup } from 'motion/react'
+import * as m from 'motion/react-m'
 import { STATIONS, type Menu, type Station, type Step } from '../model/types'
 import { Icon, STATION_ICON, StartIcon } from '../components/icons.tsx'
 import { badgeColors } from '../components/ink.ts'
+import { Modal, ModalHead } from '../components/Modal.tsx'
+import { Collapse, FADE, MOVE, useLeaving } from '../components/motion.tsx'
 import { CookDot } from '../components/StepControls'
 import { checkTransition, recordOf, statusOf } from '../state/graph'
 import {
@@ -44,18 +48,37 @@ export function ShiftView({ onSelect }: { selected: string | null; onSelect: (id
     return record.state === 'done' && record.cookId === me
   })
 
+  /*
+   * One layout group, named: the zones are separate components, and a step
+   * leaving one zone for another has to be measured on both sides of the move.
+   * The name keeps these `layoutId`s apart from the board's, which use the same
+   * step ids and can be swapped for these in a single render by a tab switch.
+   */
   return (
-    <div className={styles.shift} data-testid="shift">
-      <CookBar open={switching} onOpen={() => setSwitching(true)} />
-      <ActiveZone steps={active} onSelect={onSelect} onFinished={setFinished} />
-      <NextZone picks={picks} onSelect={onSelect} />
-      {waiting.length > 0 && <WaitingZone waiting={waiting} onSelect={onSelect} />}
-      {mine.length > 0 && <DoneZone steps={mine} />}
-      {finished && <CompletionBar stepId={finished} onDismiss={() => setFinished(null)} />}
-      {switching && <CookSwitcher onClose={() => setSwitching(false)} />}
-    </div>
+    <LayoutGroup id="shift">
+      <div className={styles.shift} data-testid="shift">
+        <CookBar open={switching} onOpen={() => setSwitching(true)} />
+        <ActiveZone steps={active} onSelect={onSelect} onFinished={setFinished} />
+        <NextZone picks={picks} onSelect={onSelect} />
+        {waiting.length > 0 && <WaitingZone waiting={waiting} onSelect={onSelect} />}
+        {mine.length > 0 && <DoneZone steps={mine} />}
+        <AnimatePresence>
+          {finished && (
+            <CompletionBar key="toast" stepId={finished} onDismiss={() => setFinished(null)} />
+          )}
+          {switching && <CookSwitcher key="switcher" onClose={() => setSwitching(false)} />}
+        </AnimatePresence>
+      </div>
+    </LayoutGroup>
   )
 }
+
+/**
+ * Each zone slides to its new place when one above it grows or shrinks — a
+ * step moving into `Työn alla` pushes the queue down rather than teleporting
+ * it. `position` only, so a zone's own contents never stretch on the way.
+ */
+const ZONE_LAYOUT = { layout: 'position', transition: MOVE } as const
 
 /* -------------------------------------------------------- who this phone is */
 
@@ -117,28 +140,15 @@ function CookBar({ open, onOpen }: { open: boolean; onOpen: () => void }) {
 function CookSwitcher({ onClose }: { onClose: () => void }) {
   const { setMe } = useStore()
   return (
-    <div className={ui.modalBackdrop} onClick={onClose}>
-      <div
-        className={cx(ui.modal, ui.modalSheet)}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Kuka sinä olet?"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className={ui.modalHead}>
-          <h2>Kuka sinä olet?</h2>
-          <button className={cx(ui.btn, ui.btnGhost, ui.icon)} onClick={onClose} aria-label="Sulje">
-            <Icon name="close" />
-          </button>
-        </div>
-        <CookChoices
-          onPick={(cookId) => {
-            setMe(cookId)
-            onClose()
-          }}
-        />
-      </div>
-    </div>
+    <Modal label="Kuka sinä olet?" variant="sheet" onClose={onClose}>
+      <ModalHead title="Kuka sinä olet?" onClose={onClose} />
+      <CookChoices
+        onPick={(cookId) => {
+          setMe(cookId)
+          onClose()
+        }}
+      />
+    </Modal>
   )
 }
 
@@ -195,26 +205,36 @@ function ActiveZone({
   // hand; the rest are title rows until asked. A cook can overrule either way.
   const [open, setOpen] = useState<Record<string, boolean>>({})
 
+  // A finished card closes up rather than vanishing, so the one under it rises
+  // into its place instead of appearing there. Arriving is the card's own
+  // business (`layoutId`), so its wrapper does not open as well.
   return (
-    <section className={styles.zone}>
+    <m.section className={styles.zone} {...ZONE_LAYOUT}>
       <h2 className={styles.zoneHead}>
         Työn alla <span className={cx(styles.zoneCount, ui.muted, ui.small)}>{steps.length}</span>
       </h2>
-      {steps.length === 0 ? (
-        <p className={cx(styles.empty, ui.muted, ui.small)}>Ei mitään kesken. Ota seuraava alta.</p>
-      ) : (
-        steps.map((step, i) => (
-          <ActiveCard
-            key={step.id}
-            step={step}
-            open={open[step.id] ?? i === 0}
-            onToggle={() => setOpen((o) => ({ ...o, [step.id]: !(o[step.id] ?? i === 0) }))}
-            onSelect={onSelect}
-            onFinished={onFinished}
-          />
-        ))
-      )}
-    </section>
+      <AnimatePresence initial={false}>
+        {steps.length === 0 ? (
+          <Collapse key="empty">
+            <p className={cx(styles.empty, ui.muted, ui.small)}>
+              Ei mitään kesken. Ota seuraava alta.
+            </p>
+          </Collapse>
+        ) : (
+          steps.map((step, i) => (
+            <Collapse key={step.id} appear={false}>
+              <ActiveCard
+                step={step}
+                open={open[step.id] ?? i === 0}
+                onToggle={() => setOpen((o) => ({ ...o, [step.id]: !(o[step.id] ?? i === 0) }))}
+                onSelect={onSelect}
+                onFinished={onFinished}
+              />
+            </Collapse>
+          ))
+        )}
+      </AnimatePresence>
+    </m.section>
   )
 }
 
@@ -237,8 +257,18 @@ function ActiveCard({
   const component = menu.components.find((c) => c.id === step.componentId)
   const toTodo = checkTransition(index, state, step.id, 'todo')
 
+  // Same `layoutId` as the hero it was a moment ago: `Aloita` visibly lifts
+  // the suggestion up into your own zone instead of making it vanish below
+  // and reappear above.
   return (
-    <article className={cx(styles.card, styles.isActive)} data-testid="shift-active-card">
+    <m.article
+      className={cx(styles.card, styles.isActive)}
+      data-testid="shift-active-card"
+      data-step-id={step.id}
+      layout="position"
+      layoutId={step.id}
+      transition={MOVE}
+    >
       <button
         className={styles.cardHead}
         data-testid="shift-card-head"
@@ -322,7 +352,7 @@ function ActiveCard({
           </button>
         </div>
       )}
-    </article>
+    </m.article>
   )
 }
 
@@ -351,7 +381,6 @@ function Elapsed({ since }: { since?: number }) {
 /* ---------------------------------------------------------------- zone two */
 
 function NextZone({ picks, onSelect }: { picks: ShiftPick[]; onSelect: (id: string) => void }) {
-  const { menu, requestStart } = useStore()
   const [station, setStation] = useState<Station | null>(null)
   const [listOpen, setListOpen] = useState(false)
 
@@ -364,7 +393,7 @@ function NextZone({ picks, onSelect }: { picks: ShiftPick[]; onSelect: (id: stri
   const available = STATIONS.filter((s) => picks.some((p) => p.step.station === s.id))
 
   return (
-    <section className={styles.zone}>
+    <m.section className={styles.zone} {...ZONE_LAYOUT}>
       <h2 className={styles.zoneHead}>
         Ota seuraava{' '}
         <span className={cx(styles.zoneCount, ui.muted, ui.small)}>
@@ -372,43 +401,31 @@ function NextZone({ picks, onSelect }: { picks: ShiftPick[]; onSelect: (id: stri
         </span>
       </h2>
 
-      {hero ? (
-        <article className={cx(styles.card, styles.isHero)} data-testid="shift-hero">
-          <span
-            className={cx(styles.why, hero.reason.kind === 'hold' && styles.whyHold)}
-            data-testid="shift-why"
+      {/*
+        Keyed by step, so a new suggestion arrives as a new card rather than as
+        the old one's words changing under your thumb — whether you started the
+        last one, somebody else took it, or a filter changed the answer.
+        `popLayout` takes the leaving card out of the flow at once, so the two
+        never stand stacked for the length of a fade.
+      */}
+      <AnimatePresence mode="popLayout" initial={false}>
+        {hero ? (
+          <HeroCard key={hero.step.id} pick={hero} onSelect={onSelect} />
+        ) : (
+          <m.p
+            key="none"
+            className={cx(styles.empty, ui.muted, ui.small)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={FADE}
           >
-            {reasonLabel(hero.reason, menu)}
-          </span>
-          <button
-            className={styles.cardHead}
-            data-testid="shift-card-head"
-            onClick={() => onSelect(hero.step.id)}
-          >
-            <span className={cx(styles.kicker, ui.muted, ui.small)}>
-              {menu.components.find((c) => c.id === hero.step.componentId)?.name}
-              <StationTag station={hero.step.station} />
-            </span>
-            <span className={styles.cardTitle} data-testid="shift-card-title">
-              {hero.step.title}
-            </span>
-          </button>
-          <div className={styles.cardActions}>
-            <button
-              className={cx(ui.btn, ui.btnStart, ui.btnPrimary, styles.primary)}
-              onClick={() => requestStart(hero.step.id)}
-            >
-              <StartIcon /> Aloita
-            </button>
-          </div>
-        </article>
-      ) : (
-        <p className={cx(styles.empty, ui.muted, ui.small)}>
-          {picks.length === 0
-            ? 'Kaikki vapaa työ on otettu. Katso alta, ketä odotat.'
-            : 'Tällä pisteellä ei ole vapaata työtä juuri nyt.'}
-        </p>
-      )}
+            {picks.length === 0
+              ? 'Kaikki vapaa työ on otettu. Katso alta, ketä odotat.'
+              : 'Tällä pisteellä ei ole vapaata työtä juuri nyt.'}
+          </m.p>
+        )}
+      </AnimatePresence>
 
       {available.length > 1 && (
         <div className={styles.filters} data-testid="shift-filters">
@@ -460,7 +477,71 @@ function NextZone({ picks, onSelect }: { picks: ShiftPick[]; onSelect: (id: stri
           )}
         </>
       )}
-    </section>
+    </m.section>
+  )
+}
+
+/**
+ * The one suggestion, big. It shares its `layoutId` with the active card the
+ * step becomes, which is what carries it up the screen on `Aloita`. `ref` is
+ * taken and passed down because `popLayout` measures the leaving card through
+ * it to lift it out of the flow.
+ */
+function HeroCard({
+  pick,
+  onSelect,
+  ref,
+}: {
+  pick: ShiftPick
+  onSelect: (id: string) => void
+  ref?: Ref<HTMLElement>
+}) {
+  const { menu, requestStart } = useStore()
+  const leaving = useLeaving()
+  const { step, reason } = pick
+
+  return (
+    <m.article
+      ref={ref}
+      className={cx(styles.card, styles.isHero)}
+      data-testid="shift-hero"
+      data-step-id={step.id}
+      layout="position"
+      layoutId={step.id}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      transition={{ default: MOVE, opacity: FADE }}
+      {...leaving}
+    >
+      <span
+        className={cx(styles.why, reason.kind === 'hold' && styles.whyHold)}
+        data-testid="shift-why"
+      >
+        {reasonLabel(reason, menu)}
+      </span>
+      <button
+        className={styles.cardHead}
+        data-testid="shift-card-head"
+        onClick={() => onSelect(step.id)}
+      >
+        <span className={cx(styles.kicker, ui.muted, ui.small)}>
+          {menu.components.find((c) => c.id === step.componentId)?.name}
+          <StationTag station={step.station} />
+        </span>
+        <span className={styles.cardTitle} data-testid="shift-card-title">
+          {step.title}
+        </span>
+      </button>
+      <div className={styles.cardActions}>
+        <button
+          className={cx(ui.btn, ui.btnStart, ui.btnPrimary, styles.primary)}
+          onClick={() => requestStart(step.id)}
+        >
+          <StartIcon /> Aloita
+        </button>
+      </div>
+    </m.article>
   )
 }
 
@@ -506,7 +587,7 @@ function WaitingZone({
   const [open, setOpen] = useState(false)
 
   return (
-    <section className={styles.zone}>
+    <m.section className={styles.zone} {...ZONE_LAYOUT}>
       <button
         className={styles.fold}
         data-testid="shift-fold"
@@ -556,7 +637,7 @@ function WaitingZone({
           })}
         </ul>
       )}
-    </section>
+    </m.section>
   )
 }
 
@@ -566,7 +647,7 @@ function DoneZone({ steps }: { steps: Step[] }) {
   const [open, setOpen] = useState(false)
 
   return (
-    <section className={styles.zone}>
+    <m.section className={styles.zone} {...ZONE_LAYOUT}>
       <button
         className={styles.fold}
         data-testid="shift-fold"
@@ -601,7 +682,7 @@ function DoneZone({ steps }: { steps: Step[] }) {
           })}
         </ul>
       )}
-    </section>
+    </m.section>
   )
 }
 
@@ -621,6 +702,7 @@ function CompletionBar({
   onDismiss: () => void
 }) {
   const { index, state, setStepState, requestStart } = useStore()
+  const leaving = useLeaving()
   const step = index.steps.get(stepId)
   const opened = useMemo(() => justUnblocked(index, state, stepId), [index, state, stepId])
   const back = checkTransition(index, state, stepId, 'todo')
@@ -634,8 +716,21 @@ function CompletionBar({
   if (!step) return null
   const next = opened[0]
 
+  // Comes up from the bottom edge in the same beat as the finished card
+  // closing up above, so the two read as one move: that went, this is what
+  // it opened. `inert` on the way out, like a dialog: `Aloita se` must not
+  // start anything twice.
   return (
-    <div className={styles.toast} role="status" data-testid="shift-toast">
+    <m.div
+      className={styles.toast}
+      role="status"
+      data-testid="shift-toast"
+      initial={{ opacity: 0, y: '100%' }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: '100%' }}
+      transition={{ default: MOVE, opacity: FADE }}
+      {...leaving}
+    >
       <div className={styles.toastText}>
         <strong>Valmis:</strong> {step.title}
         {next && (
@@ -672,7 +767,7 @@ function CompletionBar({
           <Icon name="close" />
         </button>
       </div>
-    </div>
+    </m.div>
   )
 }
 

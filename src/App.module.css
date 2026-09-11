@@ -25,6 +25,12 @@
   overflow: auto;
 }
 
+/* What a banner opens and closes inside (`Collapse`). Chrome like the banner
+   itself, so it must not shrink when the workspace wants the height. */
+.bannerSlot {
+  flex: none;
+}
+
 .topbar {
   flex: none;
   z-index: 20;

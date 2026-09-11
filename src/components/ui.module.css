@@ -346,6 +346,31 @@
   }
 }
 
+/*
+ * A docked sheet is pulled down by its handle and its head, so the browser must
+ * not take that drag for a scroll. Both are only rendered docked (`Modal`), so
+ * neither needs a media query of its own. The handle sits in the panel's top
+ * padding and is as tall as a thumb, not as tall as it looks.
+ */
+.modalGrab,
+.sheetHandle {
+  touch-action: none;
+  user-select: none;
+}
+.sheetHandle {
+  display: flex;
+  justify-content: center;
+  margin: -0.9rem 0 0.1rem;
+  padding: 0.5rem 0 0.55rem;
+}
+.sheetHandle::before {
+  content: '';
+  width: 2.25rem;
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+}
+
 .modalCooks {
   display: grid;
   gap: 0.4rem;
