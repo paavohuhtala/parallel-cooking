@@ -2,18 +2,24 @@ import { Hono } from 'hono'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { bodyLimit } from 'hono/body-limit'
 import { z } from 'zod'
-import { CreateRoomSchema, RenameRoomSchema, type TemplateSummary } from '../shared/api.ts'
+import {
+  CreateRoomSchema,
+  RenameRoomSchema,
+  type RoomSummary,
+  type TemplateSummary,
+} from '../shared/api.ts'
 import { renderedSchema } from '../shared/menuDocs.ts'
 import { MENU_TEMPLATES } from '../shared/templates.ts'
 import { authMiddleware } from './auth.ts'
 import { config } from './config.ts'
 import { menuRoutes } from './menuRoutes.ts'
 import { one } from './db.ts'
+import { connectedCount, dropRoom } from './room.ts'
 import {
   createRoomFromMenu,
-  createRoomFromRoom,
   createRoomFromTemplate,
-  getRoomSummary,
+  deleteRoom,
+  getRoomRecord,
   renameRoom,
 } from './rooms.ts'
 
@@ -65,6 +71,15 @@ app.get('/api/templates', (c) => {
   return c.json(summaries)
 })
 
+/**
+ * The stored row plus the one field only the socket layer knows. Kept in one
+ * place so every room response answers "is anybody in there" the same way.
+ */
+function roomSummary(id: string): RoomSummary | null {
+  const room = getRoomRecord(id)
+  return room && { ...room, online: connectedCount(id) }
+}
+
 app.post('/api/rooms', async (c) => {
   const body = CreateRoomSchema.safeParse(await c.req.json().catch(() => null))
   if (!body.success) return c.json({ error: z.prettifyError(body.error) }, 400)
@@ -72,16 +87,14 @@ app.post('/api/rooms', async (c) => {
   const result =
     'templateId' in body.data
       ? createRoomFromTemplate(body.data.templateId, body.data.name)
-      : 'fromMenuId' in body.data
-        ? createRoomFromMenu(body.data.fromMenuId, body.data.name)
-        : createRoomFromRoom(body.data.fromRoomId, body.data.name)
+      : createRoomFromMenu(body.data.fromMenuId, body.data.name)
 
   if (!result.ok) return c.json({ error: result.reason }, 400)
-  return c.json(getRoomSummary(result.id), 201)
+  return c.json(roomSummary(result.id), 201)
 })
 
 app.get('/api/rooms/:id', (c) => {
-  const summary = getRoomSummary(c.req.param('id'))
+  const summary = roomSummary(c.req.param('id'))
   if (!summary) return c.json({ error: 'Keittiötä ei löytynyt.' }, 404)
   return c.json(summary)
 })
@@ -92,7 +105,27 @@ app.patch('/api/rooms/:id', async (c) => {
   if (!renameRoom(c.req.param('id'), body.data.name)) {
     return c.json({ error: 'Keittiötä ei löytynyt.' }, 404)
   }
-  return c.json(getRoomSummary(c.req.param('id')))
+  return c.json(roomSummary(c.req.param('id')))
+})
+
+/*
+ * Deleting a kitchen is offered only while nobody is in it, and the check is
+ * here rather than in the UI alone: the front page reads `online` once, and
+ * somebody can walk in between that render and the click. Pulling the room out
+ * from under an open socket would leave that client sending commands into a
+ * room that no longer exists.
+ *
+ * The whole handler is synchronous — no body to read — so nothing can join
+ * between the count and the delete.
+ */
+app.delete('/api/rooms/:id', (c) => {
+  const id = c.req.param('id')
+  if (connectedCount(id) > 0) {
+    return c.json({ error: 'Keittiössä on kokkeja paikalla.' }, 409)
+  }
+  if (!deleteRoom(id)) return c.json({ error: 'Keittiötä ei löytynyt.' }, 404)
+  dropRoom(id)
+  return c.body(null, 204)
 })
 
 // An unmatched /api path must not fall through to the SPA and answer HTML 200.

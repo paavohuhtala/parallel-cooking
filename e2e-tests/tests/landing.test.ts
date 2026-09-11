@@ -51,6 +51,47 @@ pcTest('offers a kitchen you have opened before', async ({ landingPage }) => {
   expect(reopened.roomId()).toBe(roomId)
 })
 
+/*
+ * Removing a kitchen lives here rather than inside the kitchen: the front page
+ * is where you can see which ones are empty, and a room you are standing in is
+ * the one room you cannot answer that about.
+ */
+pcTest('removes a kitchen nobody is in', async ({ landingPage, api }) => {
+  await landingPage.goto()
+  const kitchen = await landingPage.createKitchen('Syöty illallinen')
+  const roomId = kitchen.roomId()
+
+  await landingPage.goto()
+  await landingPage.removeRoom('Syöty illallinen')
+
+  await expect(api.roomExists(roomId)).resolves.toBe(false)
+  await landingPage.expectNoRecentRooms()
+})
+
+pcTest('leaves a kitchen with cooks in it alone', async ({
+  landingPage,
+  kitchen,
+  room,
+  api,
+  openSecondCook,
+}) => {
+  const second = await openSecondCook()
+
+  // This browser has to have been there for the kitchen to be on its list.
+  await kitchen.goto(room.id)
+  await landingPage.goto()
+
+  await landingPage.expectOnlineCount(room.name, 1)
+  await expect(landingPage.removeRoomButton(room.name)).toBeDisabled()
+  // The button is a courtesy; the rule is the server's.
+  await expect(api.deleteRoom(room.id)).resolves.toBe(409)
+
+  // And once the kitchen empties out, the page notices without a reload.
+  await second.page.close()
+  await landingPage.removeRoom(room.name)
+  await expect(api.roomExists(room.id)).resolves.toBe(false)
+})
+
 pcTest('explains a link that leads nowhere', async ({ kitchen }) => {
   await kitchen.gotoUnchecked('ei-tallaista-keittiota')
 

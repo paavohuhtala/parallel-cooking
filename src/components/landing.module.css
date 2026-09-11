@@ -44,8 +44,18 @@
   gap: 6px;
 }
 
+/* The kitchen and what can be done to it. The row is the flex container the
+   whole thing used to be: the button kept its shape, and the remove button sits
+   beside it rather than inside — a button inside a button is not a thing. */
+.recentRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .recentItem {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   display: flex;
   justify-content: space-between;
   align-items: baseline;
@@ -67,5 +77,10 @@
 .recentItem small {
   color: var(--muted);
   font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.recentOnline {
+  color: var(--muted);
   white-space: nowrap;
 }

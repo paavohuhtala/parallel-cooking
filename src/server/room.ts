@@ -232,6 +232,29 @@ export function submit(room: LiveRoom, client: Client, incoming: Envelope): void
   broadcast(room, { type: 'snapshot', version, state: room.state, origin })
 }
 
+/**
+ * Clients with this room open right now. The only reading of presence outside
+ * the socket loop: it is what the front page's "delete this kitchen" is allowed
+ * to depend on, and a room nobody has loaded is trivially empty.
+ */
+export function connectedCount(roomId: string): number {
+  return live.get(roomId)?.clients.size ?? 0
+}
+
+/**
+ * The room's row is gone. Drop the in-memory copy with it — an empty room
+ * lingers for `EVICT_AFTER_MS`, and letting that copy outlive the delete would
+ * hand a reconnecting client state the database no longer has.
+ *
+ * Like `menuChanged`, this must be called synchronously after the write.
+ */
+export function dropRoom(roomId: string): void {
+  const room = live.get(roomId)
+  if (!room) return
+  if (room.evictAt) clearTimeout(room.evictAt)
+  live.delete(roomId)
+}
+
 export function snapshotFor(room: LiveRoom): ServerMessage {
   return { type: 'snapshot', version: room.version, state: room.state, origin: null }
 }

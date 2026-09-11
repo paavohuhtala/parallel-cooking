@@ -2,8 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { AnimatePresence } from 'motion/react'
 import * as m from 'motion/react-m'
 import type { Menu } from './model/types'
-import { useNavigate } from '@tanstack/react-router'
-import { createRoom, saveRoomMenu } from './api/client'
+import { saveRoomMenu } from './api/client'
 import { MenuEditor } from './components/MenuEditor'
 import { Modal, ModalHead } from './components/Modal.tsx'
 import { Collapse, useRejectionNudge } from './components/motion.tsx'
@@ -55,7 +54,6 @@ const initialView = (): View =>
 export default function App() {
   const store = useStore()
   const { room, menu, index, state, rejection, dismissRejection, connection } = store
-  const navigate = useNavigate()
   const [view, setView] = useState<View>(initialView)
   const [selected, setSelected] = useState<string | null>(null)
   const [cooksOpen, setCooksOpen] = useState(false)
@@ -72,14 +70,6 @@ export default function App() {
       // Clipboard blocked (insecure origin, denied permission): the URL bar
       // still has the link, so this is a convenience, not a requirement.
     }
-  }
-
-  // Resetting a kitchen means starting a new one from the same menu — rooms are
-  // cheap, and this keeps the finished dinner around to look back at.
-  async function startFresh() {
-    if (!confirm('Aloitetaanko uusi keittiö samalla menulla? Tämä jää talteen.')) return
-    const fresh = await createRoom({ fromRoomId: room.id })
-    await navigate({ to: '/r/$roomId', params: { roomId: fresh.id } })
   }
 
   const progress = useMemo(() => progressOf(menu, index, state), [menu, index, state])
@@ -123,11 +113,10 @@ export default function App() {
             onCooks={() => setCooksOpen((o) => !o)}
             onCopy={() => void copyLink()}
             onEdit={() => setEditing(true)}
-            onFresh={() => void startFresh()}
           />
         </div>
 
-        {/* Where the four buttons above do not fit, they move in here. */}
+        {/* Where the three buttons above do not fit, they move in here. */}
         <button
           className={cx(ui.btn, ui.btnGhost, ui.icon, styles.topbarMore)}
           onClick={() => setActionsOpen(true)}
@@ -253,10 +242,6 @@ export default function App() {
                 setActionsOpen(false)
                 setEditing(true)
               }}
-              onFresh={() => {
-                setActionsOpen(false)
-                void startFresh()
-              }}
             />
           </ActionsSheet>
         )}
@@ -268,10 +253,14 @@ export default function App() {
 }
 
 /**
- * The room's four actions. Rendered twice — inline in the header, and again in
+ * The room's three actions. Rendered twice — inline in the header, and again in
  * the sheet a phone reaches them through — so there is one definition of what
  * they are and one place to change them. The sheet lives outside `.topbar`, so
  * a locator scoped to the header still finds exactly one of each.
+ *
+ * Deleting a kitchen is deliberately *not* here: it belongs to the list of
+ * kitchens on the front page, where you can see which ones are empty, and not
+ * to a room you are standing in.
  */
 function RoomActions({
   copied,
@@ -279,14 +268,12 @@ function RoomActions({
   onCooks,
   onCopy,
   onEdit,
-  onFresh,
 }: {
   copied: boolean
   cooks: number
   onCooks: () => void
   onCopy: () => void
   onEdit: () => void
-  onFresh: () => void
 }) {
   return (
     <>
@@ -306,9 +293,6 @@ function RoomActions({
       </button>
       <button className={cx(ui.btn, ui.btnGhost)} onClick={onEdit}>
         <Icon name="edit" /> Muokkaa menua
-      </button>
-      <button className={cx(ui.btn, ui.btnGhost)} onClick={onFresh}>
-        Uusi keittiö
       </button>
     </>
   )

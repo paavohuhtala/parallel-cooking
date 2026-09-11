@@ -259,7 +259,7 @@ Three CSS-only changes, no DOM restructuring:
   out of flow without taking it out of the DOM, so both the topbar's layout *and* every
   `topbar.getByRole('tab')` locator in [`KitchenPageModel`](../e2e-tests/pom/KitchenPageModel.ts)
   survive untouched. `.workspace` gets the matching bottom padding.
-- **`Kokit` / `Jaa` / `Muokkaa menua` / `Uusi keittiö` collapse into one `⋯`** that opens a
+- **`Kokit` / `Jaa` / `Muokkaa menua` collapse into one `⋯`** that opens a
   `.modal-sheet` — a class the stylesheet already bottom-sheets under 900 px. The room name
   truncates, the connection indicator becomes a dot with its label as `aria-label`.
 - **`.upnext` is hidden under 640 px.** Zone ② is a strictly better version of it; two ranked

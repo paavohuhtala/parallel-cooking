@@ -84,16 +84,3 @@ pcTest('the detail panel shows what a step needs and what it opens', async ({ ki
 
   await detail.close()
 })
-
-pcTest('"Uusi keittiö" leaves the old one alone', async ({ kitchen, room }) => {
-  await kitchen.goto(room.id)
-  await kitchen.startStepAs(STEP.mushrooms, COOK.first)
-
-  const freshId = await kitchen.startFreshKitchen()
-
-  expect(freshId).not.toBe(room.id)
-  await kitchen.recipe.step(STEP.mushrooms).expectStatus('ready')
-
-  await kitchen.goto(room.id)
-  await kitchen.recipe.step(STEP.mushrooms).expectStatus('active')
-})
