@@ -341,3 +341,20 @@ sends no credentials.
 a one-replica Deployment with a PVC — **one** replica on purpose: SQLite is a single
 writer and the WebSocket fan-out is in-process, so a second replica would contend on the
 volume and split every room in half. Scaling out means changing both of those first.
+
+### CI
+
+[.github/workflows/ci.yml](.github/workflows/ci.yml) runs on every push to `master` and
+every pull request: one job for `tsc -b`, `pnpm build`, `check:bundle` and the reducer
+tests, one for the Playwright suite (Chromium only, installed with `--with-deps`; the HTML
+report is uploaded as an artifact when it fails), and a third that builds the image once
+both are green.
+
+That third job pushes to `ghcr.io/paavohuhtala/parallel-cooking` — tagged `sha-<short>`,
+the branch name, and `latest` on `master`. A pull request builds the image anyway, to
+prove the `Dockerfile` still works, and throws it away without logging in to the registry.
+`workflow_dispatch` takes a `force-push` input for publishing a branch build by SHA.
+
+`check:bundle` greps `dist/assets/`, which is the one check that does *not* work on
+Windows — `cmd.exe` has no `grep`, and the script's `||` branch reports "bundle clean"
+either way. CI runs it on Linux, where it actually looks.

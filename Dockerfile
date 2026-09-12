@@ -3,7 +3,7 @@
 FROM node:24-alpine AS build
 WORKDIR /app
 RUN corepack enable
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm run build
@@ -15,7 +15,7 @@ ENV NODE_ENV=production \
     PORT=8080
 
 RUN corepack enable
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 # Only `ws` and the hono packages survive --prod; the client's deps were
 # already bundled into dist/ by the build stage. pnpm hardlinks out of its
 # store into node_modules, so the store costs no extra bytes in this layer and
