@@ -372,6 +372,12 @@ test("on a phone the row menu is how a dish's details are opened", async ({
 
   await editor.openDetailsFromMenu('Keitto')
   await expect(editor.inspectorTitle).toHaveText('Keitto')
+
+  // The menu that opened the sheet is gone by the time it closes, so the row's
+  // ⋯ takes focus in its place — not nothing, and not the title.
+  await page.keyboard.press('Escape')
+  await expect(editor.sheet).toBeHidden()
+  await expect(editor.rowMenuButton('Keitto')).toBeFocused()
 })
 
 test('on a phone a long title wraps instead of being cut through a letter', async ({

@@ -239,6 +239,7 @@ export function MenuEditor({
    * phone would open the keyboard over the outline that was just uncovered. A
    * sheet opened from the row menu has lost its opener with the menu, so the
    * row's `⋯` stands in for it, as it does when there was no button to note.
+   * Found by role rather than by class: module class names are hashed.
    */
   useEffect(() => {
     if (sheet || !restoreFocus.current) return
@@ -248,8 +249,8 @@ export function MenuEditor({
       : selected
         ? document
             .querySelector(`[data-rowkey="${CSS.escape(selected)}"]`)
-            ?.closest('.outline-row')
-            ?.querySelector<HTMLElement>('.row-menu-open')
+            ?.closest('[role="treeitem"]')
+            ?.querySelector<HTMLElement>('[aria-haspopup="menu"]')
         : null
     back?.focus()
   }, [sheet, selected])
