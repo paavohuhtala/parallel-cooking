@@ -31,6 +31,8 @@ export interface OutlineRow {
   title: string
   /** Steps only: what the outline shows in the row's left slot. */
   station: Station | null
+  /** Steps only: marked as work that can be finished ahead of service. */
+  holdPoint: boolean
   /** Position among siblings, and how many there are; bounds for Alt+↑/↓. */
   index: number
   siblingCount: number
@@ -71,6 +73,7 @@ export function flattenMenu(menu: Menu): OutlineRow[] {
       depth: 0,
       title: course.name,
       station: null,
+      holdPoint: false,
       index: courseIndex,
       siblingCount: courses.length,
       childCount: components.length,
@@ -89,6 +92,7 @@ export function flattenMenu(menu: Menu): OutlineRow[] {
         depth: 1,
         title: component.name,
         station: null,
+        holdPoint: false,
         index: componentIndex,
         siblingCount: components.length,
         childCount: steps.length,
@@ -103,6 +107,7 @@ export function flattenMenu(menu: Menu): OutlineRow[] {
           depth: 2,
           title: step.title,
           station: step.station,
+          holdPoint: step.holdPoint ?? false,
           index: stepIndex,
           siblingCount: steps.length,
           childCount: 0,

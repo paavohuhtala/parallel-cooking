@@ -252,6 +252,15 @@
   line-height: var(--title-line);
 }
 
+.rowHold {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: var(--title-line);
+  color: var(--hold);
+  font-size: 0.85rem;
+}
+
 /* The field is as wide as its text, not as wide as the column, so the collapsed
    summary and the row's `⋯` sit right after the title rather than ~700px away
    at the far margin, detached from the row they act on. The row's blank space

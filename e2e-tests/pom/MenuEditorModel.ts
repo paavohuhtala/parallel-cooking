@@ -170,6 +170,11 @@ export class MenuEditorModel {
     return this.rowBlock('Vaihe', title)
   }
 
+  /** The mark a step wears in the outline when it can be done ahead of service. */
+  holdMark(title: string): Locator {
+    return this.stepRow(title).getByLabel('Voi tehdä etukäteen')
+  }
+
   /** Press the row's blank space, past the end of its title. */
   async clickRowBlank(kind: 'Ruokalaji' | 'Osa' | 'Vaihe', title: string): Promise<void> {
     const block = this.rowBlock(kind, title)
@@ -470,6 +475,11 @@ export class MenuEditorModel {
   async setStation(stepTitle: string, station: string): Promise<void> {
     await this.openDetails(stepTitle)
     await this.inspector.getByLabel(station, { exact: true }).click()
+  }
+
+  async toggleHold(stepTitle: string): Promise<void> {
+    await this.openDetails(stepTitle)
+    await this.inspector.getByLabel('Voi tehdä etukäteen', { exact: true }).click()
   }
 
   /**

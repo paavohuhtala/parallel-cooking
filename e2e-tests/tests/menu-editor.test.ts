@@ -547,6 +547,30 @@ const chainDoc = (name: string) => ({
   ],
 })
 
+test('a step that can be done in advance is marked as one in the outline', async ({
+  page,
+  library,
+  editor,
+}) => {
+  await page.goto('/')
+  await library.import(chainDoc('Etukäteen'))
+  await editor.expectOpen()
+
+  await expect(editor.holdMark('Toka')).toHaveCount(0)
+  await editor.toggleHold('Toka')
+  await expect(editor.holdMark('Toka')).toBeVisible()
+  await expect(editor.holdMark('Eka')).toHaveCount(0)
+
+  await editor.save()
+  await page.goto('/')
+  await library.open('Etukäteen')
+  await editor.expectOpen()
+  await expect(editor.holdMark('Toka')).toBeVisible()
+
+  await editor.toggleHold('Toka')
+  await expect(editor.holdMark('Toka')).toHaveCount(0)
+})
+
 test('emptying a course name and pressing Backspace does not take the course with it', async ({
   page,
   library,

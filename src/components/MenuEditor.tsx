@@ -80,6 +80,9 @@ export interface MenuEditorProps {
 
 const KIND_LABEL = { course: 'Ruokalaji', component: 'Osa', step: 'Vaihe' } as const
 
+/** The inspector's toggle and the mark it puts on the row read the same. */
+const HOLD_LABEL = 'Voi tehdä etukäteen'
+
 /** Indent and weight are per level, so both are looked up rather than built. */
 const DEPTH_CLASS = [undefined, styles.depth1, styles.depth2] as const
 const KIND_CLASS: Record<'course' | 'component' | 'step', string | undefined> = {
@@ -795,6 +798,12 @@ function Row({
           onKeyDown={onKeyDown}
         />
 
+        {row.holdPoint && (
+          <span className={styles.rowHold} title={HOLD_LABEL}>
+            <Icon name="hold" title={HOLD_LABEL} />
+          </span>
+        )}
+
         {/* A collapsed row must still say what it is hiding, or collapsing is
             just losing track of a course. */}
         {parent && collapsed && (
@@ -1362,7 +1371,7 @@ function StepFields({
           checked={step.holdPoint ?? false}
           onChange={() => dispatch({ type: 'toggle_hold', id: stepId })}
         />
-        Voi tehdä etukäteen
+        {HOLD_LABEL}
       </label>
     </>
   )

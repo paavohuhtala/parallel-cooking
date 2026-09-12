@@ -296,6 +296,21 @@ test('a row knows how many rows are directly under it', () => {
   assert.equal(flattenMenu(emptied)[1].childCount, 0)
 })
 
+test('the outline says which steps can be done ahead of service', () => {
+  const held = run(base(), { type: 'toggle_hold', id: 'b' })
+  assert.deepEqual(
+    flattenMenu(held).map((r) => [r.title, r.holdPoint]),
+    [
+      ['Alkupala', false],
+      ['Keitto', false],
+      ['A', false],
+      ['B', true],
+      ['C', false],
+    ],
+  )
+  assert.equal(flattenMenu(run(held, { type: 'toggle_hold', id: 'b' }))[3].holdPoint, false)
+})
+
 test('a row counts everything under it, which is what deleting it takes', () => {
   // A second dish in the course, so the course's count has to add across dishes
   // rather than repeat the first one's.
