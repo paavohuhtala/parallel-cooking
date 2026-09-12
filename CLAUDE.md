@@ -9,6 +9,15 @@ decides when food reaches the table. Real-time and multi-user: everyone opens th
 
 **UI is in Finnish; code, comments and docs are in English.**
 
+## Comments
+
+Sparingly, and for *why* — in the rare case the why is not already apparent from the
+code. A comment that justifies a feature's existence, argues for the design or
+restates what the line below it does is not allowed, however well it reads. Before
+writing one, ask what a reader would get wrong without it; no answer means no
+comment. The prose already in this file and in the codebase is not a licence to add
+more of it.
+
 ## Commands
 
 ```
