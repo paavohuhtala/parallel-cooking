@@ -107,7 +107,7 @@ test('the gutter draws the plain chain as a trunk and every exception as a lane'
 
   // A dependency added across dishes is drawn as soon as it is picked.
   await editor.expectGutter('Kata lautaset', { trunk: 'out', lanes: 0 })
-  await editor.addDependency('Kata lautaset', 'Keitto — Pilko sipuli')
+  await editor.addDependency('Kata lautaset', 'Pilko sipuli')
   await editor.expectGutter('Kata lautaset', { trunk: 'out', lanes: 1 })
   await editor.expectGutter('Pilko sipuli', { trunk: 'out', lanes: 1 })
 })
@@ -221,9 +221,8 @@ test('every field in the inspector keeps its label off its controls', async ({
 test('a long step title never widens the inspector', async ({ page, library, editor }) => {
   const long = 'Paahda sienet, ruskista voissa ja nosta neljäsosa sivuun koristeeksi hienovaraisesti'
   await page.goto('/')
-  // Two dishes, so the second one's step still has something to depend on: a
-  // step with no candidates left has an empty picker, which fits whatever the
-  // CSS does and would make this test prove nothing.
+  // Two dishes, so the second one's step has something in another dish to wait
+  // for — a dependency the outline's own auto-chaining would never make.
   await library.import({
     name: 'Pitkät nimet',
     courses: [
@@ -238,14 +237,62 @@ test('a long step title never widens the inspector', async ({ page, library, edi
   })
   await editor.expectOpen()
 
-  // The picker: sized by its widest option, here "Kantarellikeitto — <long>".
   await editor.openDetails('Siivuta leivät')
-  await editor.expectDependencyOptions(2)
   await editor.expectNoHorizontalOverflow()
 
-  // And the chip, once that dependency is actually taken.
-  await editor.addDependency('Siivuta leivät', `Kantarellikeitto — ${long}`)
+  // The chip carrying that whole title, once the dependency is taken.
+  await editor.addDependency('Siivuta leivät', long)
   await editor.expectNoHorizontalOverflow()
+})
+
+test('dependencies are picked in the outline, where both ends are written', async ({
+  page,
+  library,
+  editor,
+}) => {
+  await page.goto('/')
+  await library.import({
+    name: 'Osoitusmenu',
+    courses: [
+      {
+        name: 'Alkupala',
+        components: [
+          { name: 'Keitto', steps: [{ title: 'Pilko sipuli' }, { title: 'Kuullota' }] },
+          { name: 'Tarjoilu', steps: [{ title: 'Kata lautaset' }] },
+        ],
+      },
+    ],
+  })
+  await editor.expectOpen()
+
+  await editor.startPicking('Kata lautaset')
+  // Auto-chaining already made "Kuullota" wait for "Pilko sipuli", so the whole
+  // of the other dish is still free to point at.
+  await expect(editor.pickTarget('Pilko sipuli')).toHaveAttribute('aria-pressed', 'false')
+  await editor.pickTarget('Pilko sipuli').click()
+  await expect(editor.pickTarget('Pilko sipuli')).toHaveAttribute('aria-pressed', 'true')
+  // The same press again takes it back off: one control, both directions.
+  await editor.pickTarget('Pilko sipuli').click()
+  await expect(editor.pickTarget('Pilko sipuli')).toHaveAttribute('aria-pressed', 'false')
+
+  await editor.pickTarget('Kuullota').click()
+  await editor.stopPicking()
+  await editor.expectGutter('Kata lautaset', { trunk: null, lanes: 1 })
+
+  // And the mode is a mode: the step it is about, and anything already waiting
+  // for that step, refuse the press rather than closing a cycle.
+  await editor.startPicking('Kuullota')
+  await expect(editor.pickTarget('Kuullota')).toBeDisabled()
+  await expect(editor.pickTarget('Kata lautaset')).toBeDisabled()
+  await expect(editor.pickTarget('Pilko sipuli')).toBeEnabled()
+  await editor.stopPicking()
+
+  // The chain that was picked is the chain the kitchen cooks.
+  await editor.save()
+  await page.goto('/')
+  await library.startKitchen('Osoitusmenu')
+  const lay = page.getByTestId('step-row').filter({ hasText: 'Kata lautaset' })
+  await expect(lay).toHaveAttribute('data-status', 'blocked')
 })
 
 test('an ingredient can be renamed, and the steps using it follow', async ({
@@ -729,6 +776,35 @@ test.describe('on a touch screen', () => {
     for (const item of await menu.getByRole('menuitem').all()) {
       expect((await editor.hitArea(item)).height, await item.innerText()).toBeGreaterThanOrEqual(44)
     }
+  })
+
+  test('picking a dependency gets the sheet out of the outline, and back after', async ({
+    page,
+    library,
+    editor,
+  }) => {
+    await page.goto('/')
+    await library.import(chainDoc('Sormimenu'))
+    await editor.expectOpen()
+
+    // The sheet covers the outline, so the mode cannot start with it open —
+    // the rows you are about to point at are underneath it.
+    await editor.openDetails('Kolmas')
+    await expect(editor.sheet).toBeVisible()
+    await editor.linkButton.click()
+    await expect(editor.sheet).toBeHidden()
+    await expect(editor.linkBar).toBeVisible()
+
+    await editor.pickTarget('Eka').click()
+    // No keyboard here: the bar's own Valmis is the way out, and it is a 44px
+    // target like everything else a thumb has to find.
+    expect((await editor.hitArea(editor.linkBar.getByRole('button'))).height).toBeGreaterThanOrEqual(44)
+    await editor.linkBar.getByRole('button', { name: 'Valmis' }).click()
+
+    // Back to where it started, with the new dependency written out in it.
+    await expect(editor.sheet).toBeVisible()
+    await expect(editor.inspectorTitle).toHaveText('Kolmas')
+    await expect(editor.inspector.getByLabel('Poista riippuvuus Eka')).toBeVisible()
   })
 
   test('the header is one sticky line of undo and save, with the rest behind ⋯', async ({

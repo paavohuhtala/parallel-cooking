@@ -106,6 +106,15 @@ The editor around that reducer is shaped by three rules, and the first two exist
   they are what makes any of this work without a keyboard. Reordering and deleting sit in
   the row's `⋯` for the same reason: `Alt+↑/↓` has no thumb equivalent.
 
+A dependency is the one thing the inspector hands back to the outline. **Lisää
+riippuvuuksia** puts it in a picking mode where a row is a toggle rather than a field: a
+step's row adds or removes it from the list, a course's or a dish's still only opens and
+closes — which is how a step inside a collapsed one is reached — and the step being edited,
+along with anything already waiting for it, is out of reach because taking it would close a
+cycle. The mode is view state alone; every press is the `toggle_dep` the inspector's chips
+already sent. On a phone it closes the sheet, since the rows you are pointing at are
+underneath it, and reopens it when you are done.
+
 The dependency gutter left of the outline ([lanes.ts](src/state/lanes.ts), drawn by
 [DepGutter.tsx](src/components/DepGutter.tsx)) shows the exceptions to auto-chaining. A step
 waiting for the one directly above it in its dish is a plain trunk; every other dependency

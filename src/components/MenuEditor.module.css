@@ -3,6 +3,10 @@
  * first two exist because "expand" would otherwise mean two things at once:
  * the left glyph is the only disclosure, details are never inline, and every
  * list ends in a tail row.
+ *
+ * Picking dependencies (`.pick`) is the one mode the outline has, and it keeps
+ * `.rowMain`'s metrics exactly, down to using a ring rather than a border, so
+ * that turning it on does not move a single row.
  */
 
 .editor {
@@ -407,6 +411,100 @@
 .tail.kindCourse {
   font-weight: 600;
 }
+/* Nothing is added to the document while dependencies are being picked. */
+.tail:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ------------------------------------------------- picking dependencies */
+
+/*
+ * A row while the outline is picking: one button carrying `.rowMain`'s own
+ * layout, so the rows keep their places and their alignment as the mode comes
+ * and goes. The ring is a `box-shadow` rather than a border for the same
+ * reason — a border would add two pixels to every row in the menu.
+ */
+.pick {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+/* The glyph is a mark here, not a control of its own: the whole row is one. */
+.pick .glyph {
+  cursor: inherit;
+}
+.pick:hover:not(:disabled, .isDep) {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.pick:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.pick.isDep {
+  background: color-mix(in srgb, var(--ready) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ready) 50%, transparent);
+}
+/* A row that is already on the list deepens under the pointer rather than
+   taking the plain hover: the cursor is over the press that would remove it,
+   and a row that stopped looking chosen while you aimed at it would read as
+   already gone. */
+.pick.isDep:hover {
+  background: color-mix(in srgb, var(--ready) 26%, transparent);
+}
+/* The step being picked *for* is neither a target nor out of reach: it is what
+   the mode is about, and its row says so rather than fading out with the ones
+   that would close a cycle. */
+.pick.isSubject:disabled {
+  opacity: 1;
+  cursor: default;
+  box-shadow: inset 0 0 0 1px var(--ready);
+}
+/* Text, not a field — but on the field's own metrics, so the titles do not
+   move sideways or vertically when the mode opens. */
+.pickTitle {
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: var(--title-pad-y) 0.5rem;
+  line-height: var(--title-lh);
+  overflow-wrap: break-word;
+}
+.kindCourse .pickTitle {
+  font-weight: 700;
+}
+.kindComponent .pickTitle {
+  font-weight: 600;
+}
+.pickMark {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: var(--title-line);
+  color: var(--ready);
+  font-size: 0.85rem;
+}
+/* The mode's own voice. It sticks under the header, because the mode outlives
+   a screenful of menu and one you have scrolled past the explanation of is one
+   nobody can leave. */
+.editor > .linkBar {
+  position: sticky;
+  top: var(--editor-sticky-h, 0px);
+  z-index: 19;
+  background: color-mix(in srgb, var(--ready) 14%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--ready) 45%, transparent);
+}
+/* Beside the outline the way out is the inspector's own button, still on
+   screen and still the one that got you here; the item comes back with the
+   sheet, below. */
+.linkBar .linkDone {
+  display: none;
+}
 
 /* The inspector: a column beside the outline on a desktop, a sheet over it on
    a phone. Details never open inline, so the outline holds still while you
@@ -477,21 +575,15 @@
 
 /* The panel is a fixed column, so nothing inside it may take its width from its
    content — one long step title would otherwise push it wide and hand it a
-   horizontal scrollbar. Three separate things have to be said to get that:
-   a chip is `nowrap`; a `<fieldset>` carries a UA `min-inline-size: min-content`
-   that refuses to shrink and passes a wide child's demand up to the panel; and
-   a `select` is sized by its *widest option*, which a percentage `max-width`
-   cannot cap, because percentages count as indefinite while a browser is
-   measuring intrinsic width. Only a length clamps that one. */
+   horizontal scrollbar. Two separate things have to be said to get that: a chip
+   is `nowrap`, and a `<fieldset>` carries a UA `min-inline-size: min-content`
+   that refuses to shrink and passes a wide child's demand up to the panel. */
 .inspector .field {
   min-inline-size: 0;
 }
 .inspector .chips > * {
   min-width: 0;
   max-width: 100%;
-}
-.inspector .chips > .depPicker {
-  max-width: 11rem;
 }
 .inspector .inspectorChip {
   white-space: normal;
@@ -522,7 +614,7 @@
 }
 /* Both adders are chips with a dashed edge — the shape says "another one of
    these", so they have to carry the chip's own metrics exactly. */
-.depPicker,
+.depLink,
 .ingredientAdd {
   padding: 0.25rem 0.7rem;
   border: 1px dashed var(--border);
@@ -537,8 +629,30 @@
   min-width: 7rem;
   max-width: 100%;
 }
+.depLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+}
+.depLink:hover:not(:disabled, [aria-pressed='true']) {
+  border-color: var(--muted);
+  color: var(--text);
+}
+.depLink:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* Pressed, it is the mode it turned on, and it holds that state while the
+   picking happens out in the outline. */
+.depLink[aria-pressed='true'] {
+  border-style: solid;
+  border-color: var(--ready);
+  background: color-mix(in srgb, var(--ready) 16%, transparent);
+  color: var(--text);
+}
 .ingredientAdd:focus,
-.depPicker:focus {
+.depLink:focus-visible {
   outline: none;
   border-style: solid;
   border-color: var(--ready);
@@ -638,6 +752,11 @@
   .popup .rowMenuDetails {
     display: block;
   }
+  /* The inspector's own button has gone under the outline with the sheet, so
+     the bar carries the way out of the mode. */
+  .linkBar .linkDone {
+    display: inline-block;
+  }
   /* Over the kitchen's detail backdrop (z-index 40), which the editor borrows
      as it is: a sheet is modal, and a tap beside it closes it. */
   .inspector {
@@ -717,7 +836,8 @@
   }
   .tail,
   .popup button,
-  .head button {
+  .head button,
+  .linkBar button {
     min-height: 2.75rem;
   }
   .head .headIcon {

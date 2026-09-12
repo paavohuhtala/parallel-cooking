@@ -32,6 +32,9 @@ export class MenuEditorModel {
   /** A save refused because the menu changed elsewhere, and the way past it. */
   readonly conflict: Locator
   readonly overwriteButton: Locator
+  /** The outline is picking a step's dependencies, and the way into that. */
+  readonly linkBar: Locator
+  readonly linkButton: Locator
 
   constructor(page: Page) {
     // Locators are built here, not as field initialisers: `useDefineForClassFields`
@@ -55,6 +58,8 @@ export class MenuEditorModel {
     this.redoButton = this.root.getByLabel('Tee uudelleen', { exact: true })
     this.moreButton = this.root.getByRole('button', { name: 'Lisää toimintoja' })
     this.overwriteButton = this.root.getByRole('button', { name: 'Tallenna silti' })
+    this.linkBar = this.root.getByTestId('link-bar')
+    this.linkButton = this.inspector.getByTestId('dep-link')
     // `has` is searched for inside the alert, so it cannot start from the root.
     this.conflict = this.root
       .getByRole('alert')
@@ -484,29 +489,18 @@ export class MenuEditorModel {
 
   /**
    * The inspector is a fixed column, so nothing inside it may take its width
-   * from its content — a long step title in a dependency chip, or as an option
-   * in the picker, would otherwise hand the panel a horizontal scrollbar.
-   *
-   * The picker is measured against the panel rather than just checking the
-   * scroll width, because a `select` is sized by its widest *option*: a step
-   * with nothing left to depend on has an empty picker that fits no matter what
-   * the CSS says, and an assertion that only ever saw one of those would pass
-   * while the panel was visibly broken.
+   * from its content — a long step title in a dependency chip would otherwise
+   * hand the panel a horizontal scrollbar, and the page one with it.
    */
   async expectNoHorizontalOverflow(): Promise<void> {
     await expect
       .poll(() =>
-        this.inspector.evaluate((el) => {
-          const picker = el.querySelector('[data-testid="dep-picker"]') as HTMLSelectElement | null
-          return {
-            panelOverflow: el.scrollWidth - el.clientWidth,
-            pageOverflow:
-              document.documentElement.scrollWidth - document.documentElement.clientWidth,
-            pickerFits: picker === null || picker.getBoundingClientRect().width <= el.clientWidth,
-          }
-        }),
+        this.inspector.evaluate((el) => ({
+          panelOverflow: el.scrollWidth - el.clientWidth,
+          pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        })),
       )
-      .toEqual({ panelOverflow: 0, pageOverflow: 0, pickerFits: true })
+      .toEqual({ panelOverflow: 0, pageOverflow: 0 })
   }
 
   /**
@@ -526,13 +520,6 @@ export class MenuEditorModel {
       if (!el || !next) return null
       return Math.round(next.getBoundingClientRect().top - el.getBoundingClientRect().bottom)
     }, label)
-  }
-
-  /** Guards the test above against going vacuous: an empty picker proves nothing. */
-  async expectDependencyOptions(atLeast: number): Promise<void> {
-    await expect
-      .poll(() => this.inspector.getByTestId('dep-picker').locator('option').count())
-      .toBeGreaterThanOrEqual(atLeast)
   }
 
   /**
@@ -576,9 +563,33 @@ export class MenuEditorModel {
     await expect(gutter).toHaveAttribute('data-branches', String(expected.lanes))
   }
 
-  async addDependency(stepTitle: string, optionText: string): Promise<void> {
+  /* ------------------------------------------------- picking dependencies */
+
+  /**
+   * The outline while it is picking: a step's row is a toggle rather than a
+   * field, so it answers to `aria-pressed` and refuses the press outright when
+   * taking it would close a cycle.
+   */
+  pickTarget(stepTitle: string): Locator {
+    return this.root.getByRole('button', { name: `Vaihe: ${stepTitle}`, exact: true })
+  }
+
+  async startPicking(stepTitle: string): Promise<void> {
     await this.openDetails(stepTitle)
-    await this.inspector.getByLabel('Lisää riippuvuus').selectOption({ label: optionText })
+    await this.linkButton.click()
+    await expect(this.linkBar).toBeVisible()
+  }
+
+  async stopPicking(): Promise<void> {
+    await this.page.keyboard.press('Escape')
+    await expect(this.linkBar).toBeHidden()
+  }
+
+  /** Point at a step in the outline to say that `stepTitle` waits for it. */
+  async addDependency(stepTitle: string, depTitle: string): Promise<void> {
+    await this.startPicking(stepTitle)
+    await this.pickTarget(depTitle).click()
+    await this.stopPicking()
   }
 
   /** Append another converted recipe to the menu that is open. */

@@ -56,6 +56,13 @@ import styles from './MenuEditor.module.css'
  *    which is the only way an empty course or dish can be filled at all, and
  *    the only way any of this works without a keyboard.
  *
+ * Dependencies are the one thing the inspector hands back to the outline.
+ * "Lisää riippuvuuksia" puts the outline in a picking mode, where a row is a
+ * toggle rather than a field: you say what a step waits for by pointing at it
+ * where it is written, which is the only place its position in the dinner is
+ * visible. A list of every step in the menu, in a control the width of the
+ * inspector, never could be that.
+ *
  * Saving is explicit rather than per-keystroke, unlike the cook editor. Three
  * reasons it has to be: a half-typed menu is routinely invalid, every save
  * broadcasts a new menu to everyone connected to a kitchen using it, and the
@@ -96,6 +103,15 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 
 const stationOf = (id: Station) => STATIONS.find((s) => s.id === id)!
 
+/** What the outline is doing while a step's dependencies are being picked. */
+interface Picking {
+  stepId: string
+  title: string
+  deps: ReadonlySet<string>
+  /** Steps that can be added without closing a cycle; the rest are out of reach. */
+  candidates: ReadonlySet<string>
+}
+
 export function MenuEditor({
   initial,
   initialVersion,
@@ -124,6 +140,8 @@ export function MenuEditor({
   /** The server's version after a save was refused as a conflict. */
   const [conflict, setConflict] = useState<number | null>(null)
   const [note, setNote] = useState<string | null>(null)
+  /** The step whose dependencies the outline is picking, while it is. */
+  const [linking, setLinking] = useState<string | null>(null)
 
   const items = useMemo(() => outlineItems(draft, collapsed), [draft, collapsed])
   const problems = useMemo(() => validateMenu(draft), [draft])
@@ -148,6 +166,21 @@ export function MenuEditor({
     [visible, selected],
   )
   const gutter = useMemo(() => outlineGutter(draft, items), [draft, items])
+  /**
+   * What the outline needs to know while it is picking. Recomputed from the
+   * draft rather than frozen when the mode opened, so every click is drawn as
+   * the reducer left it — including the steps that have just gone out of reach.
+   */
+  const picking = useMemo<Picking | null>(() => {
+    const step = linking === null ? null : draft.steps.find((s) => s.id === linking)
+    if (!step) return null
+    return {
+      stepId: step.id,
+      title: step.title || 'nimetön',
+      deps: new Set(step.deps),
+      candidates: new Set(dependencyCandidates(draft, step.id).map((s) => s.id)),
+    }
+  }, [draft, linking])
   /**
    * The lanes of the step being edited, which the rest step back from. Only
    * when it has any: a step on the plain chain dims nothing, or the gutter
@@ -221,6 +254,38 @@ export function MenuEditor({
     restoreFocus.current = true
     setSheetOpen(false)
   }, [])
+
+  /*
+   * The outline is what you pick from, so on a phone the sheet has to get out
+   * of its way — and come back when you are done, since that is where you
+   * started and where the list you were building is written out. Beside the
+   * outline neither happens: `sheetOpen` means nothing to a column.
+   */
+  const startLinking = useCallback((stepId: string) => {
+    setLinking(stepId)
+    setSheetOpen(false)
+  }, [])
+
+  const stopLinking = useCallback(() => {
+    setLinking(null)
+    setSheetOpen(true)
+  }, [])
+
+  const pickDep = useCallback(
+    (depId: string) => {
+      if (linking !== null) dispatch({ type: 'toggle_dep', id: linking, depId })
+    },
+    [linking, dispatch],
+  )
+
+  useEffect(() => {
+    if (linking === null) return
+    const escape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') stopLinking()
+    }
+    document.addEventListener('keydown', escape)
+    return () => document.removeEventListener('keydown', escape)
+  }, [linking, stopLinking])
 
   // A row deleted or undone out from under an open sheet takes the sheet with
   // it; left open, it would pop back up at the next row you tapped into.
@@ -554,8 +619,15 @@ export function MenuEditor({
         inert={behindSheet}
       />
 
+      {picking && <LinkBar picking={picking} onDone={stopLinking} />}
+
       <div className={styles.body}>
-        <div className={styles.outline} role="tree" aria-label="Menun rakenne" inert={behindSheet}>
+        <div
+          className={styles.outline}
+          role="tree"
+          aria-label="Menun rakenne"
+          inert={behindSheet}
+        >
           {/* Every item carries its slice of the dependency gutter, headings
               and tails included, so a line runs unbroken past them. */}
           {items.map((item, i) => (
@@ -570,9 +642,11 @@ export function MenuEditor({
                   onOpenDetails={openDetails}
                   onToggleCollapse={toggleCollapse}
                   onMoveFocus={moveFocus}
+                  picking={picking}
+                  onPick={pickDep}
                 />
               ) : (
-                <TailRow item={item} dispatch={dispatch} />
+                <TailRow item={item} dispatch={dispatch} disabled={picking !== null} />
               )}
             </div>
           ))}
@@ -591,6 +665,9 @@ export function MenuEditor({
           open={sheetOpen}
           modal={sheet}
           onClose={closeSheet}
+          linking={linking}
+          onStartLinking={startLinking}
+          onStopLinking={stopLinking}
         />
       </div>
 
@@ -615,6 +692,34 @@ export function MenuEditor({
         Alt+↑/↓ siirtää riviä · Askelpalautin tyhjällä rivillä poistaa sen, jos sillä ei ole
         sisältöä · Ctrl+Z kumoaa · rivin valikko tekee saman hiirellä
       </p>
+    </div>
+  )
+}
+
+/**
+ * The picking mode's own voice: which step is being edited, and the way out.
+ *
+ * It sticks under the header, because the mode outlives one screenful of a
+ * menu and a mode you have scrolled away from the explanation of is a mode
+ * nobody can leave. Beside the outline the way out is the inspector's own
+ * button, still on screen and still the one you pressed to get here, so the
+ * bar's Valmis is shown only where the sheet has gone away (CSS).
+ */
+function LinkBar({ picking, onDone }: { picking: Picking; onDone: () => void }) {
+  return (
+    <div
+      className={cx(ui.banner, styles.banner, styles.linkBar)}
+      data-testid="link-bar"
+      role="status"
+    >
+      <Icon name="dependency" />
+      <span>
+        Valitse vaiheet, joita &rdquo;{picking.title}&rdquo; edellyttää — vaiheen napsautus lisää
+        sen tai poistaa sen.
+      </span>
+      <button className={cx(ui.btn, styles.linkDone)} onClick={onDone}>
+        Valmis
+      </button>
     </div>
   )
 }
@@ -676,6 +781,8 @@ function Row({
   onOpenDetails,
   onToggleCollapse,
   onMoveFocus,
+  picking,
+  onPick,
 }: {
   item: Extract<OutlineItem, { type: 'row' }>
   dispatch: (action: MenuAction) => void
@@ -684,6 +791,9 @@ function Row({
   onOpenDetails: (key: string) => void
   onToggleCollapse: (key: string) => void
   onMoveFocus: (from: string, delta: -1 | 1) => void
+  /** Non-null while the outline is picking a step's dependencies. */
+  picking: Picking | null
+  onPick: (depId: string) => void
 }) {
   const { row, collapsed } = item
   const name = row.title || 'nimetön'
@@ -749,80 +859,157 @@ function Row({
       aria-selected={selected}
       {...(parent ? { 'aria-expanded': !collapsed } : {})}
     >
-      <div
-        className={styles.rowMain}
-        // The title is only as wide as its text, so the rest of the row is
-        // blank; a press there still means "this row" and lands in the title.
-        onPointerDown={(e) => {
-          if (e.target !== e.currentTarget) return
-          e.preventDefault()
-          const input = e.currentTarget.querySelector<HTMLTextAreaElement>('textarea')
-          input?.focus()
-          input?.setSelectionRange(input.value.length, input.value.length)
-        }}
-      >
-        {parent ? (
-          <button
-            className={styles.glyph}
-            data-testid="row-glyph"
-            aria-label={`${collapsed ? 'Näytä' : 'Piilota'} sisältö: ${name}`}
-            onClick={() => onToggleCollapse(row.key)}
-          >
-            <Icon name="disclosure" className={styles.glyphIcon} />
-          </button>
-        ) : (
-          <StationGlyph item={item} onOpenDetails={onOpenDetails} />
-        )}
-
-        {/* A textarea only so that a long title can wrap: an `<input>` cannot,
-            and on a phone it cut a quarter of the titles off mid-letter with
-            nothing to say so. It is still one line of text — Enter is taken
-            above, and a pasted line break becomes a space. */}
-        <textarea
-          data-rowkey={row.key}
-          className={styles.rowTitle}
-          data-testid="outline-title"
-          rows={1}
-          value={row.title}
-          aria-label={`${KIND_LABEL[row.kind]}: ${row.title || 'nimetön'}`}
-          placeholder={`Uusi ${KIND_LABEL[row.kind].toLowerCase()}`}
-          onChange={(e) =>
-            dispatch({
-              type: 'rename',
-              kind: row.kind,
-              id: row.id,
-              value: e.target.value.replace(/[\r\n]+/g, ' '),
-            })
-          }
-          onFocus={() => onSelect(row.key)}
-          onKeyDown={onKeyDown}
+      {picking ? (
+        <PickMain
+          item={item}
+          picking={picking}
+          onPick={onPick}
+          onToggleCollapse={onToggleCollapse}
         />
+      ) : (
+        <div
+          className={styles.rowMain}
+          // The title is only as wide as its text, so the rest of the row is
+          // blank; a press there still means "this row" and lands in the title.
+          onPointerDown={(e) => {
+            if (e.target !== e.currentTarget) return
+            e.preventDefault()
+            const input = e.currentTarget.querySelector<HTMLTextAreaElement>('textarea')
+            input?.focus()
+            input?.setSelectionRange(input.value.length, input.value.length)
+          }}
+        >
+          {parent ? (
+            <button
+              className={styles.glyph}
+              data-testid="row-glyph"
+              aria-label={`${collapsed ? 'Näytä' : 'Piilota'} sisältö: ${name}`}
+              onClick={() => onToggleCollapse(row.key)}
+            >
+              <Icon name="disclosure" className={styles.glyphIcon} />
+            </button>
+          ) : (
+            <StationGlyph item={item} onOpenDetails={onOpenDetails} />
+          )}
 
-        {row.holdPoint && (
-          <span className={styles.rowHold} title={HOLD_LABEL}>
-            <Icon name="hold" title={HOLD_LABEL} />
-          </span>
-        )}
+          {/* A textarea only so that a long title can wrap: an `<input>` cannot,
+              and on a phone it cut a quarter of the titles off mid-letter with
+              nothing to say so. It is still one line of text — Enter is taken
+              above, and a pasted line break becomes a space. */}
+          <textarea
+            data-rowkey={row.key}
+            className={styles.rowTitle}
+            data-testid="outline-title"
+            rows={1}
+            value={row.title}
+            aria-label={`${KIND_LABEL[row.kind]}: ${row.title || 'nimetön'}`}
+            placeholder={`Uusi ${KIND_LABEL[row.kind].toLowerCase()}`}
+            onChange={(e) =>
+              dispatch({
+                type: 'rename',
+                kind: row.kind,
+                id: row.id,
+                value: e.target.value.replace(/[\r\n]+/g, ' '),
+              })
+            }
+            onFocus={() => onSelect(row.key)}
+            onKeyDown={onKeyDown}
+          />
 
-        {/* A collapsed row must still say what it is hiding, or collapsing is
-            just losing track of a course. */}
-        {parent && collapsed && (
-          <span className={cx(styles.rowHidden, ui.muted, ui.small)}>
-            {row.kind === 'course' && `${plural(row.contents.components, 'osa', 'osaa')} · `}
-            {plural(row.contents.steps, 'vaihe', 'vaihetta')}
-          </span>
-        )}
+          {row.holdPoint && (
+            <span className={styles.rowHold} title={HOLD_LABEL}>
+              <Icon name="hold" title={HOLD_LABEL} />
+            </span>
+          )}
 
-        <RowMenu
-          row={row}
-          parent={parent}
-          open={menuOpen}
-          onOpenChange={setMenuOpen}
-          dispatch={dispatch}
-          onOpenDetails={onOpenDetails}
-        />
-      </div>
+          {/* A collapsed row must still say what it is hiding, or collapsing is
+              just losing track of a course. */}
+          {parent && collapsed && (
+            <span className={cx(styles.rowHidden, ui.muted, ui.small)}>
+              {row.kind === 'course' && `${plural(row.contents.components, 'osa', 'osaa')} · `}
+              {plural(row.contents.steps, 'vaihe', 'vaihetta')}
+            </span>
+          )}
+
+          <RowMenu
+            row={row}
+            parent={parent}
+            open={menuOpen}
+            onOpenChange={setMenuOpen}
+            dispatch={dispatch}
+            onOpenDetails={onOpenDetails}
+          />
+        </div>
+      )}
     </div>
+  )
+}
+
+/**
+ * A row while the outline is picking dependencies: one button instead of a
+ * field and a strip of controls beside it.
+ *
+ * On a step the button is the toggle — pressed means the step being edited
+ * waits for this one. On a course or a dish it is still only the disclosure,
+ * which is how a step inside a collapsed one is reached without leaving the
+ * mode. Nothing here writes to the document but `toggle_dep`: the titles are
+ * text, not fields, so a mode meant for pointing at rows cannot rewrite one.
+ */
+function PickMain({
+  item,
+  picking,
+  onPick,
+  onToggleCollapse,
+}: {
+  item: Extract<OutlineItem, { type: 'row' }>
+  picking: Picking
+  onPick: (depId: string) => void
+  onToggleCollapse: (key: string) => void
+}) {
+  const { row, collapsed } = item
+  const name = row.title || 'nimetön'
+
+  if (row.kind !== 'step') {
+    return (
+      <button
+        className={cx(styles.rowMain, styles.pick)}
+        aria-label={`${collapsed ? 'Näytä' : 'Piilota'} sisältö: ${name}`}
+        onClick={() => onToggleCollapse(row.key)}
+      >
+        <span className={styles.glyph} aria-hidden>
+          <Icon name="disclosure" className={styles.glyphIcon} />
+        </span>
+        <span className={styles.pickTitle}>{name}</span>
+      </button>
+    )
+  }
+
+  const subject = row.id === picking.stepId
+  const dep = picking.deps.has(row.id)
+  const reachable = picking.candidates.has(row.id)
+  return (
+    <button
+      className={cx(styles.rowMain, styles.pick, dep && styles.isDep, subject && styles.isSubject)}
+      aria-label={`${KIND_LABEL.step}: ${name}`}
+      aria-pressed={subject ? undefined : dep}
+      disabled={subject || !reachable}
+      title={
+        subject
+          ? 'Tämän vaiheen riippuvuuksia valitaan'
+          : reachable
+            ? undefined
+            : `Odottaa jo vaihetta ”${picking.title}”`
+      }
+      onClick={() => onPick(row.id)}
+    >
+      <span className={cx(styles.glyph, styles.stationGlyph)} aria-hidden>
+        <Icon name={STATION_ICON[row.station ?? 'muu']} />
+      </span>
+      <span className={styles.pickTitle}>{name}</span>
+      <span className={styles.pickMark} aria-hidden>
+        {dep && <Icon name="check" />}
+      </span>
+    </button>
   )
 }
 
@@ -1070,15 +1257,19 @@ function deleteLabel(row: OutlineRow): string {
 function TailRow({
   item,
   dispatch,
+  disabled,
 }: {
   item: Extract<OutlineItem, { type: 'tail' }>
   dispatch: (action: MenuAction) => void
+  /** Nothing is added to the document while dependencies are being picked. */
+  disabled: boolean
 }) {
   const label = KIND_LABEL[item.childKind]
   const where = item.parentName || 'nimetön'
   return (
     <button
       className={cx(styles.tail, DEPTH_CLASS[item.depth], KIND_CLASS[item.childKind])}
+      disabled={disabled}
       aria-label={
         item.parentId === null
           ? 'Lisää ruokalaji'
@@ -1117,6 +1308,9 @@ function Inspector({
   open,
   modal,
   onClose,
+  linking,
+  onStartLinking,
+  onStopLinking,
 }: {
   draft: Menu
   row: OutlineRow | null
@@ -1125,6 +1319,10 @@ function Inspector({
   /** A sheet over the outline, rather than a column beside it. */
   modal: boolean
   onClose: () => void
+  /** The step the outline is picking dependencies for, if any. */
+  linking: string | null
+  onStartLinking: (stepId: string) => void
+  onStopLinking: () => void
 }) {
   const panel = useRef<HTMLDivElement>(null)
   const drag = useRef<{ pointer: number; from: number } | null>(null)
@@ -1224,7 +1422,15 @@ function Inspector({
               </button>
             </div>
           </div>
-          {row.kind === 'step' && <StepFields draft={draft} stepId={row.id} dispatch={dispatch} />}
+          {row.kind === 'step' && (
+            <StepFields
+              draft={draft}
+              stepId={row.id}
+              dispatch={dispatch}
+              linking={linking === row.id}
+              onToggleLinking={() => (linking === row.id ? onStopLinking() : onStartLinking(row.id))}
+            />
+          )}
           {row.kind === 'component' && (
             <ComponentFields draft={draft} componentId={row.id} dispatch={dispatch} />
           )}
@@ -1250,10 +1456,15 @@ function StepFields({
   draft,
   stepId,
   dispatch,
+  linking,
+  onToggleLinking,
 }: {
   draft: Menu
   stepId: string
   dispatch: (action: MenuAction) => void
+  /** This step's dependencies are the ones the outline is picking. */
+  linking: boolean
+  onToggleLinking: () => void
 }) {
   const step = draft.steps.find((s) => s.id === stepId)
   const [adding, setAdding] = useState('')
@@ -1303,25 +1514,20 @@ function StepFields({
               {titleOf(dep)} <Icon name="close" />
             </button>
           ))}
-          {/* Only steps that cannot close a cycle are offered at all. */}
-          <select
-            className={styles.depPicker}
-            data-testid="dep-picker"
-            value=""
-            aria-label="Lisää riippuvuus"
-            onChange={(e) => {
-              if (e.target.value) dispatch({ type: 'toggle_dep', id: stepId, depId: e.target.value })
-            }}
+          {/* The list is read here and picked out there: a dependency is a
+              relation between two rows, and the outline is the only place both
+              of them are written down. Disabled only when there is genuinely
+              nothing to point at — every other step in the menu waits for this
+              one, so anything picked would close a cycle. */}
+          <button
+            className={styles.depLink}
+            data-testid="dep-link"
+            aria-pressed={linking}
+            disabled={candidates.length === 0}
+            onClick={onToggleLinking}
           >
-            <option value="">+ Riippuvuus…</option>
-            {candidates
-              .filter((c) => !step.deps.includes(c.id))
-              .map((c) => (
-                <option key={c.id} value={c.id}>
-                  {draft.components.find((k) => k.id === c.componentId)?.name} — {c.title}
-                </option>
-              ))}
-          </select>
+            <Icon name="dependency" /> {linking ? 'Valmis' : 'Lisää riippuvuuksia'}
+          </button>
         </div>
       </fieldset>
 
