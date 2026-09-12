@@ -456,6 +456,41 @@ test('Alt+Arrow reorders a step and rebuilds the chain around it', async ({
   await expect(kolmas).toHaveAttribute('data-status', 'ready')
 })
 
+test('a step remembered afterwards can be added above the first one, and the chain follows', async ({
+  page,
+  library,
+  editor,
+}) => {
+  await page.goto('/')
+  await library.import({
+    name: 'Unohtui',
+    courses: [
+      {
+        name: 'K',
+        components: [
+          { name: 'Osa', steps: [{ title: 'Eka' }, { title: 'Toka', deps: ['Eka'] }] },
+        ],
+      },
+    ],
+  })
+
+  await editor.insertBefore('Eka', 'vaihe', 'Nolla')
+  await editor.expectTitles(['K', 'Osa', 'Nolla', 'Eka', 'Toka'])
+  await editor.save()
+
+  await page.goto('/')
+  await library.startKitchen('Unohtui')
+  // "Eka" is no longer first: it waits on the step that was put above it.
+  const nolla = page.getByTestId('step-row').filter({ hasText: 'Nolla' })
+  const eka = page.getByTestId('step-row').filter({ hasText: 'Eka' })
+  await expect(nolla).toHaveAttribute('data-status', 'ready')
+  await expect(eka).toHaveAttribute('data-status', 'blocked')
+  await nolla.getByRole('button', { name: 'Aloita' }).click()
+  await page.getByRole('button', { name: 'Aloita ilman tekijää' }).click()
+  await nolla.getByRole('button', { name: 'Valmis' }).click()
+  await expect(eka).toHaveAttribute('data-status', 'ready')
+})
+
 test('deleting a step in the middle heals the chain instead of breaking it', async ({
   page,
   library,

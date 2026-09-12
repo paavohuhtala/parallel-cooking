@@ -440,6 +440,13 @@ export class MenuEditorModel {
     await menu.getByRole('menuitem', { name: `Siirrä ${direction}` }).click()
   }
 
+  /** The cursor lands in the new row, so `name` is typed straight into it. */
+  async insertBefore(title: string, kind: 'ruokalaji' | 'osa' | 'vaihe', name: string): Promise<void> {
+    const menu = await this.openRowMenu(title)
+    await menu.getByRole('menuitem', { name: `Lisää edeltävä ${kind}` }).click()
+    await this.page.keyboard.type(name)
+  }
+
   async deleteRow(title: string): Promise<void> {
     await (await this.deleteItem(title)).click()
   }

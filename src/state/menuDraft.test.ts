@@ -51,6 +51,47 @@ test('a step whose dependencies were edited by hand is never relinked', () => {
   assert.deepEqual(depsOf(menu, 'b'), ['a', 'c'])
 })
 
+/* ------------------------------------------------------- the step above one */
+
+test('a preceding step takes the place of the one it was added above', () => {
+  const { menu, focus } = applyDraftAction(base(), { type: 'insert_before', kind: 'step', id: 'b' })
+  const added = menu.steps.find((s) => !['a', 'b', 'c'].includes(s.id))!
+  assert.deepEqual(stepIds(menu), ['a', added.id, 'b', 'c'])
+  assert.deepEqual(added.deps, ['a'])
+  assert.deepEqual(depsOf(menu, 'b'), [added.id])
+  assert.equal(focus, rowKey('step', added.id))
+  assert.deepEqual(buildIndex(menu).problems, [])
+})
+
+test('a step added above the first one waits for nothing, and the first now waits on it', () => {
+  const { menu } = applyDraftAction(base(), { type: 'insert_before', kind: 'step', id: 'a' })
+  const added = menu.steps[0]
+  assert.deepEqual(stepIds(menu), [added.id, 'a', 'b', 'c'])
+  assert.deepEqual(added.deps, [])
+  assert.deepEqual(depsOf(menu, 'a'), [added.id])
+  assert.deepEqual(buildIndex(menu).problems, [])
+})
+
+test('a hand-edited step is not relinked by inserting above it either', () => {
+  // B waits on A *and* C, so it is no longer on the default chain.
+  const custom = run(base(), { type: 'toggle_dep', id: 'b', depId: 'c' })
+  const { menu } = applyDraftAction(custom, { type: 'insert_before', kind: 'step', id: 'b' })
+  const added = menu.steps.find((s) => !['a', 'b', 'c'].includes(s.id))!
+  assert.deepEqual(depsOf(menu, 'b'), ['a', 'c'])
+  assert.deepEqual(added.deps, ['a'])
+})
+
+test('a preceding dish and course land above the row they were added from', () => {
+  const withDish = applyDraftAction(base(), { type: 'insert_before', kind: 'component', id: 'k1' }).menu
+  assert.equal(withDish.components[0].courseId, 'c1')
+  assert.deepEqual(withDish.components.map((c) => c.name), ['', 'Keitto'])
+
+  const { menu, focus } = applyDraftAction(base(), { type: 'insert_before', kind: 'course', id: 'c1' })
+  assert.deepEqual(menu.courses.map((c) => c.name), ['', 'Alkupala'])
+  assert.deepEqual(menu.courses.map((c) => c.order), [1, 2])
+  assert.equal(focus, rowKey('course', menu.courses[0].id))
+})
+
 test('deleting a step heals the chain rather than splitting the dish', () => {
   const menu = run(base(), { type: 'delete_row', kind: 'step', id: 'b' })
   assert.deepEqual(stepIds(menu), ['a', 'c'])

@@ -997,6 +997,12 @@ function RowMenu({
           >
             Tiedot
           </button>
+          <button
+            role="menuitem"
+            onClick={act(() => dispatch({ type: 'insert_before', kind: row.kind, id: row.id }))}
+          >
+            {`Lisää edeltävä ${KIND_LABEL[row.kind].toLowerCase()}`}
+          </button>
           {parent && (
             <button
               role="menuitem"

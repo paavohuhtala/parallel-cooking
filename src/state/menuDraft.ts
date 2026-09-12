@@ -327,6 +327,8 @@ export type MenuAction =
   | { type: 'rename_ingredient'; componentId: string; from: string; to: string }
   /** Enter: a new sibling directly below this row. */
   | { type: 'insert_after'; kind: RowKind; id: string }
+  /** The row menu's "Lisää edeltävä …": a new sibling directly above this row. */
+  | { type: 'insert_before'; kind: RowKind; id: string }
   /**
    * The tail rows, and Shift+Enter: append a child to the end of this row's
    * list. This is the only way a course with no components, or a component
@@ -507,6 +509,9 @@ export function applyDraftAction(menu: Menu, action: MenuAction): DraftResult {
     case 'insert_after':
       return insertAfter(menu, action.kind, action.id)
 
+    case 'insert_before':
+      return insertBefore(menu, action.kind, action.id)
+
     case 'insert_child':
       return insertChild(menu, action.kind, action.id)
 
@@ -583,6 +588,62 @@ function insertAfter(menu: Menu, kind: RowKind, id: string): DraftResult {
     s.componentId === source.componentId && s.id !== step.id && onDefaultChain(s, source.id)
       ? { ...s, deps: [step.id] }
       : s,
+  )
+  return { menu: { ...menu, steps: relinked }, focus: rowKey('step', step.id) }
+}
+
+/**
+ * The new step takes the target's place in the chain — it waits on whatever was
+ * above it, and the target, unless it has been edited by hand, waits on it.
+ */
+function insertBefore(menu: Menu, kind: RowKind, id: string): DraftResult {
+  const taken = allIds(menu)
+
+  if (kind === 'course') {
+    const at = menu.courses.findIndex((c) => c.id === id)
+    if (at === -1) return { menu, focus: null }
+    const course: Course = { id: freshId('ruokalaji', taken), order: 0, name: '' }
+    const courses = [...menu.courses]
+    courses.splice(at, 0, course)
+    return {
+      menu: { ...menu, courses: courses.map((c, i) => ({ ...c, order: i + 1 })) },
+      focus: rowKey('course', course.id),
+    }
+  }
+
+  if (kind === 'component') {
+    const source = menu.components.find((c) => c.id === id)
+    if (!source) return { menu, focus: null }
+    const at = menu.components.findIndex((c) => c.id === id)
+    const component: Component = {
+      id: freshId('osa', taken),
+      courseId: source.courseId,
+      name: '',
+      ingredients: [],
+    }
+    const components = [...menu.components]
+    components.splice(at, 0, component)
+    return { menu: { ...menu, components }, focus: rowKey('component', component.id) }
+  }
+
+  const source = menu.steps.find((s) => s.id === id)
+  if (!source) return { menu, focus: null }
+  const siblings = menu.steps.filter((s) => s.componentId === source.componentId)
+  const previous = siblings[siblings.findIndex((s) => s.id === id) - 1] ?? null
+  const step: Step = {
+    id: freshId('vaihe', taken),
+    componentId: source.componentId,
+    title: '',
+    station: 'muu',
+    deps: previous === null ? [] : [previous.id],
+  }
+  const at = menu.steps.findIndex((s) => s.id === id)
+  const steps = [...menu.steps]
+  steps.splice(at, 0, step)
+
+  const wasDefault = onDefaultChain(source, previous?.id ?? null)
+  const relinked = steps.map((s) =>
+    s.id === source.id && wasDefault ? { ...s, deps: [step.id] } : s,
   )
   return { menu: { ...menu, steps: relinked }, focus: rowKey('step', step.id) }
 }
