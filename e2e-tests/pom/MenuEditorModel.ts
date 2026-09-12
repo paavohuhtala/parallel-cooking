@@ -529,6 +529,28 @@ export class MenuEditorModel {
     return this.inspector.getByRole('group', { name: 'Tarvitaan' }).getByRole('button', options)
   }
 
+  /** A step's slice of the dependency gutter beside the outline. */
+  gutter(stepTitle: string): Locator {
+    return this.root
+      .getByTestId('outline-line')
+      .filter({ has: this.page.getByLabel(`Vaihe: ${stepTitle}`, { exact: true }) })
+      .getByTestId('dep-gutter')
+  }
+
+  /**
+   * What the gutter draws at a step: whether the plain chain joins it to the
+   * step above and below, and how many lanes — the exceptions — attach to it.
+   */
+  async expectGutter(
+    stepTitle: string,
+    expected: { trunk: 'in' | 'out' | 'in out' | null; lanes: number },
+  ): Promise<void> {
+    const gutter = this.gutter(stepTitle)
+    if (expected.trunk === null) await expect(gutter).not.toHaveAttribute('data-trunk')
+    else await expect(gutter).toHaveAttribute('data-trunk', expected.trunk)
+    await expect(gutter).toHaveAttribute('data-branches', String(expected.lanes))
+  }
+
   async addDependency(stepTitle: string, optionText: string): Promise<void> {
     await this.openDetails(stepTitle)
     await this.inspector.getByLabel('Lisää riippuvuus').selectOption({ label: optionText })

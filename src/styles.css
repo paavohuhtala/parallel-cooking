@@ -35,6 +35,19 @@
   --critical: #c2454f;
   --hold: #7a5cc0;
 
+  /* One per dish in the menu editor's dependency gutter, handed out in this
+     order. The order is what keeps neighbours apart under colour blindness —
+     each adjacent pair is checked, in both themes — so reorder, don't pick.
+     Light steps are darkened until a 2px line clears 3:1 on the page. */
+  --lane-0: #2a78d6;
+  --lane-1: #d4561c;
+  --lane-2: #12916a;
+  --lane-3: #b07a00;
+  --lane-4: #cc4e85;
+  --lane-5: #008300;
+  --lane-6: #4a3aa7;
+  --lane-7: #d63c3b;
+
   /* The detail panel's column, named because the shift view reserves it. */
   --detail-width: 340px;
 
@@ -61,6 +74,14 @@
     --done: #5cb479;
     --critical: #e2707a;
     --hold: #a58ae0;
+    --lane-0: #3987e5;
+    --lane-1: #d95926;
+    --lane-2: #199e70;
+    --lane-3: #c98500;
+    --lane-4: #d55181;
+    --lane-5: #008300;
+    --lane-6: #9085e9;
+    --lane-7: #e66767;
     --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
   }
 }

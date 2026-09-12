@@ -14,6 +14,7 @@ import { errorsOf, toExportDoc, validateMenu, type MenuProblem } from '../shared
 import { MENU_PROMPT } from '../shared/menuPrompt.ts'
 import { ApiError } from '../api/client.ts'
 import { MenuImportDialog } from './MenuImportDialog.tsx'
+import { GutterCell } from './DepGutter.tsx'
 import { Icon, STATION_ICON } from './icons.tsx'
 import { SHEET_QUERY, useMediaQuery } from './useMediaQuery.ts'
 import {
@@ -32,6 +33,7 @@ import {
   initialHistory,
   type DraftHistory,
 } from '../state/draftHistory.ts'
+import { outlineGutter } from '../state/lanes.ts'
 import { cx } from './cx.ts'
 import ui from './ui.module.css'
 import styles from './MenuEditor.module.css'
@@ -140,6 +142,20 @@ export function MenuEditor({
     () => visible.find((r) => r.key === selected) ?? null,
     [visible, selected],
   )
+  const gutter = useMemo(() => outlineGutter(draft, items), [draft, items])
+  /**
+   * The lanes of the step being edited, which the rest step back from. Only
+   * when it has any: a step on the plain chain dims nothing, or the gutter
+   * would go grey whenever you typed a title.
+   */
+  const emphasis = useMemo(() => {
+    const at = items.findIndex((item) => item.key === selected)
+    if (at === -1 || gutter.rows[at].node === null) return null
+    const touching = new Set(
+      gutter.lanes.flatMap((lane, i) => (lane.source === at || lane.targets.includes(at) ? [i] : [])),
+    )
+    return touching.size > 0 ? touching : null
+  }, [items, gutter, selected])
   /**
    * The inspector is a modal sheet only where it covers the outline. Beside it,
    * it is a column, and correctly not a dialog: nothing is blocked, and it has
@@ -515,22 +531,26 @@ export function MenuEditor({
 
       <div className={styles.body}>
         <div className={styles.outline} role="tree" aria-label="Menun rakenne" inert={behindSheet}>
-          {items.map((item) =>
-            item.type === 'row' ? (
-              <Row
-                key={item.key}
-                item={item}
-                dispatch={dispatch}
-                selected={selected === item.key}
-                onSelect={setSelected}
-                onOpenDetails={openDetails}
-                onToggleCollapse={toggleCollapse}
-                onMoveFocus={moveFocus}
-              />
-            ) : (
-              <TailRow key={item.key} item={item} dispatch={dispatch} />
-            ),
-          )}
+          {/* Every item carries its slice of the dependency gutter, headings
+              and tails included, so a line runs unbroken past them. */}
+          {items.map((item, i) => (
+            <div key={item.key} className={styles.line} role="none" data-testid="outline-line">
+              <GutterCell row={gutter.rows[i]} columns={gutter.columns} emphasis={emphasis} />
+              {item.type === 'row' ? (
+                <Row
+                  item={item}
+                  dispatch={dispatch}
+                  selected={selected === item.key}
+                  onSelect={setSelected}
+                  onOpenDetails={openDetails}
+                  onToggleCollapse={toggleCollapse}
+                  onMoveFocus={moveFocus}
+                />
+              ) : (
+                <TailRow item={item} dispatch={dispatch} />
+              )}
+            </div>
+          ))}
         </div>
 
         {/* The kitchen's own sheet backdrop, with the same rule: a tap that

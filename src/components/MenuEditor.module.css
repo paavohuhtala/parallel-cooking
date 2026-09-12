@@ -144,13 +144,28 @@
   --title-pad-y: 0.34rem;
   --title-lh: 1.4rem;
   --title-line: calc(var(--title-lh) + 2 * var(--title-pad-y) + 2px);
+  /* The dependency gutter's node sits level with a title's first line — the
+     1px is `.rowMain`'s padding — and its lines reach across the row gap. */
+  --node-y: calc(var(--title-line) / 2 + 1px);
+  --gutter-bleed: 2px;
 }
-/* Rows and tail rows are both direct children, and both are indented by the
-   level they sit at — a tail row is a row of the kind it creates. */
-.outline > .depth1 {
+/* Each item is its slice of the dependency gutter and then the row. The gutter
+   is one column for the whole outline, so the indent comes after it. */
+.line {
+  display: flex;
+  min-width: 0;
+}
+.line > .row,
+.line > .tail {
+  flex: 1;
+  min-width: 0;
+}
+/* Rows and tail rows are both indented by the level they sit at — a tail row
+   is a row of the kind it creates. */
+.line > .depth1 {
   margin-left: 1.1rem;
 }
-.outline > .depth2 {
+.line > .depth2 {
   margin-left: 2.2rem;
 }
 .row {
@@ -702,10 +717,10 @@
 }
 
 @media (max-width: 640px) {
-  .outline > .depth1 {
+  .line > .depth1 {
     margin-left: 0.6rem;
   }
-  .outline > .depth2 {
+  .line > .depth2 {
     margin-left: 1.2rem;
   }
 }

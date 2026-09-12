@@ -60,6 +60,58 @@ test('a dish can be typed with the keyboard alone, and auto-chains as it goes', 
   await expect(second).toHaveAttribute('data-status', 'ready')
 })
 
+test('the gutter draws the plain chain as a trunk and every exception as a lane', async ({
+  page,
+  library,
+  editor,
+}) => {
+  await page.goto('/')
+  await library.import({
+    name: 'Riippuvuusmenu',
+    courses: [
+      {
+        name: 'Alkupala',
+        components: [
+          {
+            name: 'Keitto',
+            ingredients: [],
+            steps: [
+              { title: 'Pilko sipuli' },
+              { title: 'Kuullota', deps: ['Pilko sipuli'] },
+              { title: 'Hienonna persilja' },
+              { title: 'Lisää liemi', deps: ['Hienonna persilja', 'Kuullota'] },
+            ],
+          },
+          {
+            name: 'Tarjoilu',
+            ingredients: [],
+            steps: [
+              { title: 'Kata lautaset' },
+              { title: 'Annostele', deps: ['Kata lautaset', 'Lisää liemi'] },
+            ],
+          },
+        ],
+      },
+    ],
+  })
+  await editor.expectOpen()
+
+  await editor.expectGutter('Pilko sipuli', { trunk: 'out', lanes: 0 })
+  // Waits for a step further up, so a lane leaves it for "Lisää liemi".
+  await editor.expectGutter('Kuullota', { trunk: 'in', lanes: 1 })
+  // Waits for nothing: the trunk breaks above it.
+  await editor.expectGutter('Hienonna persilja', { trunk: 'out', lanes: 0 })
+  // The lane from "Kuullota" arrives, and one leaves for the other dish.
+  await editor.expectGutter('Lisää liemi', { trunk: 'in', lanes: 2 })
+  await editor.expectGutter('Annostele', { trunk: 'in', lanes: 1 })
+
+  // A dependency added across dishes is drawn as soon as it is picked.
+  await editor.expectGutter('Kata lautaset', { trunk: 'out', lanes: 0 })
+  await editor.addDependency('Kata lautaset', 'Keitto — Pilko sipuli')
+  await editor.expectGutter('Kata lautaset', { trunk: 'out', lanes: 1 })
+  await editor.expectGutter('Pilko sipuli', { trunk: 'out', lanes: 1 })
+})
+
 test('a multi-course menu can be built from a blank one by clicking alone', async ({
   page,
   library,

@@ -1,0 +1,85 @@
+/*
+ * A row's slice of the dependency gutter. Whoever renders the rows sets two
+ * lengths on an ancestor: `--node-y`, where a node sits from the row's top, and
+ * `--gutter-bleed`, the gap between rows that the straight runs reach across so
+ * that a line does not break between two rows.
+ */
+
+.cell {
+  position: relative;
+  flex: none;
+  align-self: stretch;
+  margin-right: 0.3rem;
+}
+
+/* The straight parts are borders, pinned to the row's edges, so they stretch
+   with a row that wraps without anything measuring it. */
+.run {
+  position: absolute;
+  width: 0;
+  border-left: 2px solid var(--ink);
+  transition: opacity 0.15s ease;
+}
+.full {
+  top: 0;
+  bottom: calc(-1 * var(--gutter-bleed, 0px));
+}
+.toNode {
+  top: 0;
+  height: var(--node-y);
+}
+.fromNode {
+  top: var(--node-y);
+  bottom: calc(-1 * var(--gutter-bleed, 0px));
+}
+/* 16px: half the curves' box, `HALF` in the component. */
+.toCurve {
+  top: 0;
+  height: calc(var(--node-y) - 16px);
+}
+.fromCurve {
+  top: calc(var(--node-y) + 16px);
+  bottom: calc(-1 * var(--gutter-bleed, 0px));
+}
+
+.box {
+  position: absolute;
+  left: 0;
+  top: calc(var(--node-y) - 16px);
+  overflow: visible;
+}
+.curve {
+  fill: none;
+  stroke-width: 2;
+  transition: opacity 0.15s ease;
+}
+/* A node wears a ring of the page, so the lines meeting it stop short of it
+   rather than running into one blot. */
+.node {
+  stroke: var(--bg);
+  stroke-width: 2;
+}
+/* A dish or a course rather than a step: hollow, because it is several steps.
+   Open or collapsed, a dish keeps the same ring; only what attaches changes. */
+.group {
+  fill: var(--bg);
+  stroke-width: 2;
+}
+
+/* Against the reading order: waits for something listed below it. */
+.run.isUp {
+  border-left-style: dashed;
+}
+.curve.isUp {
+  stroke-dasharray: 4 3;
+}
+
+.isFaded {
+  opacity: 0.25;
+}
+@media (prefers-reduced-motion: reduce) {
+  .run,
+  .curve {
+    transition: none;
+  }
+}

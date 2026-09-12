@@ -97,6 +97,13 @@ The editor around that reducer is shaped by three rules, and the first two exist
   they are what makes any of this work without a keyboard. Reordering and deleting sit in
   the row's `⋯` for the same reason: `Alt+↑/↓` has no thumb equivalent.
 
+The dependency gutter left of the outline ([lanes.ts](src/state/lanes.ts), drawn by
+[DepGutter.tsx](src/components/DepGutter.tsx)) shows the exceptions to auto-chaining. A step
+waiting for the one directly above it in its dish is a plain trunk; every other dependency
+is a lane in the colour of the dish it comes from, dashed when it runs up the page to
+something listed below. It is sliced per row rather than measured, so every outline item
+renders its slice — headings and tails included, or a line breaks there.
+
 ### Isomorphic boundary
 
 One package, two TS projects (not a workspace) because `checkTransition` and
