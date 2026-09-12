@@ -42,6 +42,10 @@ const menuRoute = createRoute({
   // Same reasoning as the room route: resolve first, so a dead link renders a
   // real page rather than an empty editor.
   loader: ({ params }) => getMenu(params.menuId),
+  // Never render a kept copy. The editor reads the menu and its version once,
+  // when it mounts, so coming Back to a cached one showed the menu as it was
+  // before your own last save — and refused the next save as a conflict.
+  gcTime: 0,
   component: MenuEditorRoute,
   errorComponent: () => (
     <div className={ui.splash}>

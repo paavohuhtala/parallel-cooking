@@ -1,4 +1,4 @@
-import { useNavigate, useLoaderData } from '@tanstack/react-router'
+import { useNavigate, useLoaderData, useRouter } from '@tanstack/react-router'
 import { createRoom, saveMenu } from '../api/client.ts'
 import { MenuEditor } from '../components/MenuEditor.tsx'
 import type { MenuDetail } from '../shared/api.ts'
@@ -10,6 +10,7 @@ import styles from './MenuEditorRoute.module.css'
 export default function MenuEditorRoute() {
   const detail = useLoaderData({ from: '/m/$menuId' }) as MenuDetail
   const navigate = useNavigate()
+  const router = useRouter()
 
   return (
     <div className={styles.page}>
@@ -33,7 +34,14 @@ export default function MenuEditorRoute() {
         initial={detail.menu}
         initialVersion={detail.version}
         storageKey={`parallel-cooking/menuDraft/${detail.id}`}
-        save={(menu, expectedVersion) => saveMenu(detail.id, menu, expectedVersion)}
+        save={async (menu, expectedVersion) => {
+          const result = await saveMenu(detail.id, menu, expectedVersion)
+          // The editor carries on from what the save returned, but the loader
+          // still holds the version it opened with; anything that mounts the
+          // editor again — a hot reload, say — must not start from that.
+          void router.invalidate()
+          return result
+        }}
       />
     </div>
   )

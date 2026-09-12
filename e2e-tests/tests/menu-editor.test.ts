@@ -872,6 +872,57 @@ test('an import with a bad dependency is explained and not stored', async ({ pag
   await expect(library.confirmImportButton).toBeDisabled()
 })
 
+test('coming Back to a menu shows it as last saved, and it saves again', async ({
+  page,
+  api,
+  editor,
+}) => {
+  const { id } = await api.createLibraryMenuFromTemplate('Paluumenu')
+  await page.goto(`/m/${id}`)
+  await editor.expectOpen()
+  await editor.step('Pleittaa keitto').fill('Pleittaa keitto A')
+  await editor.save()
+  // Refreshing the route's copy after a save does not remount the editor:
+  // the undo stack is still there.
+  await expect(editor.undoButton).toBeEnabled()
+
+  // The router used to keep the menu as first loaded and show that on Back:
+  // the save gone from the screen, and the next one refused as a conflict.
+  await page.getByRole('button', { name: 'Käynnistä keittiö' }).click()
+  await page.waitForURL(/\/r\//)
+  await page.goBack()
+  await editor.expectOpen()
+  await expect(editor.step('Pleittaa keitto A')).toBeVisible()
+
+  await editor.step('Pleittaa keitto A').fill('Pleittaa keitto B')
+  await editor.save()
+})
+
+test('a save that lost to another edit says so, and Tallenna silti replaces it', async ({
+  page,
+  api,
+  editor,
+}) => {
+  const { id } = await api.createLibraryMenuFromTemplate('Kilpamenu')
+  await page.goto(`/m/${id}`)
+  await editor.expectOpen()
+
+  // Somebody else saves while this editor is open.
+  const theirs = await api.getMenu(id)
+  const { status } = await api.saveMenu(id, { ...theirs.menu, name: 'Heidän nimensä' }, theirs.version)
+  expect(status).toBe(200)
+
+  await editor.step('Pleittaa keitto').fill('Pleittaa keitto A')
+  await editor.saveIntoConflict()
+  // Refused, not lost: the edit is still on screen to be saved.
+  await expect(editor.step('Pleittaa keitto A')).toBeVisible()
+
+  await editor.overwrite()
+  const stored = await api.getMenu(id)
+  expect(stored.menu.name).not.toBe('Heidän nimensä')
+  expect(stored.menu.steps.map((s) => s.title)).toContain('Pleittaa keitto A')
+})
+
 test('the menu can be fixed while a kitchen is cooking, and everyone sees it', async ({
   page,
   kitchen,

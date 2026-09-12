@@ -29,6 +29,9 @@ export class MenuEditorModel {
   readonly redoButton: Locator
   /** The header's `⋯`, which holds the rarely used actions on a phone. */
   readonly moreButton: Locator
+  /** A save refused because the menu changed elsewhere, and the way past it. */
+  readonly conflict: Locator
+  readonly overwriteButton: Locator
 
   constructor(page: Page) {
     // Locators are built here, not as field initialisers: `useDefineForClassFields`
@@ -51,6 +54,11 @@ export class MenuEditorModel {
     this.undoButton = this.root.getByLabel('Kumoa', { exact: true })
     this.redoButton = this.root.getByLabel('Tee uudelleen', { exact: true })
     this.moreButton = this.root.getByRole('button', { name: 'Lisää toimintoja' })
+    this.overwriteButton = this.root.getByRole('button', { name: 'Tallenna silti' })
+    // `has` is searched for inside the alert, so it cannot start from the root.
+    this.conflict = this.root
+      .getByRole('alert')
+      .filter({ has: page.getByRole('button', { name: 'Tallenna silti' }) })
   }
 
   async openMoreMenu(): Promise<Locator> {
@@ -568,6 +576,20 @@ export class MenuEditorModel {
   async save(): Promise<void> {
     await this.saveButton.click()
     await this.expectClean()
+  }
+
+  /** Save, expecting it to be refused because the menu changed elsewhere. */
+  async saveIntoConflict(): Promise<void> {
+    await this.saveButton.click()
+    await expect(this.conflict).toBeVisible()
+    await this.expectDirty()
+  }
+
+  /** "Tallenna silti": replace whatever version the conflict was against. */
+  async overwrite(): Promise<void> {
+    await this.overwriteButton.click()
+    await this.expectClean()
+    await expect(this.conflict).toBeHidden()
   }
 
   /*

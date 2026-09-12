@@ -118,6 +118,8 @@ export function MenuEditor({
   const [busy, setBusy] = useState(false)
   const [merging, setMerging] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** The server's version after a save was refused as a conflict. */
+  const [conflict, setConflict] = useState<number | null>(null)
   const [note, setNote] = useState<string | null>(null)
 
   const items = useMemo(() => outlineItems(draft, collapsed), [draft, collapsed])
@@ -344,7 +346,11 @@ export function MenuEditor({
     if (next) setFocus(next.key)
   }
 
-  async function onSave() {
+  /**
+   * @param over the version to replace, when it is not the one this editor
+   *   last saw: "Tallenna silti" after a conflict, which the 409 told us.
+   */
+  async function onSave(over: number = version) {
     if (busy || blocking.length > 0) return
     const canonical = toExportDoc(draft)
 
@@ -363,9 +369,10 @@ export function MenuEditor({
 
     setBusy(true)
     setError(null)
+    setConflict(null)
     setNote(null)
     try {
-      const result = await save(canonical, version)
+      const result = await save(canonical, over)
       setSaved(canonical)
       // The stack survives a save: saving is not a wall you cannot undo past.
       setHistory((h) => applyHistory(h, { type: 'replace', menu: canonical }).state)
@@ -378,13 +385,17 @@ export function MenuEditor({
         setNote('Tallennettu.')
       }
     } catch (err) {
-      setError(
-        err instanceof ApiError && err.status === 409
-          ? 'Joku muu ehti muokata tätä menua. Avaa se uudelleen — muutoksesi ovat yhä tässä ikkunassa.'
-          : err instanceof Error
-            ? err.message
-            : String(err),
-      )
+      const current = conflictOf(err)
+      if (current !== null) {
+        // Not a dead end: the draft is untouched, and whoever is sure what they
+        // see is what they want can replace the other version outright.
+        setConflict(current)
+        setError(
+          'Menua on muokattu muualla sen jälkeen, kun avasit sen. Muutoksesi ovat tallessa tässä ikkunassa; Tallenna silti korvaa sen muokkauksen niillä.',
+        )
+      } else {
+        setError(err instanceof Error ? err.message : String(err))
+      }
     } finally {
       setBusy(false)
     }
@@ -515,6 +526,16 @@ export function MenuEditor({
       {error && (
         <div className={cx(ui.banner, ui.bannerError, styles.banner)} role="alert" inert={behindSheet}>
           {error}
+          {conflict !== null && (
+            <button
+              className={ui.btn}
+              data-testid="editor-overwrite"
+              onClick={() => void onSave(conflict)}
+              disabled={busy || blocking.length > 0}
+            >
+              Tallenna silti
+            </button>
+          )}
         </div>
       )}
       {note && !error && (
@@ -1480,6 +1501,13 @@ function scrollerOf(el: HTMLElement): HTMLElement {
     if (/(auto|scroll)/.test(getComputedStyle(at).overflowY)) return at
   }
   return document.documentElement
+}
+
+/** The version a save lost to, when it was refused as a conflict. */
+function conflictOf(err: unknown): number | null {
+  if (!(err instanceof ApiError) || err.status !== 409) return null
+  const version = (err.body as { current?: { version?: unknown } } | null)?.current?.version
+  return typeof version === 'number' ? version : null
 }
 
 function restore(key: string): Menu | null {
